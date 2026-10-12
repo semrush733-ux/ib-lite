@@ -268,8 +268,18 @@ class _BrowseScreenState extends State<BrowseScreen> {
       if (!mounted) return;
       setState(() => _cats = cats);
       log('browse ${widget.kind.name} categories=${cats.length}');
-      // Everything in one list first; the single categories stay below it.
-      _select(_allId, allTitle(widget.kind));
+      final api = widget.api;
+      final allReady = api is! XtreamApi || api.hasAll(widget.kind);
+      final first = cats.where((c) => !Store.isLocked(widget.kind, c.id)).firstOrNull;
+      if (allReady || first == null) {
+        // Everything is already here: one list with all of it.
+        _select(_allId, allTitle(widget.kind));
+      } else {
+        // The full list is big: open the first category straight away and let "All" fill in the
+        // background; any other category opens on its own small request.
+        _select(first.id, first.name);
+        unawaited(_loadAll().catchError((Object _) => const <XItem>[]));
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _catsError = friendlyError(e));

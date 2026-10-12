@@ -618,15 +618,13 @@ class XtreamApi implements Source {
       return all.where((i) => i.categoryId == categoryId).toList();
     }
     if (categoryId != null) {
-      // The full list is on its way (background download): wait for it instead of a second request.
-      final coming = _pending[_key('items-${kind.name}')];
-      if (coming != null) {
-        try {
-          final full = await coming;
-          return full.where((i) => i.categoryId == categoryId).toList();
-        } catch (_) {}
-      }
-      return _download(kind, categoryId);
+      // One category is a small, quick request: never wait for the full list to finish.
+      final key = _key('cat-${kind.name}-$categoryId');
+      final hit = _lists[key];
+      if (hit is List<XItem>) return hit;
+      final list = await _download(kind, categoryId);
+      _lists[key] = list;
+      return list;
     }
     final key = _key('items-${kind.name}');
     final running = _pending[key];
