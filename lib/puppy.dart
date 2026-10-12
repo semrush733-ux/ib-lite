@@ -23,6 +23,8 @@ class _RunningPuppyState extends State<RunningPuppy> with SingleTickerProviderSt
   final _rnd = math.Random();
   late final Ticker _ticker;
   Duration _last = Duration.zero;
+  // Ticks the painter directly: no widget is rebuilt per frame.
+  final _frame = ValueNotifier<int>(0);
 
   double _x = 0; // 0 = left corner, 1 = right corner
   double _target = 1;
@@ -41,11 +43,12 @@ class _RunningPuppyState extends State<RunningPuppy> with SingleTickerProviderSt
   @override
   void dispose() {
     _ticker.dispose();
+    _frame.dispose();
     super.dispose();
   }
 
   void _tick(Duration now) {
-    final dt = ((now - _last).inMicroseconds / 1e6).clamp(0.0, 0.1).toDouble();
+    final dt = ((now - _last).inMicroseconds / 1e6).clamp(0.0, 0.05).toDouble();
     _last = now;
     _clock += dt;
     _modeTime += dt;
@@ -68,56 +71,58 @@ class _RunningPuppyState extends State<RunningPuppy> with SingleTickerProviderSt
       _mode = _Mode.run;
       _modeTime = 0;
     }
-    setState(() {});
+    _frame.value++;
   }
 
   @override
   Widget build(BuildContext context) {
-    final w = widget.size;
-    final h = w * 0.78;
-    return LayoutBuilder(builder: (context, box) {
-      final travel = box.maxWidth - w - 24;
-      final left = 12 + travel * _x;
-      final running = _mode == _Mode.run;
-      final phase = _clock * 2 * math.pi / 0.36;
-      final bounce = running ? math.sin(phase * 2).abs() * 4 : 0.0;
-      // Sitting down / standing up blends over a quarter of a second.
-      final sit = running ? 0.0 : (_modeTime / 0.25).clamp(0.0, 1.0).toDouble();
-      return Stack(
-        children: [
-          Positioned(
-            left: left + w * 0.15,
-            bottom: 6,
-            width: w * 0.7,
-            height: 6,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.28 - bounce * 0.03),
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-          ),
-          Positioned(
-            left: left,
-            bottom: 8 + bounce,
-            width: w,
-            height: h,
-            child: Transform.flip(
-              flipX: !_right,
-              child: CustomPaint(
-                painter: _PuppyPainter(
-                  phase: running ? phase : 0,
-                  sit: sit,
-                  time: _clock,
-                  sitTime: running ? 0 : _modeTime,
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    });
+    final h = widget.size * 0.78;
+    // Its own layer at the bottom of the screen: redrawing the puppy never redraws the rest.
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        height: h + 22,
+        width: double.infinity,
+        child: RepaintBoundary(
+          child: CustomPaint(painter: _StripPainter(this, widget.size, _frame)),
+        ),
+      ),
+    );
   }
+}
+
+/// Draws the shadow and the puppy at its place in the strip along the bottom.
+class _StripPainter extends CustomPainter {
+  _StripPainter(this.s, this.w, Listenable repaint) : super(repaint: repaint);
+  final _RunningPuppyState s;
+  final double w;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final h = w * 0.78;
+    final running = s._mode == _Mode.run;
+    final phase = s._clock * 2 * math.pi / 0.36;
+    final bounce = running ? math.sin(phase * 2).abs() * 4 : 0.0;
+    final sit = running ? 0.0 : (s._modeTime / 0.25).clamp(0.0, 1.0).toDouble();
+    final left = 12 + (size.width - w - 24) * s._x.clamp(0.0, 1.0).toDouble();
+    // Soft shadow.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(left + w * 0.15, size.height - 12, w * 0.7, 6), const Radius.circular(6)),
+      Paint()..color = Colors.black.withValues(alpha: 0.28 - bounce * 0.03),
+    );
+    canvas.save();
+    canvas.translate(left, size.height - 8 - bounce - h);
+    if (!s._right) {
+      canvas.translate(w, 0);
+      canvas.scale(-1, 1);
+    }
+    _PuppyPainter(phase: running ? phase : 0, sit: sit, time: s._clock, sitTime: running ? 0 : s._modeTime)
+        .paint(canvas, Size(w, h));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_StripPainter old) => false;
 }
 
 /// The puppy faces right. [phase] drives the running legs, [sit] (0..1) folds it into a sitting
