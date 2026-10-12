@@ -16,6 +16,7 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.Renderer
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -83,7 +84,11 @@ class ExoEngine(
                 return
             }
             when (call.method) {
-                "open" -> s.open(call.argument<String>("url") ?: "", (call.argument<Number>("startMs") ?: 0).toLong())
+                "open" -> s.open(
+                    call.argument<String>("url") ?: "",
+                    (call.argument<Number>("startMs") ?: 0).toLong(),
+                    (call.argument<Number>("enhance") ?: 0).toInt(),
+                )
                 "play" -> s.player.play()
                 "pause" -> s.player.pause()
                 "seek" -> s.player.seekTo((call.argument<Number>("ms") ?: 0).toLong())
@@ -116,6 +121,9 @@ class ExoEngine(
         private var tracks: Tracks = Tracks.EMPTY
         private var decoder = ""
         private var dropped = 0
+        private var enhance = 0
+        private var outW = 1920
+        private var outH = 1080
         private val ticker = object : Runnable {
             override fun run() {
                 if (released) return
@@ -177,12 +185,33 @@ class ExoEngine(
                     if (size.width <= 0 || size.height <= 0) return
                     producer.setSize(size.width, size.height)
                     player.setVideoSurface(producer.surface)
+                    outW = size.width
+                    outH = size.height
+                    if (enhance > 0) signalOutputSize()
                     send(id, "size", mapOf("w" to size.width, "h" to size.height))
                 }
 
                 override fun onTracksChanged(t: Tracks) {
                     tracks = t
                     send(id, "tracks", mapOf("list" to describeTracks(t)))
+                    // Sound this device cannot decode (often AC3 / E-AC3 / MP2): the picture
+                    // plays but stays silent. Tell the app, which moves the channel to MPV.
+                    var audio = 0
+                    var playable = 0
+                    var mime = ""
+                    for (g in t.groups) {
+                        if (g.type != C.TRACK_TYPE_AUDIO) continue
+                        for (i in 0 until g.length) {
+                            audio++
+                            if (mime.isEmpty()) mime = g.getTrackFormat(i).sampleMimeType ?: ""
+                            if (g.isTrackSupported(i, false)) playable++
+                        }
+                    }
+                    if (audio > 0 && playable == 0) send(id, "noaudio", mapOf("mime" to mime))
+                }
+
+                override fun onRenderedFirstFrame() {
+                    send(id, "firstframe")
                 }
 
                 override fun onCues(cueGroup: CueGroup) {
@@ -207,10 +236,34 @@ class ExoEngine(
             main.post(ticker)
         }
 
-        fun open(url: String, startMs: Long) {
+        fun open(url: String, startMs: Long, level: Int) {
+            enhance = level.coerceIn(0, 2)
+            // Effects only when asked: without them ExoPlayer keeps its plain, lightest path.
+            if (enhance > 0) try {
+                player.setVideoEffects(Enhance.effects(enhance))
+                signalOutputSize()
+            } catch (e: Throwable) {
+                enhance = 0
+                send(id, "enhanceoff", mapOf("message" to (e.message ?: "")))
+            }
             player.setMediaItem(MediaItem.fromUri(url), if (!live && startMs > 0) startMs else C.TIME_UNSET)
             player.prepare()
             player.playWhenReady = true
+        }
+
+        /** With effects the renderer must be told the size of the picture surface. */
+        @androidx.annotation.OptIn(markerClass = [androidx.media3.common.util.UnstableApi::class])
+        private fun signalOutputSize() {
+            try {
+                for (i in 0 until player.rendererCount) {
+                    if (player.getRendererType(i) != C.TRACK_TYPE_VIDEO) continue
+                    player.createMessage(player.getRenderer(i))
+                        .setType(Renderer.MSG_SET_VIDEO_OUTPUT_RESOLUTION)
+                        .setPayload(androidx.media3.common.util.Size(outW, outH))
+                        .send()
+                }
+            } catch (_: Throwable) {
+            }
         }
 
         private fun sendState() {
@@ -285,6 +338,7 @@ class ExoEngine(
                 "decoder" to decoder,
                 "audio" to (a?.sampleMimeType ?: ""),
                 "dropped" to dropped,
+                "enhance" to enhance,
             )
         }
 

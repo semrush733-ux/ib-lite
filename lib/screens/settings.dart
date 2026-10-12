@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../backend.dart';
 import '../config.dart';
 import '../engine.dart';
+import '../enhance.dart';
 import '../i18n.dart';
 import '../network.dart';
 import '../speedtest.dart';
@@ -311,14 +312,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           icon: Icons.memory_rounded,
           iconColor: const Color(0xFFB37BFF),
           title: 'MPV Player',
-          text: 'Plays almost every format. Choose it if something will not play well.',
+          text: 'Plays almost every format, Dolby (AC3) sound too. Choose it if something will not play well.',
           onTap: () => onPick('mpv'),
         ),
         const SizedBox(height: 16),
         const Text(
           'When a video will not start on the chosen player, the app tries the other one by itself. '
-          'The next video starts on your choice again.',
+          'A channel whose sound ExoPlayer cannot play moves to MPV by itself, and stays there.',
           style: TextStyle(fontSize: 13.5, color: C.dim, height: 1.5),
+        ),
+        const SizedBox(height: 24),
+        const Text('PICTURE ENHANCE',
+            style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (final m in const [('auto', 'Auto'), ('off', 'Off'), ('on', 'Always on')]) ...[
+              _chip(m.$2, Store.enhanceMode == m.$1, () {
+                Store.setEnhanceMode(m.$1);
+                EnhanceLevel.reset();
+                setState(() {});
+              }),
+              const SizedBox(width: 10),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Sharper, crisper picture with a little more colour. Auto turns it on when this TV is strong '
+          'enough and switches it off by itself the moment the picture would stutter.'
+          '${Store.enhanceCap == 0 ? ' This TV: off (too heavy here).' : Store.enhanceCap > 0 ? ' This TV: up to ${EnhanceLevel.label(Store.enhanceCap)}.' : ''}',
+          style: const TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),
         if (withMode && mpvChosen) ...[
           const SizedBox(height: 24),

@@ -108,6 +108,21 @@ class MainActivity : FlutterActivity() {
                     }
                 } else if (call.method == "deviceIds") {
                     result.success(deviceIds())
+                } else if (call.method == "deviceClass") {
+                    // How strong this TV box is: decides whether "Picture Enhance" starts by itself.
+                    try {
+                        val am = getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                        val mi = android.app.ActivityManager.MemoryInfo()
+                        am.getMemoryInfo(mi)
+                        result.success(mapOf(
+                            "ramMb" to (mi.totalMem / (1024L * 1024L)),
+                            "cores" to Runtime.getRuntime().availableProcessors(),
+                            "lowRam" to am.isLowRamDevice,
+                            "sdk" to android.os.Build.VERSION.SDK_INT,
+                        ))
+                    } catch (e: Exception) {
+                        result.success(null)
+                    }
                 } else if (call.method == "cacheDir") {
                     result.success(cacheDir.absolutePath)
                 } else if (call.method == "clearCache") {

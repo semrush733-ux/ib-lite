@@ -1,10 +1,13 @@
 import 'dart:async';
 
+import 'dart:io' show File;
+
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'config.dart';
 
@@ -48,6 +51,25 @@ abstract class PlaybackEngine {
 
   /// The picture. [subtitlePad] keeps subtitles above the control bar.
   Widget view({required BoxFit fit, required double subtitlePad});
+
+  // ---- Picture Enhance ----
+  /// Whether this engine can enhance the picture at all (MPV's direct mode cannot).
+  bool get canEnhance => false;
+  /// Level the next [open] starts with (0 off, 1 low, 2 high).
+  int enhanceLevel = 0;
+  /// Changes the level while playing. False when the engine needs a reopen for it.
+  Future<bool> setEnhance(int level) async => false;
+  /// Pictures skipped since the stream opened (to notice when the device is overloaded).
+  Future<int> droppedFrames() async => 0;
+  /// Pictures a second of the stream (0 when unknown).
+  Future<double> fps() async => 0;
+
+  /// The stream's sound cannot be decoded by this engine on this device (the format's name).
+  Stream<String> get soundUnsupported => const Stream.empty();
+  /// The enhanced picture could not start: plays on without it.
+  Stream<void> get enhanceFailed => const Stream.empty();
+  /// The first picture is on the screen.
+  Stream<void> get firstFrame => const Stream.empty();
 }
 
 // ------------------------------------------------------------------------------------- mpv
@@ -172,7 +194,77 @@ class MpvEngine extends PlaybackEngine {
           start: start > Duration.zero ? start : null),
       play: true,
     );
+    if (enhanceLevel > 0) await setEnhance(enhanceLevel);
   }
+
+  @override
+  bool get canEnhance => !direct && !kIsWeb;
+
+  dynamic get _native {
+    final platform = player.platform;
+    return platform is NativePlayer ? platform : null;
+  }
+
+  Future<void> _set(String name, String value) async {
+    final dynamic mpv = _native;
+    if (mpv == null) return;
+    try {
+      await mpv.setProperty(name, value);
+    } catch (_) {}
+  }
+
+  Future<String> _get(String name) async {
+    final dynamic mpv = _native;
+    if (mpv == null) return '';
+    try {
+      return ((await mpv.getProperty(name)) as String).trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static final Map<int, String> _shaderPaths = {};
+
+  static Future<String> _shader(int level) async {
+    final known = _shaderPaths[level];
+    if (known != null) return known;
+    final dir = await getTemporaryDirectory();
+    final f = File('${dir.path}/lite_enhance_$level.glsl');
+    await f.writeAsString(_casShader(level >= 2 ? 0.75 : 0.4));
+    return _shaderPaths[level] = f.path;
+  }
+
+  @override
+  Future<bool> setEnhance(int level) async {
+    level = canEnhance ? level.clamp(0, 2) : 0;
+    enhanceLevel = level;
+    if (level == 0) {
+      await Future.wait([
+        _set('glsl-shaders', ''),
+        _set('saturation', '0'),
+        _set('contrast', '0'),
+        _set('scale', 'bilinear'),
+      ]);
+      return true;
+    }
+    final path = await _shader(level);
+    await Future.wait([
+      _set('glsl-shaders', path),
+      _set('saturation', level >= 2 ? '9' : '5'),
+      _set('contrast', level >= 2 ? '5' : '3'),
+      _set('scale', level >= 2 ? 'spline36' : 'bilinear'),
+    ]);
+    return true;
+  }
+
+  @override
+  Future<int> droppedFrames() async {
+    final v = await Future.wait([_get('frame-drop-count'), _get('decoder-frame-drop-count')]);
+    return (int.tryParse(v[0]) ?? 0) + (int.tryParse(v[1]) ?? 0);
+  }
+
+  @override
+  Future<double> fps() async => double.tryParse(await _get('container-fps')) ?? 0;
 
   @override
   Future<void> play() => player.play();
@@ -220,6 +312,7 @@ class MpvEngine extends PlaybackEngine {
       hardware ? 'Decoded by the video chip (${values[1]})' : 'Decoded by the processor (slower)',
       if (values[5].isNotEmpty) 'Sound: ${values[5].toUpperCase()}',
       'Pictures skipped so far: $dropped',
+      'Picture Enhance: ${canEnhance ? _levelName(enhanceLevel) : 'not in direct picture mode'}',
     ];
   }
 
@@ -269,6 +362,11 @@ class ExoEngine extends PlaybackEngine {
   final _completed = StreamController<bool>.broadcast();
   final _tracks = StreamController<Tracks>.broadcast();
   final _messages = StreamController<EngineMessage>.broadcast();
+  final _noSound = StreamController<String>.broadcast();
+  final _enhanceFailed = StreamController<void>.broadcast();
+  final _firstFrame = StreamController<void>.broadcast();
+  int _lastDropped = 0;
+  double _lastFps = 0;
   final ValueNotifier<String> _cues = ValueNotifier('');
   final ValueNotifier<Size> _size = ValueNotifier(Size.zero);
 
@@ -348,8 +446,21 @@ class ExoEngine extends PlaybackEngine {
         _cues.value = (m['text'] ?? '').toString();
       case 'ended':
         _completed.add(true);
+      case 'noaudio':
+        _noSound.add((m['mime'] ?? '').toString());
+      case 'firstframe':
+        _firstFrame.add(null);
+      case 'enhanceoff':
+        enhanceLevel = 0;
+        _enhanceFailed.add(null);
       case 'error':
-        _messages.add(EngineMessage('exo: ${m['message'] ?? ''} failed to open', true));
+        final text = (m['message'] ?? '').toString();
+        // The enhanced picture could not be made on this device: the retry plays without it.
+        if (enhanceLevel > 0 && text.contains('VIDEO_FRAME_PROCESS')) {
+          enhanceLevel = 0;
+          _enhanceFailed.add(null);
+        }
+        _messages.add(EngineMessage('exo: $text failed to open', true));
     }
   }
 
@@ -388,7 +499,39 @@ class ExoEngine extends PlaybackEngine {
   bool get isBuffering => _isBuffering;
 
   @override
-  Future<void> open(String url, Duration start) => _call('open', {'url': url, 'startMs': start.inMilliseconds});
+  Future<void> open(String url, Duration start) =>
+      _call('open', {'url': url, 'startMs': start.inMilliseconds, 'enhance': enhanceLevel});
+
+  @override
+  bool get canEnhance => true;
+  @override
+  Stream<String> get soundUnsupported => _noSound.stream;
+  @override
+  Stream<void> get enhanceFailed => _enhanceFailed.stream;
+  @override
+  Stream<void> get firstFrame => _firstFrame.stream;
+
+  // ExoPlayer applies the effects when a stream opens: a change means reopening.
+  @override
+  Future<bool> setEnhance(int level) async => false;
+
+  Future<void> _readStats() async {
+    if (_disposed) return;
+    try {
+      final f = await _channel.invokeMethod<Map<dynamic, dynamic>>('facts', {'id': _id});
+      _lastDropped = (f?['dropped'] as num?)?.toInt() ?? _lastDropped;
+      _lastFps = (f?['fps'] as num?)?.toDouble() ?? _lastFps;
+    } catch (_) {}
+  }
+
+  @override
+  Future<int> droppedFrames() async {
+    await _readStats();
+    return _lastDropped;
+  }
+
+  @override
+  Future<double> fps() async => _lastFps;
   @override
   Future<void> play() => _call('play');
   @override
@@ -428,6 +571,7 @@ class ExoEngine extends PlaybackEngine {
       if (decoder.isNotEmpty) software ? 'Decoded by the processor ($decoder)' : 'Decoded by the video chip ($decoder)',
       if (mime(f['audio']).isNotEmpty) 'Sound: ${mime(f['audio'])}',
       'Pictures skipped so far: ${(f['dropped'] as num?)?.toInt() ?? 0}',
+      'Picture Enhance: ${_levelName(enhanceLevel)}',
     ];
   }
 
@@ -437,7 +581,7 @@ class ExoEngine extends PlaybackEngine {
     await _call('dispose');
     _disposed = true;
     _live.remove(_id);
-    for (final c in [_position, _duration, _buffering, _completed, _tracks, _messages]) {
+    for (final c in [_position, _duration, _buffering, _completed, _tracks, _messages, _noSound, _enhanceFailed, _firstFrame]) {
       await c.close();
     }
   }
@@ -486,3 +630,26 @@ class ExoEngine extends PlaybackEngine {
     );
   }
 }
+
+
+/// mpv user shader: contrast-adaptive sharpen (the idea of AMD's CAS) on the decoded picture.
+String _casShader(double sharp) => """//!HOOK MAIN
+//!BIND HOOKED
+//!DESC Lite Picture Enhance
+vec4 hook() {
+  vec4 e4 = HOOKED_tex(HOOKED_pos);
+  vec3 e = e4.rgb;
+  vec3 b = HOOKED_texOff(vec2(0.0, -1.0)).rgb;
+  vec3 d = HOOKED_texOff(vec2(-1.0, 0.0)).rgb;
+  vec3 f = HOOKED_texOff(vec2(1.0, 0.0)).rgb;
+  vec3 h = HOOKED_texOff(vec2(0.0, 1.0)).rgb;
+  vec3 mn = min(min(min(d, e), min(f, b)), h);
+  vec3 mx = max(max(max(d, e), max(f, b)), h);
+  vec3 amp = sqrt(clamp(min(mn, 1.0 - mx) / max(mx, 0.0001), 0.0, 1.0));
+  vec3 w = -amp / mix(8.0, 5.0, ${sharp.toStringAsFixed(2)});
+  vec3 c = (b * w + d * w + f * w + h * w + e) / (1.0 + 4.0 * w);
+  return vec4(clamp(c, 0.0, 1.0), e4.a);
+}
+""";
+
+String _levelName(int level) => level >= 2 ? 'High' : (level == 1 ? 'Low' : 'Off');

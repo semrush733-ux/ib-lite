@@ -219,6 +219,24 @@ class Store {
   }
   static void setEngine(String engine) => _p.setString('player_engine2', engine);
 
+  /// Picture Enhance: "auto" (on when the device is strong enough), "off" or "on".
+  static String get enhanceMode {
+    final v = _p.getString('enhance_mode') ?? '';
+    return v == 'off' || v == 'on' ? v : 'auto';
+  }
+  static void setEnhanceMode(String v) => _p.setString('enhance_mode', v);
+
+  /// The highest enhance level this device managed without stuttering (-1: not learned yet).
+  static int get enhanceCap => _p.getInt('enhance_cap') ?? -1;
+  static void setEnhanceCap(int v) => _p.setInt('enhance_cap', v);
+
+  /// Streams whose sound ExoPlayer cannot decode on this device: they play on MPV.
+  static List<String> get exoNoSound => _p.getStringList('exo_no_sound') ?? const [];
+  static void addExoNoSound(String key) {
+    final l = [...exoNoSound.where((k) => k != key), key];
+    _p.setStringList('exo_no_sound', l.length > 400 ? l.sublist(l.length - 400) : l);
+  }
+
   /// Player for Live TV, chosen separately from the one for films and series ([engine]).
   static String get liveEngine {
     final v = _p.getString('live_engine') ?? '';

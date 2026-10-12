@@ -8,6 +8,7 @@ import 'package:media_kit/media_kit.dart';
 import '../backend.dart' show Backend;
 import '../config.dart';
 import '../engine.dart';
+import '../enhance.dart';
 import '../i18n.dart';
 import '../input_mode.dart';
 import '../lang.dart';
@@ -180,6 +181,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   Timer? _seekTimer;
   Timer? _retryTimer;
   Timer? _epgTimer;
+  Timer? _enhanceTimer;
+  // Picture Enhance watch: skipped pictures since the last look, and how many looks in a row
+  // were heavy. The key of the open stream (to remember streams ExoPlayer has no sound for).
+  int _dropBase = -1;
+  int _heavyTicks = 0;
+  bool _sawFirstFrame = false;
+  DateTime _readyAt = DateTime.now();
+  String _streamKey = '';
 
   PlayEntry get _entry => widget.entries[_index];
 
@@ -192,6 +201,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.addObserver(this);
     _keepScreenOn(true);
     _watchdog = Timer.periodic(const Duration(seconds: 2), (_) => _checkHealth());
+    _enhanceTimer = Timer.periodic(const Duration(seconds: 3), (_) => _watchEnhance());
     _open();
     _scheduleEpg();
   }
@@ -201,6 +211,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _direct = Store.videoMode == 'direct';
     _pictureFailed = false;
     PlaybackEngine engine;
+    // This stream's sound did not play on ExoPlayer before: straight to MPV.
+    if (_engineName == 'exo' && _streamKey.isNotEmpty && Store.exoNoSound.contains(_streamKey)) {
+      _engineName = 'mpv';
+      _engineSwitched = true;
+    }
     if (_engineName == 'exo' && ExoEngine.available) {
       try {
         engine = await ExoEngine.create(live: widget.live);
@@ -215,6 +230,22 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       engine = MpvEngine(live: widget.live, direct: _direct);
     }
     _engine = engine;
+    engine.enhanceLevel = engine.canEnhance ? await EnhanceLevel.start() : 0;
+    _subs.add(engine.firstFrame.listen((_) => _sawFirstFrame = true));
+    _subs.add(engine.enhanceFailed.listen((_) {
+      log('picture enhance could not start on this device: off');
+      Store.setEnhanceCap(0);
+    }));
+    _subs.add(engine.soundUnsupported.listen((mime) {
+      if (!_accepting || !identical(engine, _engine)) return;
+      log('exo cannot play this sound ($mime): moving the stream to mpv');
+      if (_streamKey.isNotEmpty) Store.addExoNoSound(_streamKey);
+      if (_engineSwitched) return;
+      _engineSwitched = true;
+      _engineName = 'mpv';
+      if (mounted) setState(() => _status = 'Loading sound…');
+      _reopenHere();
+    }));
     _subs.add(engine.position.listen(_onPosition));
     _subs.add(engine.duration.listen((d) {
       if (_accepting) _duration = d;
@@ -269,7 +300,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.removeObserver(this);
     _generation++;
     _accepting = false;
-    for (final t in [_hideTimer, _watchdog, _zapTimer, _seekTimer, _retryTimer, _epgTimer]) {
+    for (final t in [_hideTimer, _watchdog, _zapTimer, _seekTimer, _retryTimer, _epgTimer, _enhanceTimer]) {
       t?.cancel();
     }
     _saveResume();
@@ -323,6 +354,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     final raw = kIsWeb ? urls[pick % urls.length] : urls[pick];
     final format = kIsWeb ? 'm3u8' : formatOfUrl(raw);
     final url = playable[pick];
+    _streamKey = raw;
+    _sawFirstFrame = false;
+    _dropBase = -1;
+    _heavyTicks = 0;
 
     var start = startAt ?? Duration.zero;
     if (startAt == null && !widget.live && entry.resumeKey != null) {
@@ -420,6 +455,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   void _markReady() {
     _ready = true;
+    _readyAt = DateTime.now();
     _playedThisUrl = true;
     final player = _engine;
     if (player == null) return;
@@ -783,6 +819,52 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     } else {
       _showOverlay();
     }
+  }
+
+  /// Picture Enhance never becomes a load: when pictures start being skipped (and it is not the
+  /// network), the level steps down by itself and the device remembers its limit.
+  Future<void> _watchEnhance() async {
+    final e = _engine;
+    if (e == null || !_ready || !_accepting || _suspended || _dead || e.enhanceLevel <= 0) {
+      _dropBase = -1;
+      return;
+    }
+    final now = DateTime.now();
+    // ExoPlayer: sound and time running but no picture made with the effects: go without.
+    if (e is ExoEngine && !_sawFirstFrame && e.playing && now.difference(_readyAt) > const Duration(seconds: 8)) {
+      log('picture enhance: no picture, turning it off on this device');
+      Store.setEnhanceCap(0);
+      _reopenHere();
+      return;
+    }
+    if (_buffering || _userPaused || _scrubbing || now.difference(_readyAt) < const Duration(seconds: 6)) {
+      _dropBase = -1; // a network pause or start-up hiccup is not the filter's fault
+      return;
+    }
+    final dropped = await e.droppedFrames();
+    if (!identical(e, _engine) || _buffering) return;
+    if (_dropBase < 0 || dropped < _dropBase) {
+      _dropBase = dropped;
+      return;
+    }
+    final delta = dropped - _dropBase;
+    _dropBase = dropped;
+    var fps = await e.fps();
+    if (fps <= 0) fps = 25;
+    final perLook = fps * 3;
+    if (delta > perLook * 0.08 && delta >= 6) {
+      _heavyTicks++;
+    } else {
+      _heavyTicks = 0;
+    }
+    if (_heavyTicks < 2 && delta < perLook * 0.3) return;
+    final level = e.enhanceLevel;
+    final lower = level - 1;
+    log('picture enhance: $delta pictures skipped in 3 s, ${EnhanceLevel.label(level)} -> ${EnhanceLevel.label(lower)}');
+    EnhanceLevel.tooHeavy(level);
+    _heavyTicks = 0;
+    _dropBase = -1;
+    if (!await e.setEnhance(lower)) _reopenHere();
   }
 
   /// Opens the same stream again at the same place (after a picture-mode change).

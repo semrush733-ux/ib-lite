@@ -22,6 +22,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.4.1")
     implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
     implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-effect:1.4.1")
 }
 
 // ---- Cloud Player: VPN (WireGuard tunnel, the official WireGuard library) ----
