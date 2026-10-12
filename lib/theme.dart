@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'config.dart';
+import 'remote_brand.dart';
 
 class C {
   static const bg = Color(0xFF0E0A0B);
@@ -52,18 +53,35 @@ class Logo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: size * 1.5,
-      child: Image.asset(
-        'assets/logo.png',
-        fit: BoxFit.contain,
-        alignment: Alignment.centerLeft,
-        filterQuality: FilterQuality.medium,
-        errorBuilder: (_, __, ___) => Text(
-          kAppName,
-          style: TextStyle(color: C.text, fontSize: size, fontWeight: FontWeight.w900),
-        ),
-      ),
+    // The logo set on the website wins; the built-in one until it is downloaded.
+    return ValueListenableBuilder<int>(
+      valueListenable: RemoteBrand.changes,
+      builder: (context, _, __) {
+        final remote = RemoteBrand.wideLogo;
+        Widget fallback(BuildContext c, Object e, StackTrace? st) => Text(
+              kAppName,
+              style: TextStyle(color: C.text, fontSize: size, fontWeight: FontWeight.w900),
+            );
+        return SizedBox(
+          height: size * 1.5,
+          child: remote != null
+              ? Image(
+                  image: remote,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                  filterQuality: FilterQuality.medium,
+                  errorBuilder: (c, e, st) => Image.asset('assets/logo.png',
+                      fit: BoxFit.contain, alignment: Alignment.centerLeft, errorBuilder: fallback),
+                )
+              : Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain,
+                  alignment: Alignment.centerLeft,
+                  filterQuality: FilterQuality.medium,
+                  errorBuilder: fallback,
+                ),
+        );
+      },
     );
   }
 }

@@ -126,6 +126,8 @@ class _TvFocusState extends State<TvFocus> {
                   : const [BoxShadow(color: Colors.transparent, blurRadius: 16)],
             ),
             child: Stack(
+              // The child keeps the full size given to the button (tiles fill their box).
+              fit: StackFit.passthrough,
               children: [
                 widget.child,
                 if (_focused)
@@ -550,6 +552,71 @@ class ErrorBox extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Wraps the first screen of the app: Back asks "Exit?" before the app closes.
+class ExitGuard extends StatelessWidget {
+  const ExitGuard({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        if (await confirmExit(context)) await SystemNavigator.pop();
+      },
+      child: child,
+    );
+  }
+}
+
+Future<bool> confirmExit(BuildContext context) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    barrierColor: const Color(0xB3000000),
+    builder: (ctx) => AlertDialog(
+      backgroundColor: C.panel,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      title: const Row(
+        children: [
+          Icon(Icons.power_settings_new_rounded, color: C.accent, size: 28),
+          SizedBox(width: 12),
+          Text('Exit the app?', style: TextStyle(fontWeight: FontWeight.w800)),
+        ],
+      ),
+      content: const Text('Do you really want to close the app?', style: TextStyle(color: C.dim, fontSize: 16)),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      actions: [
+        _DialogButton(label: 'Stay', autofocus: true, onTap: () => Navigator.of(ctx).pop(false)),
+        _DialogButton(label: 'Exit', danger: true, onTap: () => Navigator.of(ctx).pop(true)),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+class _DialogButton extends StatelessWidget {
+  const _DialogButton({required this.label, required this.onTap, this.autofocus = false, this.danger = false});
+  final String label;
+  final VoidCallback onTap;
+  final bool autofocus;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    return TvFocus(
+      autofocus: autofocus,
+      radius: 12,
+      color: danger ? const Color(0xFF3A1216) : C.card,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 12),
+        child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
       ),
     );
   }

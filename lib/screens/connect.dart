@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../backend.dart';
 import '../theme.dart';
+import '../widgets.dart';
 import '../xtream.dart';
 import '../puppy.dart';
 import 'home.dart';
@@ -98,7 +99,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   @override
   Widget build(BuildContext context) {
     final site = kSiteBase.replaceFirst(RegExp(r'^https?://'), '');
-    return Scaffold(
+    return ExitGuard(child: Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -253,7 +254,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
           const IgnorePointer(child: ExcludeFocus(child: RunningPuppy())),
         ],
       ),
-    );
+    ));
   }
 
   Widget _step(int n, String text, String strong) => Padding(

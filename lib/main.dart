@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'backend.dart';
 import 'config.dart';
 import 'input_mode.dart';
+import 'remote_brand.dart';
 import 'screens/device.dart';
 import 'screens/intro.dart';
 import 'start.dart';
@@ -16,6 +17,7 @@ Future<void> main() async {
   MediaKit.ensureInitialized();
   InputMode.init();
   await Store.init();
+  await RemoteBrand.init();
   await Backend.init();
   // Keep memory low on TV sticks with 1 GB of RAM.
   PaintingBinding.instance.imageCache.maximumSize = 300;

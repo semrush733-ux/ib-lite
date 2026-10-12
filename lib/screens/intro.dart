@@ -1,11 +1,16 @@
 import 'dart:async';
+import 'dart:io' show File;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
 import '../config.dart';
 import '../engine.dart';
+import '../remote_brand.dart';
 
 /// The start animation, made in code (no video): a red glow and light streaks open the dark
 /// screen, the brand symbol (brand/icon.png) turns in and lands with a light ring, a shine runs
@@ -34,6 +39,8 @@ class _IntroGateState extends State<IntroGate> with SingleTickerProviderStateMix
     super.initState();
     IntroGate._shown = true;
     if (_done) return;
+    // A video or picture set on the website replaces the built-in animation.
+    if (RemoteBrand.introSource != null) return;
     _c.addStatusListener((s) {
       if (s == AnimationStatus.completed) _finish();
     });
@@ -76,6 +83,30 @@ class _IntroGateState extends State<IntroGate> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     if (_done) return widget.next;
+    final custom = RemoteBrand.introSource;
+    if (custom != null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Focus(
+          focusNode: _focus,
+          autofocus: true,
+          onKeyEvent: (_, event) {
+            if (event is KeyDownEvent) _finish();
+            return KeyEventResult.handled;
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _finish,
+            child: _CustomIntro(
+              source: custom,
+              video: RemoteBrand.introType == 'video',
+              seconds: RemoteBrand.introSeconds,
+              onDone: _finish,
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFF0B0506),
       body: Focus(
@@ -95,6 +126,83 @@ class _IntroGateState extends State<IntroGate> with SingleTickerProviderStateMix
         ),
       ),
     );
+  }
+}
+
+/// The intro made by the owner (website -> Settings -> App look): a video plays to its end
+/// (at most 15 s), a picture stays [seconds]. Any problem simply continues into the app.
+class _CustomIntro extends StatefulWidget {
+  const _CustomIntro({required this.source, required this.video, required this.seconds, required this.onDone});
+  final String source;
+  final bool video;
+  final int seconds;
+  final VoidCallback onDone;
+
+  @override
+  State<_CustomIntro> createState() => _CustomIntroState();
+}
+
+class _CustomIntroState extends State<_CustomIntro> {
+  Player? _player;
+  VideoController? _controller;
+  Timer? _limit;
+  StreamSubscription<bool>? _end;
+  StreamSubscription<String>? _error;
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.video) {
+      final p = Player();
+      _player = p;
+      _controller = VideoController(p);
+      _end = p.stream.completed.listen((done) {
+        if (done) widget.onDone();
+      });
+      _error = p.stream.error.listen((_) => widget.onDone());
+      unawaited(p.open(Media(widget.source)));
+      _limit = Timer(const Duration(seconds: 15), widget.onDone);
+    } else {
+      _limit = Timer(Duration(seconds: widget.seconds), widget.onDone);
+    }
+    // Soft fade in.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _limit?.cancel();
+    _end?.cancel();
+    _error?.cancel();
+    _player?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget child;
+    final c = _controller;
+    if (c != null) {
+      child = Video(controller: c, controls: NoVideoControls, fit: BoxFit.contain, fill: Colors.black);
+    } else {
+      final ImageProvider img =
+          kIsWeb ? NetworkImage(widget.source) : FileImage(File(widget.source)) as ImageProvider;
+      child = Image(
+        image: img,
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: double.infinity,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDone());
+          return const SizedBox();
+        },
+      );
+    }
+    return AnimatedOpacity(opacity: _visible ? 1 : 0, duration: const Duration(milliseconds: 450), child: child);
   }
 }
 
@@ -150,8 +258,13 @@ class _LiteIntro extends StatelessWidget {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.asset('assets/symbol.png',
-                                fit: BoxFit.contain, errorBuilder: (_, __, ___) => const _FallbackMark()),
+                            RemoteBrand.symbol != null
+                                ? Image(
+                                    image: RemoteBrand.symbol!,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const _FallbackMark())
+                                : Image.asset('assets/symbol.png',
+                                    fit: BoxFit.contain, errorBuilder: (_, __, ___) => const _FallbackMark()),
                             // A light runs across the symbol once.
                             ClipRect(
                               child: CustomPaint(painter: _ShinePainter(_seg(t, 2.3, 3.0))),

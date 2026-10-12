@@ -18,6 +18,8 @@ on:
   push:
     branches: [main]
     paths-ignore: ['**.md']
+  # "Run workflow" button in GitHub Actions: rebuild with the icon set in the website admin.
+  workflow_dispatch:
 
 concurrency:
   group: lite-${{ github.ref }}
@@ -49,7 +51,9 @@ jobs:
           { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "API_BASE=$API_BASE"; echo "APK_NAME=$APK_NAME"; } >> "$GITHUB_ENV"
           echo "brand: $APP_NAME ($PACKAGE_ID) website: ${WEBSITE:-(not set)}"
           python3 -m pip install --quiet pillow || true
+          python3 tools/fetch_brand.py "$WEBSITE"
           python3 tools/brand_icons.py
+          mkdir -p out && (cd store_assets && zip -qr ../out/store-assets.zip .)
 
       - uses: actions/setup-java@v4
         with:
@@ -214,6 +218,8 @@ jobs:
         run: |
           FILES=""
           if [ -f out/B1G.apk ]; then cp out/B1G.apk "out/$APK_NAME.apk"; FILES="out/$APK_NAME.apk"; fi
+          # Icons and banners for app stores (Amazon, Google Play) and Samsung Tizen.
+          if [ -n "$FILES" ] && [ -f out/store-assets.zip ]; then FILES="$FILES out/store-assets.zip"; fi
           TITLE="$APP_NAME - build #$BUILD_NUMBER"
           if [ -z "$FILES" ]; then TITLE="$APP_NAME - build #$BUILD_NUMBER FAILED (APK below is from an earlier build)"; fi
           publish() {
@@ -248,6 +254,7 @@ jobs:
           { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "API_BASE=$API_BASE"; echo "APK_NAME=$APK_NAME"; } >> "$GITHUB_ENV"
           echo "brand: $APP_NAME ($PACKAGE_ID) website: ${WEBSITE:-(not set)}"
           python3 -m pip install --quiet pillow || true
+          python3 tools/fetch_brand.py "$WEBSITE"
           python3 tools/brand_icons.py
 
       - uses: subosito/flutter-action@v2

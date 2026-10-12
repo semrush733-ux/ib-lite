@@ -273,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return ExitGuard(child: Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -306,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SafeArea(child: _content()),
         ],
       ),
-    );
+    ));
   }
 
   Widget _content() {

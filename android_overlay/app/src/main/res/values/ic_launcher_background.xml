@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Transparent: the launcher's own tile colour (Fire TV grey, phone wallpaper...) shows around the logo. -->
-    <color name="ic_launcher_background">#00000000</color>
+    <!-- Opaque brand colour: no grey launcher box behind the symbol (adaptive icons use the picture in mipmap). -->
+    <color name="ic_launcher_background">#140A0D</color>
     <!-- Start screen background stays the app's dark colour. -->
-    <color name="splash_background">#0E1118</color>
+    <color name="splash_background">#140A0D</color>
 </resources>

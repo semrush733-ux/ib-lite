@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config.dart';
+import 'remote_brand.dart';
 import 'theme.dart' show log;
 import 'tmdb.dart' show Tmdb;
 
@@ -407,6 +408,8 @@ class Backend {
         await clearAppCache();
         await _p?.setInt('b1g_cache_epoch', epoch);
       }
+      // Logo and start screen set on the website (downloaded in the background).
+      if (c is Map) unawaited(RemoteBrand.apply(c['brand']));
       update = BUpdate.fromJson(data['update']);
       log('backend config server=${serverUrl.isEmpty ? 'none' : 'set'} '
           'update=${update?.versionCode ?? 0} app=$appVersionCode');

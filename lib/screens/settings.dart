@@ -166,9 +166,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 24),
         Expanded(
           child: LayoutBuilder(builder: (context, box) {
-            final cols = box.maxWidth < 560 ? 2 : (box.maxWidth < 900 ? 3 : 5);
+            final cols = box.maxWidth < 520 ? 2 : (box.maxWidth < 700 ? 3 : 5);
             const gap = 16.0;
             final w = (box.maxWidth - gap * (cols - 1)) / cols;
+            final rows = (_Section.values.length / cols).ceil();
+            // All boxes on one screen when there is room; never smaller than 96 px.
+            final tileH = ((box.maxHeight - gap * (rows - 1)) / rows).clamp(96.0, small ? 120.0 : 170.0).toDouble();
             return SingleChildScrollView(
               child: Wrap(
                 spacing: gap,
@@ -177,7 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   for (final s in _Section.values)
                     SizedBox(
                       width: w,
-                      height: small ? 120 : 150,
+                      height: tileH,
                       child: TvFocus(
                         autofocus: s == (_last ?? _Section.network),
                         radius: 18,
