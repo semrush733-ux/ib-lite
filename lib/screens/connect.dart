@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../backend.dart';
 import '../theme.dart';
 import '../xtream.dart';
+import '../puppy.dart';
 import 'home.dart';
 
 /// First screen of a new device. There is no sign-in form on the TV: the customer scans the
@@ -218,9 +219,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
                                       ),
                               ),
                               const SizedBox(height: 18),
-                              _idRow('MAC Address', Backend.deviceId),
+                              _idRow('MAC Address', Backend.deviceId, qr + 24),
                               const SizedBox(height: 6),
-                              _idRow('Device Key', Backend.pairingCode),
+                              _idRow('Device Key', Backend.pairingCode, qr + 24),
                               const SizedBox(height: 16),
                               Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -249,6 +250,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
               );
             }),
           ),
+          const IgnorePointer(child: ExcludeFocus(child: RunningPuppy())),
         ],
       ),
     );
@@ -286,13 +288,20 @@ class _ConnectScreenState extends State<ConnectScreen> {
         ),
       );
 
-  Widget _idRow(String label, String value) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$label:  ', style: const TextStyle(color: C.dim, fontSize: 16)),
-          Text(value.isEmpty ? '—' : value,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1)),
-        ],
+  /// Label and value on one line, shrunk to fit the box (a MAC address is long).
+  Widget _idRow(String label, String value, double width) => SizedBox(
+        width: width,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$label:  ', style: const TextStyle(color: C.dim, fontSize: 16)),
+              Text(value.isEmpty ? '—' : value,
+                  style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900, letterSpacing: 0.6)),
+            ],
+          ),
+        ),
       );
 }
 
