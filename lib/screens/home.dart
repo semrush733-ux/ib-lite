@@ -850,6 +850,10 @@ class _WeatherBox extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (place.isNotEmpty) ...[
+                const Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFFF5A5F)),
+                const SizedBox(width: 4),
+              ],
               Expanded(
                 child: Text(place.isEmpty ? date : place,
                     maxLines: 1,
