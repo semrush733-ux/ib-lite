@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -13,12 +15,44 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> {
-  final MobileScannerController _c = MobileScannerController(formats: const [BarcodeFormat.qrCode]);
+  // Full HD frames: a QR code on a TV across the room still has enough pixels.
+  final MobileScannerController _c = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+    cameraResolution: const Size(1920, 1080),
+  );
   bool _done = false;
   String? _hint;
 
+  // Auto zoom: while nothing is found, the camera steps in closer and back out, so a TV far
+  // away comes into reading size by itself. Pinch or the slider takes over by hand.
+  static const _steps = [0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 0.5, 0.25];
+  int _step = 0;
+  double _zoom = 0;
+  double _pinchStart = 0;
+  bool _manual = false;
+  Timer? _auto;
+
+  @override
+  void initState() {
+    super.initState();
+    _auto = Timer.periodic(const Duration(milliseconds: 1700), (_) {
+      if (_done || _manual || !mounted) return;
+      _step = (_step + 1) % _steps.length;
+      _setZoom(_steps[_step]);
+    });
+  }
+
+  Future<void> _setZoom(double z) async {
+    z = z.clamp(0.0, 1.0);
+    if (mounted) setState(() => _zoom = z);
+    try {
+      await _c.setZoomScale(z);
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
+    _auto?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -54,7 +88,41 @@ class _ScanScreenState extends State<ScanScreen> {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          MobileScanner(controller: _c, onDetect: _found),
+          GestureDetector(
+            onScaleStart: (_) => _pinchStart = _zoom,
+            onScaleUpdate: (d) {
+              if (d.pointerCount < 2) return;
+              _manual = true;
+              _setZoom(_pinchStart + (d.scale - 1) * 0.5);
+            },
+            child: MobileScanner(controller: _c, onDetect: _found),
+          ),
+          Positioned(
+            top: 16,
+            left: 24,
+            right: 24,
+            child: Row(
+              children: [
+                const Icon(Icons.zoom_out, color: Colors.white70),
+                Expanded(
+                  child: Slider(
+                    value: _zoom,
+                    activeColor: const Color(0xFFE3262F),
+                    onChanged: (v) {
+                      _manual = true;
+                      _setZoom(v);
+                    },
+                  ),
+                ),
+                const Icon(Icons.zoom_in, color: Colors.white70),
+                TextButton(
+                  onPressed: () => setState(() => _manual = !_manual),
+                  child: Text(_manual ? 'AUTO' : 'AUTO ✓',
+                      style: TextStyle(color: _manual ? Colors.white70 : const Color(0xFFE3262F), fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+          ),
           IgnorePointer(
             child: Container(
               width: size,
@@ -73,7 +141,7 @@ class _ScanScreenState extends State<ScanScreen> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: const Color(0xCC000000), borderRadius: BorderRadius.circular(14)),
               child: Text(
-                _hint ?? 'Point the camera at the QR code on the client\'s TV.',
+                _hint ?? 'Point the camera at the QR code on the TV. Far away? It zooms in by itself, or pinch to zoom.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.white, fontSize: 15),
               ),

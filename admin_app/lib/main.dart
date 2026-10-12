@@ -559,6 +559,7 @@ class _AddClientPageState extends State<AddClientPage> {
   final _pin = TextEditingController();
   String _type = 'xtream';
   Device? _device;
+  List<TvPlaylist> _onTv = const [];
   bool _busy = false;
 
   Future<void> _fill((String, String)? r) async {
@@ -579,7 +580,12 @@ class _AddClientPageState extends State<AddClientPage> {
     });
     try {
       final r = await Api.lookup(_mac.text.trim(), _key.text.trim());
-      if (mounted) setState(() => _device = r.$1);
+      if (mounted) {
+        setState(() {
+          _device = r.$1;
+          _onTv = r.$2;
+        });
+      }
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
     } finally {
@@ -605,13 +611,109 @@ class _AddClientPageState extends State<AddClientPage> {
       for (final c in [_mac, _key, _name, _user, _pass, _link, _pin]) {
         c.clear();
       }
-      setState(() => _device = null);
+      setState(() {
+        _device = null;
+        _onTv = const [];
+      });
       widget.onAdded();
     } catch (e) {
       if (mounted) toast(context, '$e', error: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// "Add to my clients" for a playlist that is already on the TV.
+  Future<void> _claim(TvPlaylist p) async {
+    var pin = '';
+    if (p.locked) {
+      final c = TextEditingController();
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('PIN for "${p.name}"'),
+          content: TextField(
+            controller: c,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: '4-digit PIN', counterText: ''),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('OK')),
+          ],
+        ),
+      );
+      if (ok != true) return;
+      pin = c.text.trim();
+    }
+    setState(() => _busy = true);
+    try {
+      final m = await Api.claim(_mac.text.trim(), _key.text.trim(), p.id, pin);
+      if (!mounted) return;
+      toast(context, m);
+      final r = await Api.lookup(_mac.text.trim(), _key.text.trim());
+      if (mounted) setState(() => _onTv = r.$2);
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _onTvList() {
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 6),
+      decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(14), border: Border.all(color: _line)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Playlists on this TV (${_onTv.length})', style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          if (_onTv.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('None yet. Add one below.', style: TextStyle(color: _muted)),
+            ),
+          for (final p in _onTv)
+            Row(
+              children: [
+                Icon(p.type == 'm3u' ? Icons.link : Icons.live_tv_rounded, size: 20, color: _muted),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p.name.isEmpty ? 'Playlist' : p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                      Text(
+                        [
+                          p.type == 'm3u' ? 'M3U' : 'Xtream',
+                          if (p.username.isNotEmpty) p.username,
+                          if (p.locked) 'PIN',
+                        ].join(' · '),
+                        style: const TextStyle(color: _muted, fontSize: 12.5),
+                      ),
+                    ],
+                  ),
+                ),
+                if (p.mine)
+                  const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Text('In my clients', style: TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.w700)),
+                  )
+                else
+                  TextButton(
+                    onPressed: _busy ? null : () => _claim(p),
+                    child: Text(p.managed ? 'Take over' : 'Add to my clients'),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -689,7 +791,10 @@ class _AddClientPageState extends State<AddClientPage> {
               ],
             ),
           ),
+          _onTvList(),
           const SizedBox(height: 16),
+          const Text('Add a new playlist', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
           _TypePicker(value: _type, onChanged: (v) => setState(() => _type = v)),
           const SizedBox(height: 14),
           if (_type == 'm3u') ...[

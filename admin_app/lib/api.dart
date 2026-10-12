@@ -46,6 +46,21 @@ class Device {
   final int daysLeft;
 }
 
+/// A playlist already on the TV (no login or link shown).
+class TvPlaylist {
+  TvPlaylist(Map<String, dynamic> j)
+      : id = (j['id'] as num).toInt(),
+        name = '${j['name'] ?? ''}',
+        type = '${j['type'] ?? 'xtream'}',
+        username = '${j['username'] ?? ''}',
+        locked = j['locked'] == true,
+        mine = j['mine'] == true,
+        managed = j['managed'] == true;
+  final int id;
+  final String name, type, username;
+  final bool locked, mine, managed;
+}
+
 class Client {
   Client(Map<String, dynamic> j)
       : id = (j['id'] as num).toInt(),
@@ -125,7 +140,7 @@ class Api {
     }
     if (j['code'] == 'rest_no_route' || (res.statusCode == 404 && j['success'] == null)) {
       throw ApiException(
-          'The website is running an old Lite Player plugin. Install Lite Player plugin 1.0.14 '
+          'The website is running an old Lite Player plugin. Install Lite Player plugin 1.0.15 '
           '(WordPress → Plugins → Add New → Upload), then sign out and sign in again here.',
           404);
     }
@@ -167,9 +182,19 @@ class Api {
     return '${j['message'] ?? 'Saved.'}';
   }
 
-  static Future<(Device, int)> lookup(String mac, String key) async {
+  static Future<(Device, List<TvPlaylist>)> lookup(String mac, String key) async {
     final j = await _call('/panel/lookup', body: {'device_id': mac, 'pairing_code': key});
-    return (Device(j['device'] as Map<String, dynamic>), (j['playlists'] as num?)?.toInt() ?? 0);
+    final list = [
+      for (final p in (j['playlist_list'] as List? ?? const [])) TvPlaylist(p as Map<String, dynamic>),
+    ];
+    return (Device(j['device'] as Map<String, dynamic>), list);
+  }
+
+  /// Takes a playlist that is already on the TV into my clients.
+  static Future<String> claim(String mac, String key, int playlistId, String pin) async {
+    final j = await _call('/panel/clients/claim',
+        body: {'device_id': mac, 'pairing_code': key, 'playlist_id': playlistId, 'pin': pin});
+    return '${j['message'] ?? 'Added to your clients.'}';
   }
 
   static Future<List<Client>> clients([String q = '']) async {
