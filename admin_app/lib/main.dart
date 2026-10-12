@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'api.dart';
 import 'scan.dart';
+import 'users.dart';
 
 const _red = Color(0xFFE3262F);
 const _bg = Color(0xFF0D0809);
@@ -196,14 +197,18 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Sub-resellers create no accounts: no Users tab for them.
+    final showUsers = Api.profile?.canCreate.isNotEmpty ?? false;
     final pages = [
       ClientsPage(key: _clientsKey),
       AddClientPage(onAdded: () {
         setState(() => _tab = 0);
         _clientsKey.currentState?.reload();
       }),
+      if (showUsers) UsersPage(onChanged: () => setState(() {})),
       SettingsPage(onChanged: () => setState(() {})),
     ];
+    if (_tab >= pages.length) _tab = 0;
     return Scaffold(
       body: SafeArea(child: IndexedStack(index: _tab, children: pages)),
       bottomNavigationBar: NavigationBar(
@@ -214,10 +219,13 @@ class _HomeShellState extends State<HomeShell> {
           setState(() => _tab = i);
           if (i == 0) _clientsKey.currentState?.reload();
         },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt), label: 'Clients'),
-          NavigationDestination(icon: Icon(Icons.qr_code_scanner), label: 'Add client'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt), label: 'Clients'),
+          const NavigationDestination(icon: Icon(Icons.qr_code_scanner), label: 'Add client'),
+          if (showUsers)
+            const NavigationDestination(
+                icon: Icon(Icons.manage_accounts_outlined), selectedIcon: Icon(Icons.manage_accounts), label: 'Users'),
+          const NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
     );
@@ -828,7 +836,7 @@ class _SettingsPageState extends State<SettingsPage> {
               const Text('Account', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               _Info(label: 'Name', value: p?.name ?? ''),
-              _Info(label: 'Role', value: p?.isSuper == true ? 'Super admin' : 'Admin / reseller'),
+              _Info(label: 'Role', value: levelName(p?.level ?? 'reseller')),
               if (p != null && !p.isSuper) _Info(label: 'Credits', value: '${p.credits ?? 0}'),
               _Info(label: 'Website', value: Api.site),
               const SizedBox(height: 12),

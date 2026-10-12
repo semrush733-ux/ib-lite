@@ -22,8 +22,11 @@ class Profile {
         server = '${j['server'] ?? ''}',
         m3u = '${j['m3u'] ?? ''}',
         clients = j['clients'] is num ? (j['clients'] as num).toInt() : 0,
-        brand = '${j['brand'] ?? ''}';
-  final String name, role, server, m3u, brand;
+        brand = '${j['brand'] ?? ''}',
+        level = '${j['level'] ?? 'reseller'}',
+        canCreate = [for (final l in (j['can_create'] as List? ?? const [])) '$l'];
+  final String name, role, server, m3u, brand, level;
+  final List<String> canCreate;
   final int? credits;
   final int clients;
   bool get isSuper => role == 'super';
@@ -211,6 +214,71 @@ class Api {
   static Future<String> activate(String mac, String plan) async {
     final j = await _call('/panel/activate', body: {'device_id': mac, 'plan': plan});
     if (j['profile'] is Map) profile = Profile(j['profile'] as Map<String, dynamic>);
+    return '${j['message']}';
+  }
+}
+
+class PanelUser {
+  PanelUser(Map<String, dynamic> j)
+      : id = (j['id'] as num).toInt(),
+        username = '${j['username'] ?? ''}',
+        email = '${j['email'] ?? ''}',
+        level = '${j['level'] ?? ''}',
+        credits = (j['credits'] as num?)?.toInt() ?? 0,
+        clients = (j['clients'] as num?)?.toInt() ?? 0,
+        parent = '${j['parent'] ?? ''}',
+        disabled = j['disabled'] == true;
+  final int id, credits, clients;
+  final String username, email, level, parent;
+  final bool disabled;
+}
+
+String levelName(String l) => switch (l) {
+      'super' => 'Super admin',
+      'admin' => 'Admin',
+      'reseller' => 'Reseller',
+      'subreseller' => 'Sub-reseller',
+      _ => l,
+    };
+
+class UsersApi {
+  UsersApi._();
+
+  static Future<List<PanelUser>> list([String q = '']) async {
+    final j = await Api._call('/panel/users', query: q.isEmpty ? null : {'q': q});
+    return [for (final u in (j['users'] as List)) PanelUser(u as Map<String, dynamic>)];
+  }
+
+  static Future<String> add({
+    required String level,
+    required String username,
+    required String email,
+    required String password,
+    int credits = 0,
+  }) async {
+    final j = await Api._call('/panel/users/add', body: {
+      'level': level,
+      'username': username,
+      'email': email,
+      'password': password,
+      'credits': credits,
+    });
+    if (j['profile'] is Map) Api.profile = Profile(j['profile'] as Map<String, dynamic>);
+    return '${j['message']}';
+  }
+
+  static Future<String> credits(int userId, int amount) async {
+    final j = await Api._call('/panel/users/credits', body: {'user_id': userId, 'amount': amount});
+    if (j['profile'] is Map) Api.profile = Profile(j['profile'] as Map<String, dynamic>);
+    return '${j['message']}';
+  }
+
+  static Future<String> update(int userId, {String password = '', bool? disabled}) async {
+    final j = await Api._call('/panel/users/update', body: {
+      'user_id': userId,
+      if (password.isNotEmpty) 'password': password,
+      if (disabled != null) 'disabled': disabled ? '1' : '0',
+    });
     return '${j['message']}';
   }
 }
