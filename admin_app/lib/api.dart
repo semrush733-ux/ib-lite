@@ -64,7 +64,8 @@ class Api {
 
   static Future<void> init() async {
     _p = await SharedPreferences.getInstance();
-    site = _p!.getString('site') ?? kDefaultSite;
+    // Built for one website (brand/brand.txt): always that one. Only a build without it asks.
+    site = kDefaultSite.isNotEmpty ? kDefaultSite : (_p!.getString('site') ?? '');
     token = _p!.getString('token') ?? '';
   }
 
@@ -117,7 +118,7 @@ class Api {
   }
 
   static Future<void> signIn(String siteInput, String user, String pass) async {
-    site = siteInput.trim();
+    site = kDefaultSite.isNotEmpty ? kDefaultSite : siteInput.trim();
     token = '';
     final j = await _call('/panel/login', body: {'username': user.trim(), 'password': pass});
     token = '${j['token']}';

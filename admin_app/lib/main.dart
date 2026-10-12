@@ -77,7 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _user = TextEditingController();
   final _pass = TextEditingController();
   bool _busy = false;
-  bool _showSite = Api.site.isEmpty;
+  // The website is fixed in the app; the field only appears in a build without one.
+  final bool _showSite = kDefaultSite.isEmpty;
   String? _error;
 
   Future<void> _go() async {
@@ -146,11 +147,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
                         : const Text('Sign in'),
                   ),
-                  if (!_showSite)
-                    TextButton(
-                      onPressed: () => setState(() => _showSite = true),
-                      child: Text('Website: ${Api.site}  ·  change', style: const TextStyle(color: _muted)),
+                  if (!_showSite) ...[
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF2ECC71)),
+                        const SizedBox(width: 6),
+                        Text('Connected to ${Api.site.replaceFirst(RegExp(r'^https?://'), '')}',
+                            style: const TextStyle(color: _muted)),
+                      ],
                     ),
+                  ],
                 ],
               ),
             ),
