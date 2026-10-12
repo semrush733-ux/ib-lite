@@ -1,0 +1,113 @@
+name: Admin Panel app
+
+# Builds the Admin Panel Android app (admin_app/) for resellers and providers.
+# Result: release "admin-latest" with AdminPanel.apk, signed with the same key secrets as the player.
+
+on:
+  push:
+    branches: [main]
+    paths: ['admin_app/**', '.github/workflows/admin.yml', 'brand/**']
+  workflow_dispatch:
+
+concurrency:
+  group: admin-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      HAS_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Website from the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          WEBSITE="$(get WEBSITE)"; WEBSITE="${WEBSITE%/}"
+          echo "SITE=$WEBSITE" >> "$GITHUB_ENV"
+          echo "website: ${WEBSITE:-(none - typed on the sign-in screen)}"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create the Android project
+        working-directory: admin_app
+        run: |
+          flutter create --platforms=android --org com.liteplayer --project-name lite_admin --no-pub .
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <application|' "$M"
+          sed -i 's|android:label="[^"]*"|android:label="Admin Panel"|' "$M"
+          grep -n "permission\|label" "$M"
+          # App icon: the brand symbol on the dark brand colour.
+          python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          sym = Image.open('../brand/icon.png').convert('RGBA')
+          bb = sym.getbbox()
+          if bb: sym = sym.crop(bb)
+          for name, k in {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}.items():
+              s = round(48 * k)
+              img = Image.new('RGBA', (s, s), (0, 0, 0, 0))
+              m = Image.new('L', (s, s), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, s - 1, s - 1], radius=round(s * .22), fill=255)
+              img.paste(Image.new('RGBA', (s, s), (20, 10, 13, 255)), (0, 0), m)
+              f = 0.66 * s / max(sym.size)
+              sm = sym.resize((max(1, round(sym.width * f)), max(1, round(sym.height * f))), Image.LANCZOS)
+              img.alpha_composite(sm, ((s - sm.width) // 2, (s - sm.height) // 2))
+              img.save('android/app/src/main/res/mipmap-%s/ic_launcher.png' % name)
+          PY
+
+      - name: Get packages
+        working-directory: admin_app
+        run: flutter pub get
+
+      - name: Check the code
+        working-directory: admin_app
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Build AdminPanel.apk
+        working-directory: admin_app
+        run: |
+          flutter build apk --release --build-name "1.0.${{ github.run_number }}" --build-number "${{ github.run_number }}" \
+            --dart-define=SITE="$SITE"
+          mkdir -p ../out && cp build/app/outputs/flutter-apk/app-release.apk ../out/AdminPanel.apk
+
+      - name: Sign with your own key
+        if: env.HAS_SIGNING == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "$RUNNER_TEMP/signed.apk" out/AdminPanel.apk
+          mv "$RUNNER_TEMP/signed.apk" out/AdminPanel.apk
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Publish to the "admin-latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Admin Panel - build #${{ github.run_number }}"
+          NOTES="Admin Panel app for resellers/providers. Website: ${SITE:-typed on sign-in}. Signed with own key: $HAS_SIGNING"
+          if gh release view admin-latest >/dev/null 2>&1; then
+            gh release upload admin-latest out/AdminPanel.apk --clobber
+            gh release edit admin-latest --title "$TITLE" --notes "$NOTES" --prerelease
+          else
+            gh release create admin-latest out/AdminPanel.apk --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES" --prerelease
+          fi

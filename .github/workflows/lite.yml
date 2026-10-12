@@ -17,7 +17,7 @@ name: Lite Player app
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md']
+    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml']
   # "Run workflow" button in GitHub Actions: rebuild with the icon set in the website admin.
   workflow_dispatch:
 
