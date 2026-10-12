@@ -1,0 +1,8 @@
+# The app's brand. Change these lines, push, and the next build uses them.
+# App name shown on the TV, in the launcher and inside the app.
+APP_NAME=Lite Player
+# Android package name. Keep it the same once customers have installed the app
+# (a new one installs as a separate app).
+PACKAGE_ID=com.liteplayer.tv
+# The app's own website (WordPress with the player plugin). Empty = not connected yet.
+WEBSITE=

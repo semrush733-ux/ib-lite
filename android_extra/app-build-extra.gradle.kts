@@ -1,0 +1,40 @@
+
+// ---- B1G: pack only the processor types this build is for (keeps the APK small) ----
+val b1gAbis: String? = System.getenv("B1G_ABIS")
+if (!b1gAbis.isNullOrBlank()) {
+    android {
+        defaultConfig {
+            ndk {
+                abiFilters.clear()
+                abiFilters.addAll(b1gAbis.split(",").map { it.trim() })
+            }
+        }
+    }
+}
+
+// ---- B1G: FileProvider (hands the downloaded update to Android's installer) ----
+dependencies {
+    implementation("androidx.core:core:1.13.1")
+}
+
+// ---- Cloud Player: second player engine, Google ExoPlayer (Media3) ----
+dependencies {
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
+}
+
+// ---- Cloud Player: VPN (WireGuard tunnel, the official WireGuard library) ----
+dependencies {
+    implementation("com.wireguard.android:tunnel:1.0.20230706")
+}
+
+// ---- Brand: the Android package name comes from brand/brand.txt (env APP_ID) ----
+val brandAppId: String? = System.getenv("APP_ID")
+if (!brandAppId.isNullOrBlank()) {
+    android {
+        defaultConfig {
+            applicationId = brandAppId
+        }
+    }
+}
