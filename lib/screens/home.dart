@@ -105,6 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
   /// The playlist on the website may have changed (e.g. the provider moved to a new server, or
   /// the username was changed in the admin panel): reopen it with the new details.
   Timer? _follow;
+  bool _pendingFollow = false;
+  (Source, XAccount)? _ready;
 
   Future<void> _followSite() async {
     final id = Store.playlistId;
@@ -116,20 +118,28 @@ class _HomeScreenState extends State<HomeScreen> {
         if (l.id == id) p = l;
       }
       if (p == null || !mounted) return;
-      final api = widget.api;
-      bool changed;
-      if (p.isXtream) {
-        changed = api is! XtreamApi ||
-            bareServer(parseServerInput(p.url).server) != bareServer(api.server) ||
-            p.username != api.username ||
-            p.password != api.password;
-      } else {
-        changed = api is! M3uSource || p.url != api.url;
+      // Compared with what the website said when this playlist was opened, not with the player's
+      // own connection (an M3U link opens through the Xtream API, http may become https…).
+      final sig = sitePlaylistSig(p);
+      final before = Store.playlistSig;
+      if (before.isEmpty) {
+        await Store.setPlaylistSig(sig); // first check after the update: this is what is open
+        return;
       }
-      if (!changed) return;
+      if (sig == before) return;
+      // Never pull the viewer out of a channel or film: wait until they are back on this screen.
+      if (!mounted || (ModalRoute.of(context)?.isCurrent ?? false) == false) {
+        _pendingFollow = true;
+        return;
+      }
       log('playlist changed on the website: reopening');
       final result = await openSitePlaylist(p);
       if (!mounted) return;
+      if (ModalRoute.of(context)?.isCurrent != true) {
+        _ready = result; // opened meanwhile: switched over when they come back
+        _pendingFollow = true;
+        return;
+      }
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => HomeScreen(api: result.$1, account: result.$2)),
         (_) => false,
@@ -153,13 +163,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _open(XKind kind) {
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => BrowseScreen(api: widget.api, kind: kind)));
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => BrowseScreen(api: widget.api, kind: kind)))
+        .then((_) => _afterBack());
+  }
+
+  /// Back on the home screen: a playlist change from the website that waited is applied now.
+  void _afterBack() {
+    if (!_pendingFollow || !mounted) return;
+    _pendingFollow = false;
+    final r = _ready;
+    _ready = null;
+    if (r == null) {
+      _followSite();
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => HomeScreen(api: r.$1, account: r.$2)),
+      (_) => false,
+    );
   }
 
   void _openCatchup() {
     final api = widget.api;
     if (api is XtreamApi) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CatchupScreen(api: api)));
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => CatchupScreen(api: api))).then((_) => _afterBack());
       return;
     }
     showDialog<void>(
@@ -475,10 +503,13 @@ class _HomeScreenState extends State<HomeScreen> {
 String playlistTitle(Source api) => Store.playlistName.isNotEmpty ? Store.playlistName : api.label;
 
 /// Signs in with a playlist added on the website and remembers it.
+String sitePlaylistSig(BPlaylist p) => '${p.url}|${p.username}|${p.password}';
+
 Future<(Source, XAccount)> openSitePlaylist(BPlaylist p) async {
   final opened = await _openSite(p);
   await Store.setPlaylistName(p.name);
   await Store.setPlaylistId(p.id);
+  await Store.setPlaylistSig(sitePlaylistSig(p));
   return opened;
 }
 
