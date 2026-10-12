@@ -23,6 +23,9 @@ class RemoteBrand {
 
   /// Name typed in the built-in start animation (website setting); '' = the app's own name.
   static String introName = '';
+
+  /// Name drawn next to the symbol in the app's logo (website setting); '' = the app's own name.
+  static String logoName = '';
   static int introSeconds = 4;
   static String iconPath = '', logoPath = '', introPath = '';
 
@@ -41,6 +44,7 @@ class RemoteBrand {
       introUrl = (m['introUrl'] ?? '').toString();
       introSeconds = int.tryParse('${m['introSeconds']}') ?? 4;
       introName = (m['introName'] ?? '').toString();
+      logoName = (m['logoName'] ?? '').toString();
       if (!kIsWeb) {
         iconPath = _existing((m['iconPath'] ?? '').toString());
         logoPath = _existing((m['logoPath'] ?? '').toString());
@@ -63,8 +67,9 @@ class RemoteBrand {
     final iUrl = (intro['url'] ?? '').toString().trim();
     final secs = (int.tryParse('${intro['seconds']}') ?? 4).clamp(2, 15).toInt();
     final iName = (brand['intro_name'] ?? '').toString().trim();
+    final lName = (brand['logo_name'] ?? '').toString().trim();
 
-    var changed = iName != introName || icon != iconUrl || logo != logoUrl || type != introType || iUrl != introUrl || secs != introSeconds;
+    var changed = lName != logoName || iName != introName || icon != iconUrl || logo != logoUrl || type != introType || iUrl != introUrl || secs != introSeconds;
     if (icon != iconUrl) iconPath = '';
     if (logo != logoUrl) logoPath = '';
     if (iUrl != introUrl) introPath = '';
@@ -74,6 +79,7 @@ class RemoteBrand {
     introUrl = iUrl;
     introSeconds = secs;
     introName = iName;
+    logoName = lName;
 
     if (!kIsWeb) {
       if (iconUrl.isNotEmpty && iconPath.isEmpty) {
@@ -97,6 +103,7 @@ class RemoteBrand {
           'introUrl': introUrl,
           'introSeconds': introSeconds,
           'introName': introName,
+          'logoName': logoName,
           'iconPath': iconPath,
           'logoPath': logoPath,
           'introPath': introPath,

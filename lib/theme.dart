@@ -45,41 +45,51 @@ class _NoTransitions extends PageTransitionsBuilder {
 
 void log(String message) => debugPrint('B1G $message');
 
-/// The brand logo (brand/logo.png, copied to assets/logo.png by the build);
-/// the app name in text when the picture is missing.
+/// The app's logo, drawn in code: the brand symbol and the name next to it (first word white,
+/// the rest red). Symbol and name come from the website (Settings -> App look) when set, so the
+/// logo is sharp on every screen and the app stays light.
 class Logo extends StatelessWidget {
   const Logo({super.key, this.size = 34});
   final double size;
 
   @override
   Widget build(BuildContext context) {
-    // The logo set on the website wins; the built-in one until it is downloaded.
     return ValueListenableBuilder<int>(
       valueListenable: RemoteBrand.changes,
       builder: (context, _, __) {
-        final remote = RemoteBrand.wideLogo;
-        Widget fallback(BuildContext c, Object e, StackTrace? st) => Text(
-              kAppName,
-              style: TextStyle(color: C.text, fontSize: size, fontWeight: FontWeight.w900),
-            );
+        final name = (RemoteBrand.logoName.isNotEmpty ? RemoteBrand.logoName : kAppName).trim();
+        final space = name.indexOf(' ');
+        final first = space > 0 ? name.substring(0, space) : name;
+        final rest = space > 0 ? name.substring(space) : '';
+        final symbol = RemoteBrand.symbol;
+        final h = size * 1.5;
+        Widget fallback(BuildContext c, Object e, StackTrace? st) => const SizedBox();
         return SizedBox(
-          height: size * 1.5,
-          child: remote != null
-              ? Image(
-                  image: remote,
-                  fit: BoxFit.contain,
-                  alignment: Alignment.centerLeft,
-                  filterQuality: FilterQuality.medium,
-                  errorBuilder: (c, e, st) => Image.asset('assets/logo.png',
-                      fit: BoxFit.contain, alignment: Alignment.centerLeft, errorBuilder: fallback),
-                )
-              : Image.asset(
-                  'assets/logo.png',
-                  fit: BoxFit.contain,
-                  alignment: Alignment.centerLeft,
-                  filterQuality: FilterQuality.medium,
-                  errorBuilder: fallback,
-                ),
+          height: h,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: h,
+                height: h,
+                child: symbol != null
+                    ? Image(image: symbol, fit: BoxFit.contain, filterQuality: FilterQuality.medium, errorBuilder: fallback)
+                    : Image.asset('assets/symbol.png',
+                        fit: BoxFit.contain, filterQuality: FilterQuality.medium, errorBuilder: fallback),
+              ),
+              SizedBox(width: size * 0.32),
+              // No Flexible: the logo also sits in rows without a width limit (top bars).
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: first, style: const TextStyle(color: Colors.white)),
+                  if (rest.isNotEmpty) TextSpan(text: rest, style: const TextStyle(color: C.accent)),
+                ]),
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(fontSize: size, fontWeight: FontWeight.w900, letterSpacing: -0.5, height: 1),
+              ),
+            ],
+          ),
         );
       },
     );

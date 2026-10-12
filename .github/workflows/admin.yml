@@ -74,13 +74,17 @@ jobs:
 
       - name: Check the code
         working-directory: admin_app
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        run: |
+          mkdir -p ../out
+          set -o pipefail
+          flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee ../out/analyze.log
 
       - name: Build AdminPanel.apk
         working-directory: admin_app
         run: |
+          set -o pipefail
           flutter build apk --release --build-name "1.0.${{ github.run_number }}" --build-number "${{ github.run_number }}" \
-            --dart-define=SITE="$SITE"
+            --dart-define=SITE="$SITE" 2>&1 | tee ../out/build.log
           mkdir -p ../out && cp build/app/outputs/flutter-apk/app-release.apk ../out/AdminPanel.apk
 
       - name: Sign with your own key
@@ -100,14 +104,25 @@ jobs:
           rm -f "$RUNNER_TEMP/release.jks"
 
       - name: Publish to the "admin-latest" release
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TITLE="Admin Panel - build #${{ github.run_number }}"
-          NOTES="Admin Panel app for resellers/providers. Website: ${SITE:-typed on sign-in}. Signed with own key: $HAS_SIGNING"
+          FILES=""
+          [ -f out/AdminPanel.apk ] && FILES="out/AdminPanel.apk"
+          [ -z "$FILES" ] && TITLE="$TITLE FAILED"
+          {
+            echo "Admin Panel app for resellers/providers. Website: ${SITE:-typed on sign-in}. Signed with own key: $HAS_SIGNING"
+            echo
+            echo '### Errors'
+            echo '```'
+            grep -h -E "error •|Error:|error:" out/analyze.log out/build.log 2>/dev/null | head -40 || true
+            echo '```'
+          } > out/NOTES.md
           if gh release view admin-latest >/dev/null 2>&1; then
-            gh release upload admin-latest out/AdminPanel.apk --clobber
-            gh release edit admin-latest --title "$TITLE" --notes "$NOTES" --prerelease
+            [ -n "$FILES" ] && gh release upload admin-latest $FILES --clobber
+            gh release edit admin-latest --title "$TITLE" --notes-file out/NOTES.md --prerelease
           else
-            gh release create admin-latest out/AdminPanel.apk --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES" --prerelease
+            gh release create admin-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md --prerelease
           fi

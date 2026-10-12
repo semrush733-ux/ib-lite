@@ -1,0 +1,4 @@
+# The Admin Panel app (admin_app/) is a separate project with its own packages.
+analyzer:
+  exclude:
+    - admin_app/**
