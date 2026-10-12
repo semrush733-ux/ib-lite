@@ -858,7 +858,49 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   final _src = TextEditingController();
+  final _old = TextEditingController();
+  final _new = TextEditingController();
   bool _busy = false;
+
+  /// Checks how many playlists use the old server, asks, then replaces only those.
+  Future<void> _replace() async {
+    final o = _old.text.trim(), n = _new.text.trim();
+    if (o.isEmpty || n.isEmpty) {
+      toast(context, 'Enter the old and the new server.', error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final (found, count) = await Api.replaceServer(o, n, dryRun: true);
+      if (!mounted) return;
+      if (count == 0) {
+        toast(context, 'No playlist uses $o.', error: true);
+        return;
+      }
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Replace server?'),
+          content: Text('$found\n\nThey move to:\n$n\n\nPlaylists on other servers stay as they are.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Replace')),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+      final (msg, _) = await Api.replaceServer(o, n);
+      if (!mounted) return;
+      toast(context, msg);
+      _old.clear();
+      _new.clear();
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -868,6 +910,45 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         const Text('Settings', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
         const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(16), border: Border.all(color: _line)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Replace server', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              Text(
+                (Api.profile?.isSuper ?? false)
+                    ? 'Every playlist on the website that uses the old server moves to the new one. Playlists on other servers are not touched.'
+                    : 'Your clients\' playlists that use the old server move to the new one. Playlists on other servers are not touched.',
+                style: const TextStyle(color: _muted, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _old,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(labelText: 'Old server', hintText: 'http://old-domain.tt:8080', prefixIcon: Icon(Icons.dns_outlined)),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _new,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(labelText: 'New server', hintText: 'http://new-domain.tt:8080', prefixIcon: Icon(Icons.dns)),
+              ),
+              const SizedBox(height: 6),
+              const Text('Without a port (http://old-domain.tt) every port of that domain is replaced.',
+                  style: TextStyle(color: _muted, fontSize: 12.5)),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _busy ? null : _replace,
+                icon: const Icon(Icons.swap_horiz_rounded),
+                label: const Text('Find and replace'),
+              ),
+            ],
+          ),
+        ),
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(16), border: Border.all(color: _line)),

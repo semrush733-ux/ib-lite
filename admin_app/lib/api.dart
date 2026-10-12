@@ -140,7 +140,7 @@ class Api {
     }
     if (j['code'] == 'rest_no_route' || (res.statusCode == 404 && j['success'] == null)) {
       throw ApiException(
-          'The website is running an old Lite Player plugin. Install Lite Player plugin 1.0.15 '
+          'The website is running an old Lite Player plugin. Install Lite Player plugin 1.0.17 '
           '(WordPress → Plugins → Add New → Upload), then sign out and sign in again here.',
           404);
     }
@@ -180,6 +180,13 @@ class Api {
     final j = await _call('/panel/settings', body: {'source': source});
     profile = Profile(j['profile'] as Map<String, dynamic>);
     return '${j['message'] ?? 'Saved.'}';
+  }
+
+  /// Old server → new server, only for playlists that use the old one. [dryRun] only counts.
+  static Future<(String, int)> replaceServer(String oldServer, String newServer, {bool dryRun = false}) async {
+    final j = await _call('/panel/replace-server', body: {'old': oldServer, 'new': newServer, 'dry_run': dryRun ? 1 : 0});
+    if (j['profile'] is Map) profile = Profile(j['profile'] as Map<String, dynamic>);
+    return ('${j['message'] ?? ''}', (j['changed'] as num?)?.toInt() ?? 0);
   }
 
   static Future<(Device, List<TvPlaylist>)> lookup(String mac, String key) async {
