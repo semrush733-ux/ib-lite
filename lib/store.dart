@@ -60,8 +60,13 @@ class Store {
   static String get playlistName => _p.getString('playlist_name') ?? '';
   static Future<void> setPlaylistName(String name) => _p.setString('playlist_name', name);
 
+  /// Website id of the open playlist (0 when signed in by hand): the app follows changes to it.
+  static int get playlistId => _p.getInt('playlist_id') ?? 0;
+  static Future<void> setPlaylistId(int id) => _p.setInt('playlist_id', id);
+
   static Future<void> saveSession(String server, String username, String password, {bool viaSite = false}) async {
     await _p.remove('playlist_name'); // set again by openSitePlaylist for website playlists
+    await _p.remove('playlist_id');
     await _switchAccount('xtream|$server|$username');
     await _p.setString('mode', 'xtream');
     await _p.setString('server', server);
@@ -79,6 +84,7 @@ class Store {
 
   static Future<void> saveM3uSession(String url, {String epgUrl = ''}) async {
     await _p.remove('playlist_name');
+    await _p.remove('playlist_id');
     await _switchAccount('m3u|$url');
     await _p.setString('mode', 'm3u');
     await _p.setString('m3u_url', url);

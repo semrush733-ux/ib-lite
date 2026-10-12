@@ -55,6 +55,9 @@ class _HomeScreenState extends State<HomeScreen> {
     ListPrefetch.start(widget.api);
     Backend.changes.addListener(_onBackendChange);
     if (_account == null) _refreshAccount();
+    // A few seconds after start: pick up a new server / login set on the website.
+    Timer(const Duration(seconds: 6), _followSite);
+    _follow = Timer.periodic(const Duration(minutes: 20), (_) => _followSite());
     Weather.refresh().then((_) {
       if (mounted) setState(() {});
     });
@@ -69,6 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _tick?.cancel();
+    _follow?.cancel();
     Backend.changes.removeListener(_onBackendChange);
     super.dispose();
   }
@@ -98,11 +102,49 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// The playlist on the website may have changed (e.g. the provider moved to a new server, or
+  /// the username was changed in the admin panel): reopen it with the new details.
+  Timer? _follow;
+
+  Future<void> _followSite() async {
+    final id = Store.playlistId;
+    if (id <= 0 || !Backend.configured) return;
+    try {
+      final lists = await Backend.playlists();
+      BPlaylist? p;
+      for (final l in lists) {
+        if (l.id == id) p = l;
+      }
+      if (p == null || !mounted) return;
+      final api = widget.api;
+      bool changed;
+      if (p.isXtream) {
+        changed = api is! XtreamApi ||
+            bareServer(parseServerInput(p.url).server) != bareServer(api.server) ||
+            p.username != api.username ||
+            p.password != api.password;
+      } else {
+        changed = api is! M3uSource || p.url != api.url;
+      }
+      if (!changed) return;
+      log('playlist changed on the website: reopening');
+      final result = await openSitePlaylist(p);
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => HomeScreen(api: result.$1, account: result.$2)),
+        (_) => false,
+      );
+    } catch (e) {
+      log('follow website playlist: ${e.runtimeType}');
+    }
+  }
+
   /// The round-arrow button: checks the playlist and the website again.
   Future<void> _reload() async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     await Future.wait([
+      _followSite(),
       _refreshAccount(),
       Backend.refreshStatus().catchError((Object _) {}),
       Backend.loadConfig().catchError((Object _) {}),
@@ -436,6 +478,7 @@ String playlistTitle(Source api) => Store.playlistName.isNotEmpty ? Store.playli
 Future<(Source, XAccount)> openSitePlaylist(BPlaylist p) async {
   final opened = await _openSite(p);
   await Store.setPlaylistName(p.name);
+  await Store.setPlaylistId(p.id);
   return opened;
 }
 
