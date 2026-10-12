@@ -57,8 +57,8 @@ const _colors = {
   _Section.info: Color(0xFFFFC400),
 };
 
-/// App settings, opened from the gear on the home screen: the menu on the left, the chosen
-/// section on the right. The icons spin in once when the page opens.
+/// App settings, opened from the gear on the home screen: a box for every section; a box opens
+/// that section on its own page, and Back (button or remote) returns to the boxes.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.api});
   final Source api;
@@ -68,7 +68,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  _Section _section = _Section.network;
+  _Section? _section;
+  _Section? _last;
   XKind _kind = XKind.live;
   final Map<XKind, List<XCategory>> _cats = {};
   final Map<XKind, String> _catsError = {};
@@ -94,67 +95,115 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _open(_Section s) {
-    if (s == _section) return;
-    setState(() => _section = s);
+    setState(() {
+      _section = s;
+      _last = s;
+    });
     if (s == _Section.parental || s == _Section.categories) _loadCats(_kind);
   }
+
+  /// From a section page back to the boxes (the remote's Back key does the same).
+  void _close() => setState(() => _section = null);
 
   // ------------------------------------------------------------------- build
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    final small = MediaQuery.of(context).size.width < 900;
+    final section = _section;
+    return PopScope(
+      canPop: section == null,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _section != null) _close();
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: small ? const EdgeInsets.fromLTRB(18, 16, 18, 10) : const EdgeInsets.fromLTRB(44, 30, 44, 22),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: section == null ? _grid(small) : _page(section),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _backButton(VoidCallback onTap, {bool autofocus = false}) => TvFocus(
+        autofocus: autofocus,
+        radius: 24,
+        color: C.panel,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.arrow_back_rounded, color: C.text, size: 22),
+              const SizedBox(width: 8),
+              Text(t('Back'), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+      );
+
+  /// The settings home: one box per section.
+  Widget _grid(bool small) {
+    return Column(
+      key: const ValueKey('grid'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Container(
-              width: MediaQuery.of(context).size.width < 900 ? 240 : 300,
-              color: C.panel,
-              padding: const EdgeInsets.fromLTRB(14, 18, 14, 10),
-              // A scrolling list, so every option can be reached on small (phone) screens too.
-              child: ListView(
+            _backButton(() => Navigator.of(context).maybePop()),
+            const SizedBox(width: 18),
+            const _OnceIcon(icon: Icons.settings_rounded, color: C.accent, size: 30, order: 0),
+            const SizedBox(width: 12),
+            Text(t('Settings'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Expanded(
+          child: LayoutBuilder(builder: (context, box) {
+            final cols = box.maxWidth < 560 ? 2 : (box.maxWidth < 900 ? 3 : 5);
+            const gap = 16.0;
+            final w = (box.maxWidth - gap * (cols - 1)) / cols;
+            return SingleChildScrollView(
+              child: Wrap(
+                spacing: gap,
+                runSpacing: gap,
                 children: [
-                  Row(
-                    children: [
-                      TvFocus(
-                        radius: 20,
-                        color: C.panel,
-                        onTap: () => Navigator.of(context).maybePop(),
-                        child: const Padding(
-                          padding: EdgeInsets.all(6),
-                          child: Icon(Icons.arrow_back_rounded, color: C.text, size: 24),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const _OnceIcon(icon: Icons.settings_rounded, color: C.accent, size: 28, order: 0),
-                      const SizedBox(width: 12),
-                      Text(t('Settings'), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-                    ],
-                  ),
-                  const SizedBox(height: 22),
                   for (final s in _Section.values)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                    SizedBox(
+                      width: w,
+                      height: small ? 120 : 150,
                       child: TvFocus(
-                        autofocus: s == _Section.network,
-                        selected: s == _section,
-                        radius: 11,
+                        autofocus: s == (_last ?? _Section.network),
+                        radius: 18,
                         color: C.panel,
-                        onFocus: () => _open(s),
                         onTap: () => _open(s),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                          child: Row(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [_colors[s]!.withValues(alpha: 0.22), C.panel],
+                            ),
+                            border: Border.all(color: const Color(0x22FFFFFF)),
+                          ),
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _OnceIcon(icon: _icons[s]!, color: _colors[s]!, size: 24, order: s.index + 1),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(t(_titles[s]!),
-                                    style: TextStyle(
-                                        fontSize: 15.5,
-                                        fontWeight: s == _section ? FontWeight.w800 : FontWeight.w600)),
-                              ),
+                              _OnceIcon(icon: _icons[s]!, color: _colors[s]!, size: small ? 34 : 42, order: s.index + 1),
+                              const SizedBox(height: 12),
+                              Text(t(_titles[s]!),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontSize: small ? 14.5 : 16, fontWeight: FontWeight.w700)),
                             ],
                           ),
                         ),
@@ -162,41 +211,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                 ],
               ),
-            ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  /// One section on its own page, with Back to the boxes.
+  Widget _page(_Section s) {
+    return Column(
+      key: ValueKey(s),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _backButton(_close, autofocus: true),
+            const SizedBox(width: 18),
+            _OnceIcon(icon: _icons[s]!, color: _colors[s]!, size: 32, order: 0),
+            const SizedBox(width: 12),
             Expanded(
-              child: Padding(
-                padding: MediaQuery.of(context).size.width < 900
-                    ? const EdgeInsets.fromLTRB(18, 16, 16, 10)
-                    : const EdgeInsets.fromLTRB(36, 28, 36, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _OnceIcon(
-                            key: ValueKey(_section),
-                            icon: _icons[_section]!,
-                            color: _colors[_section]!,
-                            size: 34,
-                            order: 0),
-                        const SizedBox(width: 14),
-                        Text(t(_titles[_section]!), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-                    Expanded(child: _body()),
-                  ],
-                ),
-              ),
+              child: Text(t(_titles[s]!),
+                  overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 22),
+        Expanded(child: _body()),
+      ],
     );
   }
 
   Widget _body() {
-    switch (_section) {
+    switch (_section!) {
       case _Section.network:
         return const _NetworkPanel();
       case _Section.vpn:

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 
 import 'theme.dart';
@@ -398,38 +397,21 @@ class Loading extends StatefulWidget {
   const Loading({super.key, this.label, this.expected = const Duration(milliseconds: 2500)});
   final String? label;
 
-  /// Roughly how long this kind of loading takes; sets how fast the number climbs.
+  /// Kept for callers; the dots do not show progress.
   final Duration expected;
 
   @override
   State<Loading> createState() => _LoadingState();
 }
 
-/// A ring that fills while a number counts from 1 towards 100.
-///
-/// Neither a list request nor a stream that is still connecting reports how far along it is, so
-/// the number is an estimate: quick at first, slower the longer it takes, and it never claims
-/// 100 before the content is really there (the content then replaces the ring).
+/// Three dots in a row that hop up and down one after another while something loads.
 class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
-  late final Ticker _ticker;
-  final ValueNotifier<int> _percent = ValueNotifier<int>(1);
-
-  @override
-  void initState() {
-    super.initState();
-    _ticker = createTicker((elapsed) {
-      final t = elapsed.inMilliseconds / widget.expected.inMilliseconds.clamp(300, 60000);
-      // 63 % after the expected time, 86 % after twice that, 95 % after three times.
-      final value = (1 + 98 * (1 - math.exp(-t))).floor().clamp(1, 99).toInt();
-      if (value != _percent.value) _percent.value = value;
-    })
-      ..start();
-  }
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat();
 
   @override
   void dispose() {
-    _ticker.dispose();
-    _percent.dispose();
+    _c.dispose();
     super.dispose();
   }
 
@@ -439,43 +421,42 @@ class _LoadingState extends State<Loading> with SingleTickerProviderStateMixin {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ValueListenableBuilder<int>(
-            valueListenable: _percent,
-            builder: (context, percent, _) => SizedBox(
-              width: 64,
-              height: 64,
-              child: Stack(
-                fit: StackFit.expand,
-                alignment: Alignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    value: percent / 100,
-                    strokeWidth: 4,
-                    strokeCap: StrokeCap.round,
-                    color: C.accent,
-                    backgroundColor: const Color(0x33FFFFFF),
-                  ),
-                  Center(
-                    child: Text(
-                      '$percent%',
-                      style: const TextStyle(
-                        color: C.text,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 6)],
-                      ),
-                    ),
-                  ),
-                ],
+          SizedBox(
+            width: 76,
+            height: 44,
+            child: AnimatedBuilder(
+              animation: _c,
+              builder: (context, _) => Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [for (var i = 0; i < 3; i++) _dot(i)],
               ),
             ),
           ),
           if (widget.label != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             Text(widget.label!,
                 style: const TextStyle(color: C.dim, fontSize: 14, shadows: [Shadow(color: Colors.black, blurRadius: 6)])),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _dot(int i) {
+    // Each dot starts a little later than the one before it.
+    final t = (_c.value - i * 0.16) % 1.0;
+    final up = t < 0.5 ? math.sin(t * 2 * math.pi) : 0.0;
+    final lift = up < 0 ? 0.0 : up;
+    return Transform.translate(
+      offset: Offset(0, 8 - 16 * lift),
+      child: Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          color: Color.lerp(const Color(0xFFFF8A90), C.accent, 1 - lift),
+          shape: BoxShape.circle,
+          boxShadow: const [BoxShadow(color: Color(0x88000000), blurRadius: 6)],
+        ),
       ),
     );
   }
