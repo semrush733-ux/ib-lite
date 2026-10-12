@@ -24,8 +24,11 @@ class Profile {
         clients = j['clients'] is num ? (j['clients'] as num).toInt() : 0,
         brand = '${j['brand'] ?? ''}',
         level = '${j['level'] ?? 'reseller'}',
-        canCreate = [for (final l in (j['can_create'] as List? ?? const [])) '$l'];
-  final String name, role, server, m3u, brand, level;
+        version = '${j['version'] ?? ''}',
+        canCreate = j['can_create'] is List
+            ? [for (final l in j['can_create'] as List) '$l']
+            : (j['role'] == 'super' ? const ['admin', 'reseller', 'subreseller'] : const ['subreseller']);
+  final String name, role, server, m3u, brand, level, version;
   final List<String> canCreate;
   final int? credits;
   final int clients;
@@ -119,6 +122,12 @@ class Api {
     }
     if (res.statusCode == 401) {
       await signOut(local: true);
+    }
+    if (j['code'] == 'rest_no_route' || (res.statusCode == 404 && j['success'] == null)) {
+      throw ApiException(
+          'The website is running an old Lite Player plugin. Install Lite Player plugin 1.0.14 '
+          '(WordPress → Plugins → Add New → Upload), then sign out and sign in again here.',
+          404);
     }
     if (j['success'] != true) {
       throw ApiException('${j['message'] ?? 'Something went wrong.'}', res.statusCode);

@@ -198,7 +198,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     // Sub-resellers create no accounts: no Users tab for them.
-    final showUsers = Api.profile?.canCreate.isNotEmpty ?? false;
+    final showUsers = Api.profile == null || Api.profile!.canCreate.isNotEmpty;
     final pages = [
       ClientsPage(key: _clientsKey),
       AddClientPage(onAdded: () {
@@ -779,6 +779,9 @@ class _SettingsPageState extends State<SettingsPage> {
               _Info(label: 'Now', value: (p?.server.isNotEmpty ?? false) ? p!.server : 'not set'),
               if ((p?.m3u ?? '').isNotEmpty) _Info(label: 'M3U link', value: p!.m3u),
               _Info(label: 'Clients', value: '${p?.clients ?? 0}'),
+              _Info(
+                  label: 'Website plugin',
+                  value: (p?.version.isNotEmpty ?? false) ? p!.version : 'old version, please update to 1.0.14'),
               const SizedBox(height: 12),
               TextField(
                 controller: _src,
