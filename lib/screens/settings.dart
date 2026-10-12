@@ -644,7 +644,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ['Application', kAppName],
       ['Version', Backend.appVersionName.isEmpty ? '—' : Backend.appVersionName],
       ['Version code', Backend.appVersionCode > 0 ? '${Backend.appVersionCode}' : '—'],
-      ['Device ID', Backend.deviceId.isEmpty ? '—' : Backend.deviceId],
+      ['MAC Address', Backend.deviceId.isEmpty ? '—' : Backend.deviceId],
       ['Licence', Backend.statusLine.isEmpty ? '—' : Backend.statusLine],
       ['Expires', expiry],
       ['Playlist', widget.api.label],

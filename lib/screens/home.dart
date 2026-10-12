@@ -381,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _InfoBox(
                   lines: [
-                    'Device ID: ${Backend.deviceId.isEmpty ? '—' : Backend.deviceId}',
+                    'MAC Address: ${Backend.deviceId.isEmpty ? '—' : Backend.deviceId}',
                     'Device Key: ${Backend.pairingCode.isEmpty ? '—' : Backend.pairingCode}',
                     'Application Expiry: $_appExpiry',
                   ],

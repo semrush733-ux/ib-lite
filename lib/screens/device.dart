@@ -366,10 +366,10 @@ class DeviceCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _value('DEVICE ID', Backend.deviceId),
+                _value('MAC ADDRESS', Backend.deviceId),
                 if (showPairing) ...[
                   const SizedBox(height: 10),
-                  _value('PAIRING CODE', Backend.pairingCode),
+                  _value('DEVICE KEY', Backend.pairingCode),
                 ],
                 if (Backend.statusLine.isNotEmpty) ...[
                   const SizedBox(height: 10),
