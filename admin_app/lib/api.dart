@@ -46,13 +46,19 @@ class Client {
         name = '${j['name'] ?? ''}',
         type = '${j['type'] ?? 'xtream'}',
         username = '${j['username'] ?? ''}',
+        url = '${j['url'] ?? ''}',
+        locked = j['locked'] == true,
         deviceId = '${j['device_id'] ?? ''}',
         status = '${j['status'] ?? ''}',
         plan = '${j['plan'] ?? ''}',
         expires = '${j['expires'] ?? ''}',
         lastSeen = '${j['last_seen'] ?? ''}';
   final int id;
-  final String name, type, username, deviceId, status, plan, expires, lastSeen;
+  final String name, type, username, url, deviceId, status, plan, expires, lastSeen;
+  final bool locked;
+
+  /// What to show as the client's title: the login, or the playlist name for an M3U link.
+  String get title => username.isNotEmpty ? username : name;
 }
 
 class Api {
@@ -166,6 +172,8 @@ class Api {
     required String username,
     required String password,
     required String type,
+    String m3uUrl = '',
+    String pin = '',
   }) async {
     final j = await _call('/panel/clients/add', body: {
       'device_id': mac,
@@ -174,13 +182,19 @@ class Api {
       'username': username,
       'password': password,
       'type': type,
+      'm3u_url': m3uUrl,
+      'pin': pin,
     });
     return '${j['message']}';
   }
 
-  static Future<String> updateClient(int id, {String? name, String? username, String? password, String? type}) async {
+  static Future<String> updateClient(int id,
+      {String? name, String? username, String? password, String? type, String? m3uUrl, String? pin, bool removePin = false}) async {
     final j = await _call('/panel/clients/update', body: {
       'playlist_id': id,
+      if (m3uUrl != null && m3uUrl.isNotEmpty) 'm3u_url': m3uUrl,
+      if (pin != null && pin.isNotEmpty) 'pin': pin,
+      if (removePin) 'remove_pin': '1',
       if (name != null) 'name': name,
       if (username != null) 'username': username,
       if (password != null && password.isNotEmpty) 'password': password,

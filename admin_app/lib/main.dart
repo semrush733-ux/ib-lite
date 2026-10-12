@@ -358,9 +358,12 @@ class _ClientCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(c.username, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    Row(children: [
+                      Flexible(child: Text(c.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+                      if (c.locked) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.lock_rounded, size: 15, color: _muted)),
+                    ]),
                     const SizedBox(height: 2),
-                    Text('${c.deviceId}  ·  ${c.name}', style: const TextStyle(color: _muted, fontSize: 12.5)),
+                    Text('${c.deviceId}  ·  ${c.type == 'm3u' ? 'M3U' : 'Xtream'}${c.username.isNotEmpty ? '  ·  ${c.name}' : ''}', style: const TextStyle(color: _muted, fontSize: 12.5)),
                   ],
                 ),
               ),
@@ -393,6 +396,9 @@ class _ClientSheetState extends State<ClientSheet> {
   late final _name = TextEditingController(text: widget.c.name);
   late final _user = TextEditingController(text: widget.c.username);
   final _pass = TextEditingController();
+  late final _link = TextEditingController(text: widget.c.url);
+  final _pin = TextEditingController();
+  bool _removePin = false;
   late String _type = widget.c.type;
   bool _busy = false;
 
@@ -420,23 +426,59 @@ class _ClientSheetState extends State<ClientSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(c.username, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            Text(c.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             Text('MAC ${c.deviceId}  ·  ${c.status}${c.plan == 'lifetime' ? ' (lifetime)' : c.expires.isNotEmpty ? ' until ${_short(c.expires)}' : ''}',
                 style: const TextStyle(color: _muted)),
             const SizedBox(height: 18),
             TextField(controller: _name, decoration: const InputDecoration(labelText: 'Playlist name on the TV')),
             const SizedBox(height: 12),
-            TextField(controller: _user, decoration: const InputDecoration(labelText: 'Username')),
-            const SizedBox(height: 12),
-            TextField(controller: _pass, decoration: const InputDecoration(labelText: 'New password (empty = keep)')),
-            const SizedBox(height: 12),
             _TypePicker(value: _type, onChanged: (v) => setState(() => _type = v)),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            if (_type == 'm3u' && (c.url.isNotEmpty || c.username.isEmpty || c.type != 'm3u')) ...[
+              TextField(
+                controller: _link,
+                minLines: 1,
+                maxLines: 3,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(labelText: 'M3U link', prefixIcon: Icon(Icons.link)),
+              ),
+            ] else ...[
+              TextField(controller: _user, decoration: const InputDecoration(labelText: 'Username')),
+              const SizedBox(height: 12),
+              TextField(controller: _pass, decoration: const InputDecoration(labelText: 'New password (empty = keep)')),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _pin,
+              keyboardType: TextInputType.number,
+              maxLength: 4,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: c.locked ? 'New PIN (empty = keep)' : 'PIN lock (optional, 4 digits)',
+                prefixIcon: const Icon(Icons.pin),
+                counterText: '',
+              ),
+            ),
+            if (c.locked)
+              CheckboxListTile(
+                value: _removePin,
+                onChanged: (v) => setState(() => _removePin = v ?? false),
+                title: const Text('Remove the PIN lock'),
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            const SizedBox(height: 12),
             FilledButton(
               onPressed: _busy
                   ? null
                   : () => _run(() => Api.updateClient(c.id,
-                      name: _name.text.trim(), username: _user.text.trim(), password: _pass.text, type: _type)),
+                      name: _name.text.trim(),
+                      username: _user.text.trim(),
+                      password: _pass.text,
+                      type: _type,
+                      m3uUrl: _type == 'm3u' ? _link.text.trim() : null,
+                      pin: _pin.text.trim(),
+                      removePin: _removePin)),
               child: const Text('Save changes'),
             ),
             const SizedBox(height: 18),
@@ -505,6 +547,8 @@ class _AddClientPageState extends State<AddClientPage> {
   final _name = TextEditingController();
   final _user = TextEditingController();
   final _pass = TextEditingController();
+  final _link = TextEditingController();
+  final _pin = TextEditingController();
   String _type = 'xtream';
   Device? _device;
   bool _busy = false;
@@ -545,10 +589,12 @@ class _AddClientPageState extends State<AddClientPage> {
         username: _user.text.trim(),
         password: _pass.text,
         type: _type,
+        m3uUrl: _link.text.trim(),
+        pin: _pin.text.trim(),
       );
       if (!mounted) return;
       toast(context, m);
-      for (final c in [_mac, _key, _name, _user, _pass]) {
+      for (final c in [_mac, _key, _name, _user, _pass, _link, _pin]) {
         c.clear();
       }
       setState(() => _device = null);
@@ -636,13 +682,49 @@ class _AddClientPageState extends State<AddClientPage> {
             ),
           ),
           const SizedBox(height: 16),
-          TextField(controller: _user, decoration: const InputDecoration(labelText: 'Client username', prefixIcon: Icon(Icons.person))),
-          const SizedBox(height: 12),
-          TextField(controller: _pass, decoration: const InputDecoration(labelText: 'Client password', prefixIcon: Icon(Icons.password))),
-          const SizedBox(height: 12),
-          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Playlist name on the TV (optional)')),
-          const SizedBox(height: 12),
           _TypePicker(value: _type, onChanged: (v) => setState(() => _type = v)),
+          const SizedBox(height: 14),
+          if (_type == 'm3u') ...[
+            TextField(
+              controller: _name,
+              decoration: const InputDecoration(labelText: 'Playlist name', prefixIcon: Icon(Icons.label_rounded)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _link,
+              minLines: 1,
+              maxLines: 3,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                labelText: 'M3U link',
+                hintText: 'http://server/get.php?username=…&password=…&type=m3u_plus',
+                prefixIcon: Icon(Icons.link),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(top: 6, left: 4),
+              child: Text('A link from your own server follows your server changes automatically.',
+                  style: TextStyle(color: _muted, fontSize: 12.5)),
+            ),
+          ] else ...[
+            TextField(controller: _user, decoration: const InputDecoration(labelText: 'Client username', prefixIcon: Icon(Icons.person))),
+            const SizedBox(height: 12),
+            TextField(controller: _pass, decoration: const InputDecoration(labelText: 'Client password', prefixIcon: Icon(Icons.password))),
+            const SizedBox(height: 12),
+            TextField(controller: _name, decoration: const InputDecoration(labelText: 'Playlist name on the TV (optional)')),
+          ],
+          const SizedBox(height: 12),
+          TextField(
+            controller: _pin,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'PIN lock (optional, 4 digits)',
+              prefixIcon: Icon(Icons.pin),
+              counterText: '',
+            ),
+          ),
           const SizedBox(height: 18),
           FilledButton(onPressed: _busy ? null : _add, child: const Text('Add to this TV')),
         ],
