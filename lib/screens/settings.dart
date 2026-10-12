@@ -34,27 +34,28 @@ const _titles = {
 const _icons = {
   _Section.network: Icons.wifi_rounded,
   _Section.vpn: Icons.vpn_lock_rounded,
-  _Section.vod: Icons.movie_filter_rounded,
+  _Section.vod: Icons.movie_creation_rounded,
   _Section.live: Icons.live_tv_rounded,
-  _Section.parental: Icons.shield_rounded,
-  _Section.wallpaper: Icons.wallpaper_rounded,
+  _Section.parental: Icons.family_restroom_rounded,
+  _Section.wallpaper: Icons.photo_library_rounded,
   _Section.language: Icons.translate_rounded,
-  _Section.categories: Icons.checklist_rounded,
+  _Section.categories: Icons.dashboard_customize_rounded,
   _Section.cache: Icons.cleaning_services_rounded,
   _Section.info: Icons.info_rounded,
 };
 
+// Each section has its own colour, like the app icons on a phone.
 const _colors = {
-  _Section.network: Color(0xFF35A7FF),
-  _Section.vpn: Color(0xFF2ECC71),
-  _Section.vod: Color(0xFFFF9F1C),
-  _Section.live: Color(0xFFFF5A5F),
-  _Section.parental: Color(0xFF2ECC71),
-  _Section.wallpaper: Color(0xFFFF4FD8),
-  _Section.language: Color(0xFF35D6C4),
-  _Section.categories: Color(0xFF4AA3FF),
-  _Section.cache: Color(0xFFB37BFF),
-  _Section.info: Color(0xFFFFC400),
+  _Section.network: Color(0xFF1E88FF),
+  _Section.vpn: Color(0xFF14B8A6),
+  _Section.vod: Color(0xFFFF8A00),
+  _Section.live: Color(0xFFFF3B4E),
+  _Section.parental: Color(0xFF22C55E),
+  _Section.wallpaper: Color(0xFFD946EF),
+  _Section.language: Color(0xFF06B6D4),
+  _Section.categories: Color(0xFF6366F1),
+  _Section.cache: Color(0xFF8B5CF6),
+  _Section.info: Color(0xFFF5B400),
 };
 
 /// App settings, opened from the gear on the home screen: a box for every section; a box opens
@@ -158,7 +159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             _backButton(() => Navigator.of(context).maybePop()),
             const SizedBox(width: 18),
-            const _OnceIcon(icon: Icons.settings_rounded, color: C.accent, size: 30, order: 0),
+            const _OnceIcon(icon: Icons.settings_rounded, color: C.accent, size: 24, order: 0),
             const SizedBox(width: 12),
             Text(t('Settings'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
           ],
@@ -192,7 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             gradient: LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [_colors[s]!.withValues(alpha: 0.22), C.panel],
+                              colors: [Color.alphaBlend(_colors[s]!.withValues(alpha: 0.10), const Color(0xFF221A1D)), const Color(0xFF151012)],
                             ),
                             border: Border.all(color: const Color(0x22FFFFFF)),
                           ),
@@ -200,7 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _OnceIcon(icon: _icons[s]!, color: _colors[s]!, size: small ? 34 : 42, order: s.index + 1),
+                              _OnceIcon(icon: _icons[s]!, color: _colors[s]!, size: small ? 28 : 36, order: s.index + 1),
                               const SizedBox(height: 12),
                               Text(t(_titles[s]!),
                                   textAlign: TextAlign.center,
@@ -231,7 +232,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             _backButton(_close, autofocus: true),
             const SizedBox(width: 18),
-            _OnceIcon(icon: _icons[s]!, color: _colors[s]!, size: 32, order: 0),
+            _OnceIcon(icon: _icons[s]!, color: _colors[s]!, size: 24, order: 0),
             const SizedBox(width: 12),
             Expanded(
               child: Text(t(_titles[s]!),
@@ -857,7 +858,64 @@ class _OnceIconState extends State<_OnceIcon> with SingleTickerProviderStateMixi
           child: Transform(alignment: Alignment.center, transform: m, child: child),
         );
       },
-      child: Icon(widget.icon, color: widget.color, size: widget.size),
+      child: SettingsBadge(icon: widget.icon, color: widget.color, size: widget.size),
+    );
+  }
+}
+
+/// A settings icon drawn like a real app icon: a rounded tile with a deep colour gradient,
+/// a glossy light on top, a soft shadow below and a white symbol with its own shadow.
+class SettingsBadge extends StatelessWidget {
+  const SettingsBadge({super.key, required this.icon, required this.color, this.size = 24});
+  final IconData icon;
+  final Color color;
+  final double size; // size of the symbol; the tile is a little larger
+
+  @override
+  Widget build(BuildContext context) {
+    final box = size * 1.7;
+    final hsl = HSLColor.fromColor(color);
+    final light = hsl.withLightness((hsl.lightness + 0.14).clamp(0.0, 1.0)).toColor();
+    final dark = hsl.withLightness((hsl.lightness - 0.18).clamp(0.0, 1.0)).toColor();
+    final r = BorderRadius.circular(box * 0.28);
+    return Container(
+      width: box,
+      height: box,
+      decoration: BoxDecoration(
+        borderRadius: r,
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [light, color, dark]),
+        boxShadow: [
+          BoxShadow(color: dark.withValues(alpha: 0.55), blurRadius: box * 0.28, offset: Offset(0, box * 0.1)),
+        ],
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: r,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Glossy light over the upper half.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: box * 0.5,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.white.withValues(alpha: 0.32), Colors.white.withValues(alpha: 0.0)],
+                  ),
+                ),
+              ),
+            ),
+            Icon(icon, color: Colors.white, size: size, shadows: [
+              Shadow(color: dark.withValues(alpha: 0.9), blurRadius: size * 0.25, offset: Offset(0, size * 0.06)),
+            ]),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -982,16 +1040,8 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
     setState(() => _note = 'Still connecting… If it does not connect, check the password.');
   }
 
-  Widget _bars(int level, {double size = 20, Color? color}) {
-    const icons = [
-      Icons.signal_wifi_0_bar_rounded,
-      Icons.network_wifi_1_bar_rounded,
-      Icons.network_wifi_2_bar_rounded,
-      Icons.network_wifi_3_bar_rounded,
-      Icons.signal_wifi_4_bar_rounded,
-    ];
-    return Icon(icons[level.clamp(0, 4)], size: size, color: color ?? (level >= 3 ? const Color(0xFF2ECC71) : C.accent));
-  }
+  Widget _bars(int level, {double size = 20, Color? color}) => WifiSignal(level: level, size: size);
+
 
   @override
   Widget build(BuildContext context) {
@@ -1138,8 +1188,39 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
         else if (nets.isEmpty && !_scanning)
           Text(i.wifiOn ? 'No Wi-Fi networks found yet. Press "Scan again".' : 'Wi-Fi is switched off on this TV.',
               style: const TextStyle(color: C.dim))
-        else
-          for (final n in nets)
+        else ...[
+          if (_best(nets, i) case final best?)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TvFocus(
+                radius: 12,
+                color: const Color(0xFF12301F),
+                onTap: () => _join(best),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, color: Color(0xFF2ECC71), size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(children: [
+                            const TextSpan(text: 'Stronger network nearby: ', style: TextStyle(color: C.dim)),
+                            TextSpan(text: best.ssid, style: const TextStyle(fontWeight: FontWeight.w800)),
+                            TextSpan(text: '  ·  ${signalWord(best.level)}', style: TextStyle(color: signalColor(best.level))),
+                          ]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 14.5),
+                        ),
+                      ),
+                      const Text('Switch', style: TextStyle(color: Color(0xFF2ECC71), fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          for (final n in _sorted(nets))
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: TvFocus(
@@ -1154,10 +1235,36 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
                       _bars(n.level),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: Text(n.ssid,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(n.ssid,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                                ),
+                                if (identical(n, _sorted(nets).first) && n.level >= 3) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x332ECC71),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: const Color(0x882ECC71)),
+                                    ),
+                                    child: const Text('Recommended',
+                                        style: TextStyle(fontSize: 11, color: Color(0xFF2ECC71), fontWeight: FontWeight.w800)),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(signalWord(n.level),
+                                style: TextStyle(fontSize: 12, color: signalColor(n.level), fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                       ),
                       if (i.type == 'wifi' && i.ssid == n.ssid)
                         const Padding(
@@ -1173,8 +1280,31 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
                 ),
               ),
             ),
+        ],
       ],
     );
+  }
+
+  /// Strongest first; at equal strength 5 GHz first (faster).
+  List<WifiNet> _sorted(List<WifiNet> nets) {
+    final l = List<WifiNet>.of(nets);
+    l.sort((a, b) {
+      final c = b.level.compareTo(a.level);
+      if (c != 0) return c;
+      return (b.band.startsWith('5') ? 1 : 0).compareTo(a.band.startsWith('5') ? 1 : 0);
+    });
+    return l;
+  }
+
+  /// A clearly stronger network than the one in use (at least one bar more), worth switching to.
+  WifiNet? _best(List<WifiNet> nets, NetInfo i) {
+    if (nets.isEmpty) return null;
+    final top = _sorted(nets).first;
+    if (i.type == 'wifi' && i.ssid == top.ssid) return null;
+    if (top.level < 3) return null;
+    if (i.type == 'wifi' && top.level <= i.level) return null;
+    if (i.type == 'ethernet') return null;
+    return top;
   }
 }
 
@@ -1461,4 +1591,61 @@ class _VpnPanelState extends State<_VpnPanel> {
       ],
     );
   }
+}
+
+
+/// Colour for a Wi-Fi strength (0..4 bars): green strong, yellow-green good, amber fair, red weak.
+Color signalColor(int level) => switch (level.clamp(0, 4)) {
+      4 => const Color(0xFF22C55E),
+      3 => const Color(0xFF84CC16),
+      2 => const Color(0xFFF5A524),
+      1 => const Color(0xFFFF6B3D),
+      _ => const Color(0xFFEF4444),
+    };
+
+String signalWord(int level) => switch (level.clamp(0, 4)) {
+      4 => 'Excellent signal',
+      3 => 'Good signal',
+      2 => 'Fair signal',
+      1 => 'Weak signal',
+      _ => 'Very weak',
+    };
+
+/// Wi-Fi strength drawn like the phone status bar: a dot and three arcs, the lit ones in the
+/// strength colour, the rest dim.
+class WifiSignal extends StatelessWidget {
+  const WifiSignal({super.key, required this.level, this.size = 20});
+  final int level;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) =>
+      SizedBox(width: size * 1.25, height: size, child: CustomPaint(painter: _WifiPainter(level.clamp(0, 4), signalColor(level))));
+}
+
+class _WifiPainter extends CustomPainter {
+  _WifiPainter(this.level, this.color);
+  final int level;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final c = Offset(s.width / 2, s.height * 0.92);
+    final off = Paint()..color = const Color(0x33FFFFFF);
+    final on = Paint()..color = color;
+    // Dot (level >= 1), then arcs for levels 2..4.
+    canvas.drawCircle(c - Offset(0, s.height * 0.08), s.height * 0.11, level >= 1 ? on : off);
+    for (var i = 1; i <= 3; i++) {
+      final r = s.height * (0.26 + 0.24 * i);
+      final p = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s.height * 0.13
+        ..strokeCap = StrokeCap.round
+        ..color = level >= i + 1 ? color : const Color(0x33FFFFFF);
+      canvas.drawArc(Rect.fromCircle(center: c, radius: r), -math.pi * 0.75, math.pi * 0.5, false, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WifiPainter o) => o.level != level || o.color != color;
 }
