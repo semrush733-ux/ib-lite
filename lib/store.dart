@@ -56,7 +56,12 @@ class Store {
   /// only username and password). Such a login follows the website when the address changes there.
   static bool get viaSite => _p.getBool('via_site') ?? false;
 
+  /// Name of the open playlist as it is saved on the website ('' when signed in by hand).
+  static String get playlistName => _p.getString('playlist_name') ?? '';
+  static Future<void> setPlaylistName(String name) => _p.setString('playlist_name', name);
+
   static Future<void> saveSession(String server, String username, String password, {bool viaSite = false}) async {
+    await _p.remove('playlist_name'); // set again by openSitePlaylist for website playlists
     await _switchAccount('xtream|$server|$username');
     await _p.setString('mode', 'xtream');
     await _p.setString('server', server);
@@ -73,6 +78,7 @@ class Store {
   }
 
   static Future<void> saveM3uSession(String url, {String epgUrl = ''}) async {
+    await _p.remove('playlist_name');
     await _switchAccount('m3u|$url');
     await _p.setString('mode', 'm3u');
     await _p.setString('m3u_url', url);

@@ -1,6 +1,3 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/material.dart';
 
 import '../backend.dart';
@@ -91,90 +88,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
     }
   }
 
-  // Locked playlists (4-digit PIN set on the website) are hidden until their PIN is typed;
-  // they then stay visible until the app is closed.
-  static final Set<int> _revealed = {};
-
-  static String _hash(String pin) => sha256.convert(utf8.encode('b1g-pin:${pin.trim()}')).toString();
-
-  bool _visible(BPlaylist p) => !p.locked || _revealed.contains(p.id);
-
+  // Every playlist is listed by the name it has on the website; OK opens it.
   void _pick(BPlaylist p) => Navigator.of(context).pop(p);
-
-  /// "Show locked playlists": the PIN shows every playlist locked with it.
-  Future<void> _reveal() async {
-    final lists = _lists ?? const <BPlaylist>[];
-    final hashes = {for (final p in lists) if (p.locked) p.pinHash};
-    final ok = await _askPin('Locked playlists', (hash) => hashes.contains(hash), (hash) {
-      for (final p in lists) {
-        if (p.locked && p.pinHash == hash) _revealed.add(p.id);
-      }
-    });
-    if (ok && mounted) setState(() {});
-  }
-
-  Future<bool> _askPin(String title, bool Function(String hash) accepts, void Function(String hash) onOk) async {
-    final controller = TextEditingController();
-    var error = '';
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, refresh) {
-          void check(String value) {
-            final hash = _hash(value);
-            if (accepts(hash)) {
-              onOk(hash);
-              Navigator.of(ctx).pop(true);
-            } else {
-              controller.clear();
-              refresh(() => error = 'Wrong PIN, please try again.');
-            }
-          }
-
-          return AlertDialog(
-            backgroundColor: C.panel,
-            title: Row(
-              children: [
-                const Icon(Icons.lock_rounded, color: C.accent),
-                const SizedBox(width: 10),
-                Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis)),
-              ],
-            ),
-            content: SizedBox(
-              width: 340,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TvField(
-                    controller: controller,
-                    label: 'Playlist PIN (4 digits)',
-                    icon: Icons.pin_rounded,
-                    obscure: true,
-                    autofocus: true,
-                    keyboardType: TextInputType.number,
-                    action: TextInputAction.done,
-                    onSubmitted: check,
-                  ),
-                  if (error.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Text(error, style: const TextStyle(color: C.danger, fontSize: 13.5)),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-              TextButton(onPressed: () => check(controller.text), child: const Text('OK')),
-            ],
-          );
-        },
-      ),
-    );
-    controller.dispose();
-    return ok == true;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -211,44 +126,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                                     textAlign: TextAlign.center,
                                     style: TextStyle(color: C.dim, fontSize: 15, height: 1.5)),
                               )
-                            : Builder(builder: (context) {
-                                final shown = lists.where(_visible).toList();
-                                final hidden = lists.length - shown.length;
-                                return ListView(
-                                  children: [
-                                    for (var i = 0; i < shown.length; i++)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 10),
-                                        child: _row(shown[i], i == 0),
-                                      ),
-                                    if (hidden > 0)
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: TvFocus(
-                                          autofocus: shown.isEmpty,
-                                          radius: 10,
-                                          color: C.panel,
-                                          onTap: _reveal,
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.lock_rounded, size: 18, color: C.accent),
-                                                const SizedBox(width: 10),
-                                                Text(
-                                                    hidden == 1
-                                                        ? 'Show locked playlist (PIN)'
-                                                        : 'Show $hidden locked playlists (PIN)',
-                                                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700)),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                );
-                              }),
+                            : ListView(
+                                children: [
+                                  for (var i = 0; i < lists.length; i++)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 10),
+                                      child: _row(lists[i], i == 0),
+                                    ),
+                                ],
+                              ),
               ),
             ],
           ),
@@ -293,11 +179,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 children: [
                   Row(
                     children: [
-                      if (p.locked)
-                        const Padding(
-                          padding: EdgeInsets.only(right: 8),
-                          child: Icon(Icons.lock_rounded, size: 18, color: C.accent),
-                        ),
                       Flexible(
                         child: Text(p.name,
                             maxLines: 1,

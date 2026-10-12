@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import '../backend.dart';
 import '../i18n.dart';
 import '../m3u.dart';
+import '../prefetch.dart';
 import '../speedtest.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../weather.dart';
+import '../widgets.dart';
 import '../xtream.dart';
 import 'browse.dart';
 import 'catchup.dart';
@@ -49,6 +51,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _account = widget.account;
     log('screen=home');
+    // Every list downloads once in the background, out of the player's way.
+    ListPrefetch.start(widget.api);
     Backend.changes.addListener(_onBackendChange);
     if (_account == null) _refreshAccount();
     Weather.refresh().then((_) {
@@ -139,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// "Change Playlist": the playlists added on the website for this device.
   Future<void> _choosePlaylist() async {
     final choice = await Navigator.of(context).push<BPlaylist>(
-        MaterialPageRoute(builder: (_) => PlaylistsScreen(current: widget.api.label)));
+        MaterialPageRoute(builder: (_) => PlaylistsScreen(current: playlistTitle(widget.api))));
     if (choice == null || !mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -170,6 +174,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// The playlist's name for the top bar (shortened); [fallback] when there is none.
+  String _shortName(String name, String fallback) {
+    final n = name.trim();
+    if (n.isEmpty) return fallback;
+    return n.length > 22 ? '${n.substring(0, 21)}…' : n;
+  }
+
   /// "Change Style": the next background picture.
   void _nextStyle() {
     Store.setWallpaper((Store.wallpaper + 1) % 21);
@@ -194,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             const Icon(Icons.account_circle_rounded, color: C.accent),
             const SizedBox(width: 10),
-            Expanded(child: Text(widget.api.label, maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(playlistTitle(widget.api), maxLines: 1, overflow: TextOverflow.ellipsis)),
           ],
         ),
         content: SizedBox(
@@ -320,7 +331,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         _PillButton(icon: Icons.palette_rounded, label: t('Change Style'), onTap: _nextStyle),
                         const SizedBox(width: 14),
-                        _PillButton(icon: Icons.list_alt_rounded, label: t('Change Playlist'), onTap: _choosePlaylist),
+                        _PillButton(
+                          icon: Icons.playlist_play_rounded,
+                          label: _shortName(playlistTitle(widget.api), t('Change Playlist')),
+                          onTap: _choosePlaylist,
+                        ),
                         const SizedBox(width: 14),
                         _PillButton(icon: Icons.settings_rounded, label: t('Settings'), onTap: _openSettings),
                         if (Backend.updateAvailable) ...[
@@ -414,8 +429,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// The open playlist's name as saved on the website, or the login name when it was typed in.
+String playlistTitle(Source api) => Store.playlistName.isNotEmpty ? Store.playlistName : api.label;
+
 /// Signs in with a playlist added on the website and remembers it.
 Future<(Source, XAccount)> openSitePlaylist(BPlaylist p) async {
+  final opened = await _openSite(p);
+  await Store.setPlaylistName(p.name);
+  return opened;
+}
+
+Future<(Source, XAccount)> _openSite(BPlaylist p) async {
   if (p.isXtream) {
     var api = XtreamApi(parseServerInput(p.url).server, p.username, p.password);
     XAccount account;
@@ -518,13 +542,21 @@ class _PillButton extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
                   width: 46,
-                  color: const Color(0xFF5B5F68),
                   alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: f ? const [Color(0xFF8A1A20), Color(0xFF5A0E13)] : const [Color(0xFF3A3D46), Color(0xFF26282F)],
+                    ),
+                  ),
                   child: Icon(icon, size: 22, color: Colors.white),
                 ),
-                Container(
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -562,13 +594,19 @@ class _IconSquare extends StatelessWidget {
         radius: 14,
         onTap: onTap,
         builder: (f) => AnimatedContainer(
-          duration: const Duration(milliseconds: 140),
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
           width: 54,
           height: 54,
           decoration: BoxDecoration(
-            color: f ? const Color(0xFFE3262F) : const Color(0xFF2E3B52),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: f ? const [Color(0xFFFF4A52), Color(0xFFB81E26)] : const [Color(0xFF34363F), Color(0xFF1E1F25)],
+            ),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: f ? Colors.white : const Color(0x33FFFFFF), width: f ? 2.2 : 1),
+            boxShadow: f ? const [BoxShadow(color: Color(0x88E3262F), blurRadius: 18)] : const [],
           ),
           child: Icon(icon, size: 28, color: Colors.white),
         ),
@@ -622,6 +660,10 @@ class _HomeTile extends StatelessWidget {
             final s = b.maxHeight;
             return Stack(
               children: [
+                if (f)
+                  Positioned.fill(
+                    child: ClipRRect(borderRadius: BorderRadius.circular(20), child: const Sheen()),
+                  ),
                 // Soft light from the top-left corner.
                 Positioned.fill(
                   child: DecoratedBox(

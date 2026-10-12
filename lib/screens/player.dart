@@ -11,6 +11,7 @@ import '../engine.dart';
 import '../i18n.dart';
 import '../input_mode.dart';
 import '../lang.dart';
+import '../prefetch.dart';
 import '../quality.dart';
 import '../store.dart';
 import '../theme.dart';
@@ -185,6 +186,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   @override
   void initState() {
     super.initState();
+    Playback.open++;
     _index = widget.index < 0 || widget.index >= widget.entries.length ? 0 : widget.index;
     _resetEngine();
     WidgetsBinding.instance.addObserver(this);
@@ -262,6 +264,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   @override
   void dispose() {
+    Playback.open = (Playback.open - 1).clamp(0, 99).toInt();
+    Playback.busy = false;
     WidgetsBinding.instance.removeObserver(this);
     _generation++;
     _accepting = false;
@@ -1297,6 +1301,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   @override
   Widget build(BuildContext context) {
     final busy = _status != null || (_buffering && !_userPaused);
+    Playback.report(busy && !_dead);
     final shown = widget.entries[_zapTarget ?? _index];
     final engine = _engine;
     return PopScope(
@@ -1466,6 +1471,31 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontSize: 14.5, color: Color(0xFFD5DAE3))),
                       ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Which playlist this comes from (its name on the website).
+              Container(
+                constraints: const BoxConstraints(maxWidth: 240),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [C.accent.withValues(alpha: 0.85), const Color(0xCC7A0F16)]),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.playlist_play_rounded, size: 18, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        Store.playlistName.isNotEmpty ? Store.playlistName : widget.api.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                    ),
                   ],
                 ),
               ),

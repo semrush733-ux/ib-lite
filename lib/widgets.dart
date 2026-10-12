@@ -78,9 +78,13 @@ class _TvFocusState extends State<TvFocus> {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(widget.radius);
-    final Color fill = _focused
-        ? Color.alphaBlend(C.accent.withValues(alpha: 0.20), widget.color)
-        : (widget.selected ? Color.alphaBlend(C.accent.withValues(alpha: 0.08), widget.color) : widget.color);
+    final base = widget.color;
+    // Focus is a soft red gradient with a glow; colours blend in instead of switching.
+    final List<Color> colors = _focused
+        ? [Color.alphaBlend(C.accent.withValues(alpha: 0.34), base), Color.alphaBlend(C.accent.withValues(alpha: 0.12), base)]
+        : widget.selected
+            ? [Color.alphaBlend(C.accent.withValues(alpha: 0.12), base), Color.alphaBlend(C.accent.withValues(alpha: 0.05), base)]
+            : [base, base];
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
@@ -106,19 +110,74 @@ class _TvFocusState extends State<TvFocus> {
             if (value) widget.onFocus?.call();
           },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 90),
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
-              color: fill,
+              gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
               borderRadius: radius,
               border: Border.all(
-                color: _focused ? widget.focusBorder : (widget.selected ? C.accent.withValues(alpha: 0.45) : Colors.transparent),
+                color: _focused
+                    ? widget.focusBorder
+                    : (widget.selected ? C.accent.withValues(alpha: 0.45) : Colors.transparent),
                 width: 2.5,
               ),
+              boxShadow: _focused
+                  ? [BoxShadow(color: widget.focusBorder.withValues(alpha: 0.32), blurRadius: 16, spreadRadius: 0.5)]
+                  : const [BoxShadow(color: Colors.transparent, blurRadius: 16)],
             ),
-            child: widget.child,
+            child: Stack(
+              children: [
+                widget.child,
+                if (_focused)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ClipRRect(borderRadius: radius, child: const Sheen()),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A faint band of light that slowly sweeps across the focused item.
+class Sheen extends StatefulWidget {
+  const Sheen({super.key});
+
+  @override
+  State<Sheen> createState() => _SheenState();
+}
+
+class _SheenState extends State<Sheen> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final x = -2.0 + 4.0 * Curves.easeInOut.transform(_c.value);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(x - 1, -1),
+              end: Alignment(x + 1, 1),
+              colors: const [Color(0x00FFFFFF), Color(0x1AFFFFFF), Color(0x00FFFFFF)],
+              stops: const [0.35, 0.5, 0.65],
+            ),
+          ),
+        );
+      },
     );
   }
 }

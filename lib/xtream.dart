@@ -592,13 +592,59 @@ class XtreamApi implements Source {
     return account;
   }
 
+  /// Lists already downloaded for this login (kept for the whole session, filled by the
+  /// screens and by the background download in prefetch.dart).
+  static final Map<String, Object> _lists = {};
+  String _key(String what) => '$server|$username|$what';
+
+  /// True when the full list of [kind] is already downloaded.
+  bool hasAll(XKind kind) => _lists.containsKey(_key('items-${kind.name}'));
+
   @override
   Future<List<XCategory>> categories(XKind kind) async {
-    return parseCategories(await _json({'action': _actions[kind]![0]}));
+    final key = _key('cats-${kind.name}');
+    final cached = _lists[key];
+    if (cached is List<XCategory>) return cached;
+    final list = parseCategories(await _json({'action': _actions[kind]![0]}));
+    _lists[key] = list;
+    return list;
   }
 
   @override
   Future<List<XItem>> items(XKind kind, {String? categoryId}) async {
+    final all = _lists[_key('items-${kind.name}')];
+    if (all is List<XItem>) {
+      if (categoryId == null) return all;
+      return all.where((i) => i.categoryId == categoryId).toList();
+    }
+    if (categoryId != null) {
+      // The full list is on its way (background download): wait for it instead of a second request.
+      final coming = _pending[_key('items-${kind.name}')];
+      if (coming != null) {
+        try {
+          final full = await coming;
+          return full.where((i) => i.categoryId == categoryId).toList();
+        } catch (_) {}
+      }
+      return _download(kind, categoryId);
+    }
+    final key = _key('items-${kind.name}');
+    final running = _pending[key];
+    if (running != null) return running;
+    final job = _download(kind, null);
+    _pending[key] = job;
+    try {
+      final list = await job;
+      _lists[key] = list;
+      return list;
+    } finally {
+      _pending.remove(key);
+    }
+  }
+
+  static final Map<String, Future<List<XItem>>> _pending = {};
+
+  Future<List<XItem>> _download(XKind kind, String? categoryId) async {
     final bytes = await _bytes({
       'action': _actions[kind]![1],
       if (categoryId != null) 'category_id': categoryId,
