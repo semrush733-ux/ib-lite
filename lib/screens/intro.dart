@@ -228,7 +228,7 @@ class _LiteIntro extends StatelessWidget {
     final out = _seg(t, 3.55, 4.1); // final fade
     final enter = _seg(t, 0.35, 1.55);
     final e = _outBack(enter);
-    final name = kAppName;
+    final name = RemoteBrand.introName.isNotEmpty ? RemoteBrand.introName : kAppName;
     final letters = (name.length * _seg(t, 1.85, 2.9)).ceil();
     final underline = _outCubic(_seg(t, 2.55, 3.15));
     return LayoutBuilder(builder: (context, box) {
