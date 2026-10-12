@@ -579,22 +579,57 @@ Future<bool> confirmExit(BuildContext context) async {
   final ok = await showDialog<bool>(
     context: context,
     barrierColor: const Color(0xB3000000),
-    builder: (ctx) => AlertDialog(
-      backgroundColor: C.panel,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: const Row(
-        children: [
-          Icon(Icons.power_settings_new_rounded, color: C.accent, size: 28),
-          SizedBox(width: 12),
-          Text('Exit the app?', style: TextStyle(fontWeight: FontWeight.w800)),
-        ],
+    builder: (ctx) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      child: Container(
+        width: 560,
+        padding: const EdgeInsets.fromLTRB(30, 26, 26, 22),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF2A1A1E), Color(0xFF160D10)],
+          ),
+          border: Border.all(color: const Color(0x33FFFFFF)),
+          boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 40, offset: Offset(0, 16))],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(color: C.accent.withValues(alpha: 0.16), shape: BoxShape.circle),
+                  child: const Icon(Icons.power_settings_new_rounded, color: C.accent, size: 26),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text('Exit the app?', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.only(left: 62),
+              child: Text('Do you really want to close the app?', style: TextStyle(color: C.dim, fontSize: 16.5)),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _DialogButton(label: 'Stay', autofocus: true, onTap: () => Navigator.of(ctx).pop(false)),
+                const SizedBox(width: 12),
+                _DialogButton(label: 'Exit', danger: true, onTap: () => Navigator.of(ctx).pop(true)),
+              ],
+            ),
+          ],
+        ),
       ),
-      content: const Text('Do you really want to close the app?', style: TextStyle(color: C.dim, fontSize: 16)),
-      actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      actions: [
-        _DialogButton(label: 'Stay', autofocus: true, onTap: () => Navigator.of(ctx).pop(false)),
-        _DialogButton(label: 'Exit', danger: true, onTap: () => Navigator.of(ctx).pop(true)),
-      ],
     ),
   );
   return ok == true;
@@ -609,14 +644,23 @@ class _DialogButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Compact pill buttons: "Stay" quiet grey, "Exit" red; focus adds the white frame and glow.
     return TvFocus(
       autofocus: autofocus,
-      radius: 12,
-      color: danger ? const Color(0xFF3A1216) : C.card,
+      radius: 22,
+      color: danger ? const Color(0xFFB81E26) : const Color(0xFF3A3236),
+      focusBorder: Colors.white,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 12),
-        child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(danger ? Icons.logout_rounded : Icons.check_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          ],
+        ),
       ),
     );
   }
