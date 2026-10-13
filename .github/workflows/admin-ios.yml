@@ -1,0 +1,127 @@
+name: Admin Panel iPhone (IPA)
+
+# Builds the Admin Panel (admin_app/) for iPhone / iPad on a Mac in the cloud.
+# Result: release "admin-ios-latest" with AdminPanel.ipa (NOT signed by Apple: install with
+# AltStore / Sideloadly, or sign it with your Apple developer certificate).
+
+on:
+  push:
+    branches: [main]
+    paths: ['admin_app/**', '.github/workflows/admin-ios.yml', 'brand/**']
+  workflow_dispatch:
+
+concurrency:
+  group: admin-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Website from the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          WEBSITE="$(get WEBSITE)"; WEBSITE="${WEBSITE%/}"
+          PACKAGE_ID="$(get PACKAGE_ID)"
+          echo "SITE=$WEBSITE" >> "$GITHUB_ENV"
+          echo "BUNDLE=${PACKAGE_ID}.admin" >> "$GITHUB_ENV"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create the iOS project
+        working-directory: admin_app
+        run: |
+          set -e
+          mkdir -p ../out
+          flutter create --no-pub --platforms=ios --org com.liteplayer --project-name lite_admin "$RUNNER_TEMP/scaffold"
+          cp -r "$RUNNER_TEMP/scaffold/ios" ios
+          P=ios/Runner/Info.plist
+          plutil -replace CFBundleDisplayName -string "Admin Panel" "$P"
+          plutil -replace CFBundleName -string "Admin Panel" "$P"
+          # Camera for the TV's QR code, photos for a QR screenshot / the app icon.
+          plutil -replace NSCameraUsageDescription -string "Scan the QR code on the client's TV." "$P"
+          plutil -replace NSPhotoLibraryUsageDescription -string "Read a TV QR code from a picture, or choose the app icon." "$P"
+          # Server health looks at IPTV servers, which are plain http.
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$P" || true
+          sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.liteplayer.liteAdmin;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE;/g" ios/Runner.xcodeproj/project.pbxproj
+          # The QR scanner needs iOS 15.5 or newer.
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.5;/g" ios/Runner.xcodeproj/project.pbxproj
+          if [ -f ios/Podfile ]; then
+            sed -i '' "s/^# platform :ios.*/platform :ios, '15.5'/" ios/Podfile
+            grep -q "^platform :ios" ios/Podfile || sed -i '' "1s/^/platform :ios, '15.5'\n/" ios/Podfile
+          fi
+          # App icon: the brand symbol on the dark brand colour.
+          python3 -m pip install --quiet --break-system-packages pillow 2>/dev/null || python3 -m pip install --quiet pillow || true
+          python3 - <<'PY'
+          import os
+          from PIL import Image
+          d = 'ios/Runner/Assets.xcassets/AppIcon.appiconset'
+          sym = Image.open('../brand/icon.png').convert('RGBA')
+          bb = sym.getbbox()
+          if bb: sym = sym.crop(bb)
+          for f in os.listdir(d):
+              if not f.endswith('.png'): continue
+              p = os.path.join(d, f)
+              s = Image.open(p).size[0]
+              img = Image.new('RGB', (s, s), (20, 10, 13))
+              k = 0.62 * s / max(sym.size)
+              sm = sym.resize((max(1, round(sym.width * k)), max(1, round(sym.height * k))), Image.LANCZOS)
+              img.paste(sm, ((s - sm.width) // 2, (s - sm.height) // 2), sm)
+              img.save(p)
+          PY
+          rm -rf test
+
+      - name: Get packages
+        working-directory: admin_app
+        run: flutter pub get
+
+      - name: Build the IPA
+        working-directory: admin_app
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          flutter build ios --release --no-codesign \
+            --build-name "1.0.${{ github.run_number }}" --build-number "${{ github.run_number }}" \
+            --dart-define=SITE="$SITE" 2>&1 | tee ../out/build.log
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr ../out/AdminPanel.ipa Payload
+          ls -la ../out
+
+      - name: Publish to the "admin-ios-latest" release
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILES=""
+          [ -f out/AdminPanel.ipa ] && FILES="out/AdminPanel.ipa"
+          TITLE="Admin Panel iPhone - build #${{ github.run_number }}"
+          [ -z "$FILES" ] && TITLE="$TITLE FAILED"
+          {
+            echo "Admin Panel for iPhone / iPad. Not signed by Apple: install with AltStore / Sideloadly, or sign it with your Apple developer certificate."
+            if [ -z "$FILES" ]; then
+              echo ""
+              echo "### Errors"
+              echo '```'
+              grep -E "error:|Error:|Error \(Xcode\)|Failed|could not|Could not" out/build.log 2>/dev/null | cut -c1-300 | sort -u | head -60 || true
+              echo '---'
+              tail -60 out/build.log 2>/dev/null | cut -c1-300 || true
+              echo '```'
+            fi
+          } > out/NOTES.md
+          if gh release view admin-ios-latest >/dev/null 2>&1; then
+            [ -n "$FILES" ] && gh release upload admin-ios-latest $FILES --clobber
+            gh release edit admin-ios-latest --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          else
+            gh release create admin-ios-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          fi
