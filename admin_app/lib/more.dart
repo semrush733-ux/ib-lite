@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'api.dart';
 import 'main.dart' show toast, SettingsPage;
@@ -115,6 +116,7 @@ class DashboardPage extends StatefulWidget {
 class DashboardPageState extends State<DashboardPage> {
   Map<String, dynamic>? _d;
   String? _error;
+  final _dlKey = GlobalKey<DownloaderCardState>();
 
   @override
   void initState() {
@@ -124,6 +126,7 @@ class DashboardPageState extends State<DashboardPage> {
 
   Future<void> reload() async {
     try {
+      unawaited(_dlKey.currentState?.reload());
       final d = await Panel.dashboard();
       if (mounted) {
         setState(() {
@@ -166,6 +169,8 @@ class DashboardPageState extends State<DashboardPage> {
           Text('Hello ${p?.name ?? ''}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           Text(p?.isSuper == true ? 'Every TV on your website' : 'Your clients and your team\'s',
               style: const TextStyle(color: _muted)),
+          const SizedBox(height: 14),
+          DownloaderCard(key: _dlKey),
           const SizedBox(height: 14),
           if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFFF8A90))),
           if (_d == null && _error == null)
@@ -859,6 +864,7 @@ class MorePage extends StatelessWidget {
             await Api.backToMine();
             onSwitched();
           }, color: _amber),
+        tile(Icons.install_mobile_rounded, 'App downloads', 'Downloader code and links for every app', () => go(const DownloadsPage()), color: const Color(0xFF1E88FF)),
         tile(Icons.campaign_rounded, 'Send a message', 'To one TV, chosen TVs or all of them', () => go(const NotifyPage())),
         tile(Icons.tv_rounded, 'All TVs', 'Search by MAC, name or login; block, reload, renew', () => go(const DevicesPage(title: 'All TVs'))),
         tile(Icons.notification_important_rounded, 'Ending soon', 'Renew or remind before they stop', () => go(const DevicesPage(filter: 'expiring', title: 'Ending in 7 days')), color: _amber),
@@ -1474,6 +1480,292 @@ class _LogsPageState extends State<LogsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// --------------------------------------------------------------------------------- app downloads
+
+class DlLink {
+  DlLink(this.key, this.label, this.url);
+  final String key;
+  final String label;
+  final String url;
+}
+
+class Downloads {
+  Downloads(this.code, this.shortUrl, this.links);
+  final String code;
+  final String shortUrl;
+  final List<DlLink> links;
+
+  static const _gh = 'https://github.com/semrush733-ux/ib-lite/releases/download/';
+
+  /// Used when the website has an older plugin without /panel/downloads.
+  static Downloads fallback() => Downloads('4220938', 'aftv.news/4220938', [
+        DlLink('tv_apk', 'TV app (Android TV / Firestick)', '${_gh}latest/LitePlayer.apk'),
+        DlLink('admin_apk', 'Admin Panel (Android)', '${_gh}admin-latest/AdminPanel.apk'),
+        DlLink('tv_ipa', 'TV app (iPhone / iPad)', '${_gh}ios-latest/LitePlayer.ipa'),
+        DlLink('admin_ipa', 'Admin Panel (iPhone / iPad)', '${_gh}admin-ios-latest/AdminPanel.ipa'),
+        DlLink('tizen', 'Samsung TV (.wgt)', '${_gh}tizen-latest/LitePlayer.wgt'),
+        DlLink('webos', 'LG TV (.ipk)', '${_gh}webos-latest/LitePlayer.ipk'),
+      ]);
+
+  static Downloads? cached;
+
+  static Downloads parse(Map<String, dynamic> j) => Downloads(
+        '${j['code'] ?? ''}',
+        '${j['short_url'] ?? ''}',
+        [
+          for (final l in (j['links'] as List? ?? const []))
+            if (l is Map) DlLink('${l['key']}', '${l['label']}', '${l['url']}'),
+        ],
+      );
+
+  static Future<Downloads> load() async {
+    try {
+      cached = parse(await Api.call('/panel/downloads'));
+    } catch (_) {
+      cached ??= fallback();
+    }
+    return cached!;
+  }
+
+  static Future<Downloads> save(Map<String, String> values) async {
+    cached = parse(await Api.call('/panel/downloads', body: {'save': '1', ...values}));
+    return cached!;
+  }
+}
+
+Future<void> _copy(BuildContext context, String text, String what) async {
+  await Clipboard.setData(ClipboardData(text: text));
+  if (context.mounted) toast(context, '$what copied');
+}
+
+Future<void> _openUrl(BuildContext context, String url) async {
+  final u = Uri.tryParse(url.contains('://') ? url : 'https://$url');
+  if (u == null || !await launchUrl(u, mode: LaunchMode.externalApplication)) {
+    if (context.mounted) toast(context, 'Could not open the link', error: true);
+  }
+}
+
+/// Copy box at the top of Home: the Downloader code and the short URL.
+class DownloaderCard extends StatefulWidget {
+  const DownloaderCard({super.key});
+
+  @override
+  State<DownloaderCard> createState() => DownloaderCardState();
+}
+
+class DownloaderCardState extends State<DownloaderCard> {
+  Downloads? _d = Downloads.cached;
+
+  @override
+  void initState() {
+    super.initState();
+    reload();
+  }
+
+  Future<void> reload() async {
+    final d = await Downloads.load();
+    if (mounted) setState(() => _d = d);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = _d;
+    if (d == null || (d.code.isEmpty && d.shortUrl.isEmpty)) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 10),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF1E88FF).withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.install_mobile_rounded, color: Color(0xFF1E88FF), size: 20),
+            const SizedBox(width: 8),
+            const Expanded(child: Text('Downloader app', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5))),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DownloadsPage())),
+              child: const Text('All apps'),
+            ),
+          ]),
+          if (d.code.isNotEmpty) CopyRow(label: 'Code for Downloader App', value: d.code, big: true),
+          if (d.shortUrl.isNotEmpty) CopyRow(label: 'Short URL', value: d.shortUrl),
+        ],
+      ),
+    );
+  }
+}
+
+class CopyRow extends StatelessWidget {
+  const CopyRow({super.key, required this.label, required this.value, this.big = false});
+  final String label;
+  final String value;
+  final bool big;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _copy(context, value, label),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+            decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(12), border: Border.all(color: _line)),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(label, style: const TextStyle(color: _muted, fontSize: 12)),
+                  SelectableText(value,
+                      style: TextStyle(fontSize: big ? 24 : 16, fontWeight: FontWeight.w800, letterSpacing: big ? 2 : 0)),
+                ]),
+              ),
+              IconButton(
+                tooltip: 'Copy',
+                icon: const Icon(Icons.copy_rounded),
+                onPressed: () => _copy(context, value, label),
+              ),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// More → App downloads: the Downloader code and a link for every app (copy / open / share).
+/// The super admin can change them here (or in WordPress → Settings).
+class DownloadsPage extends StatefulWidget {
+  const DownloadsPage({super.key});
+
+  @override
+  State<DownloadsPage> createState() => _DownloadsPageState();
+}
+
+class _DownloadsPageState extends State<DownloadsPage> {
+  Downloads? _d = Downloads.cached;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final d = await Downloads.load();
+    if (mounted) setState(() => _d = d);
+  }
+
+  IconData _icon(String k) => switch (k) {
+        'tv_ipa' || 'admin_ipa' => Icons.phone_iphone_rounded,
+        'admin_apk' => Icons.admin_panel_settings_rounded,
+        'web' => Icons.language_rounded,
+        _ => Icons.tv_rounded,
+      };
+
+  Future<void> _edit() async {
+    final d = _d ?? Downloads.fallback();
+    final ctl = <String, TextEditingController>{
+      'code': TextEditingController(text: d.code),
+      'short_url': TextEditingController(text: d.shortUrl),
+      for (final l in Downloads.fallback().links) l.key: TextEditingController(text: ''),
+      'web': TextEditingController(text: ''),
+    };
+    for (final l in d.links) {
+      (ctl[l.key] ??= TextEditingController()).text = l.url;
+    }
+    final names = {
+      'code': 'Downloader code',
+      'short_url': 'Short URL',
+      for (final l in Downloads.fallback().links) l.key: l.label,
+      'web': 'Web player',
+      for (final l in d.links) l.key: l.label,
+    };
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _card,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Change downloads', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const Text('Every seller sees these. Empty link = hidden.', style: TextStyle(color: _muted)),
+              const SizedBox(height: 10),
+              for (final e in ctl.entries)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TextField(controller: e.value, decoration: InputDecoration(labelText: names[e.key] ?? e.key)),
+                ),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    try {
+      final n = await Downloads.save({for (final e in ctl.entries) e.key: e.value.text.trim()});
+      if (mounted) {
+        setState(() => _d = n);
+        toast(context, 'Saved');
+      }
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = _d;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('App downloads'),
+        actions: [
+          if (Api.profile?.isSuper == true) IconButton(tooltip: 'Change', icon: const Icon(Icons.edit_rounded), onPressed: _edit),
+        ],
+      ),
+      body: d == null
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              color: _red,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  if (d.code.isNotEmpty) CopyRow(label: 'Code for Downloader App', value: d.code, big: true),
+                  if (d.shortUrl.isNotEmpty) CopyRow(label: 'Short URL', value: d.shortUrl),
+                  const SizedBox(height: 8),
+                  const Text('Firestick / Android TV: open the Downloader app, type the code and press Go.',
+                      style: TextStyle(color: _muted, fontSize: 12.5)),
+                  const SizedBox(height: 16),
+                  const Text('Apps', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 8),
+                  for (final l in d.links)
+                    Card(
+                      color: _card,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _line)),
+                      child: ListTile(
+                        leading: CircleAvatar(backgroundColor: _red.withValues(alpha: 0.16), child: Icon(_icon(l.key), color: _red)),
+                        title: Text(l.label, style: const TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Text(l.url, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted, fontSize: 12)),
+                        onTap: () => _openUrl(context, l.url),
+                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          IconButton(tooltip: 'Copy link', icon: const Icon(Icons.copy_rounded), onPressed: () => _copy(context, l.url, 'Link')),
+                          IconButton(tooltip: 'Share', icon: const Icon(Icons.share_rounded), onPressed: () => Share.share('${l.label}\n${l.url}')),
+                        ]),
+                      ),
+                    ),
+                ],
+              ),
+            ),
     );
   }
 }
