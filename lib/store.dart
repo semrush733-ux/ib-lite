@@ -99,6 +99,13 @@ class Store {
   }
 
   /// Keeps server and username so the next login is quicker.
+  /// The website playlist this device had is gone: forget which one it was.
+  static Future<void> forgetSitePlaylist() async {
+    await _p.remove('playlist_id');
+    await _p.remove('playlist_sig');
+    await _p.remove('playlist_name');
+  }
+
   static Future<void> logout() async {
     await _p.remove('password');
     await _p.setBool('logged_in', false);

@@ -1,23 +1,40 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart' show GestureBinding;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show Ticker;
+import 'package:flutter/services.dart';
 
-/// A small puppy that lives along the bottom of the screen: it runs to a spot, sits down,
-/// wags its tail, tilts its head and blinks, then gets up and runs somewhere else
-/// (corner to corner and stops in between). Purely decorative: put it under
+/// A small puppy that roams the edges of the screen: it runs along the bottom, sits down, wags
+/// its tail and blinks; sometimes it climbs up the left or right side, walks upside down along
+/// the top, or dashes diagonally across the middle into a top corner. When the viewer presses a
+/// key or touches the screen it stops and sits until things are quiet again, and it stands
+/// still whenever another screen is opened on top. Purely decorative: put it under
 /// IgnorePointer/ExcludeFocus.
 class RunningPuppy extends StatefulWidget {
-  const RunningPuppy({super.key, this.size = 64});
+  const RunningPuppy({super.key, this.size = 64, this.roam = true});
 
   /// Width of the puppy in logical pixels.
   final double size;
+
+  /// false: only along the bottom (the old behaviour).
+  final bool roam;
 
   @override
   State<RunningPuppy> createState() => _RunningPuppyState();
 }
 
 enum _Mode { run, sit }
+
+enum _Edge { bottom, right, top, left, air }
+
+/// One stretch of the walk: to [to] (centre of the puppy), on [edge].
+class _Leg {
+  const _Leg(this.to, this.edge, {this.speed = 1});
+  final Offset to;
+  final _Edge edge;
+  final double speed;
+}
 
 class _RunningPuppyState extends State<RunningPuppy> with SingleTickerProviderStateMixin {
   final _rnd = math.Random();
@@ -26,48 +43,169 @@ class _RunningPuppyState extends State<RunningPuppy> with SingleTickerProviderSt
   // Ticks the painter directly: no widget is rebuilt per frame.
   final _frame = ValueNotifier<int>(0);
 
-  double _x = 0; // 0 = left corner, 1 = right corner
-  double _target = 1;
-  bool _right = true;
-  _Mode _mode = _Mode.run;
+  Size _area = Size.zero;
+  Offset _pos = Offset.zero; // centre of the puppy
+  bool _placed = false;
+  _Edge _edge = _Edge.bottom;
+  Offset _dir = const Offset(1, 0); // last direction of travel
+  final List<_Leg> _legs = [];
+  _Mode _mode = _Mode.sit;
   double _modeTime = 0; // seconds in the current mode
-  double _sitFor = 3;
+  double _sitFor = 1.5;
   double _clock = 0; // drives legs, tail, blinking
+  DateTime _quietFrom = DateTime.fromMillisecondsSinceEpoch(0); // viewer busy until then
+
+  double get _w => widget.size;
+  double get _h => widget.size * 0.78;
 
   @override
   void initState() {
     super.initState();
     _ticker = createTicker(_tick)..start();
+    HardwareKeyboard.instance.addHandler(_onKey);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
     _ticker.dispose();
     _frame.dispose();
     super.dispose();
   }
 
+  // The viewer is doing something: the puppy sits still and watches for a while.
+  void _busy() => _quietFrom = DateTime.now().add(const Duration(seconds: 8));
+
+  bool _onKey(KeyEvent e) {
+    if (e is KeyDownEvent) _busy();
+    return false; // never takes the key
+  }
+
+  void _onPointer(PointerEvent e) {
+    if (e is PointerDownEvent) _busy();
+  }
+
+  // ---- places on the screen (centre of the puppy)
+  double get _bottomY => _area.height - _h / 2 - 8;
+  double get _topY => _h / 2 + 8;
+  double get _leftX => _h / 2 + 8;
+  double get _rightX => _area.width - _h / 2 - 8;
+  double get _minX => _w / 2 + 12;
+  double get _maxX => _area.width - _w / 2 - 12;
+  double get _minY => _w / 2 + 12;
+  double get _maxY => _area.height - _w / 2 - 12;
+
+  double _between(double a, double b) => a + (b - a) * (0.15 + _rnd.nextDouble() * 0.7);
+
+  /// Plans the next walk from where the puppy is.
+  void _plan() {
+    final r = _rnd.nextDouble();
+    final x = _pos.dx, y = _pos.dy;
+    final goRight = x < _area.width / 2;
+    if (!widget.roam) {
+      _legs.add(_Leg(Offset(r < 0.6 ? (goRight ? _maxX : _minX) : _between(_minX, _maxX), _bottomY), _Edge.bottom));
+      return;
+    }
+    switch (_edge) {
+      case _Edge.bottom:
+        if (r < 0.40) {
+          _legs.add(_Leg(Offset(r < 0.22 ? (goRight ? _maxX : _minX) : _between(_minX, _maxX), _bottomY), _Edge.bottom));
+        } else if (r < 0.62) {
+          // Up the left side, sometimes on along the top.
+          _legs.add(_Leg(Offset(_minX, _bottomY), _Edge.bottom));
+          _legs.add(_Leg(Offset(_leftX, _rnd.nextBool() ? _minY : _between(_minY, _maxY)), _Edge.left));
+        } else if (r < 0.84) {
+          _legs.add(_Leg(Offset(_maxX, _bottomY), _Edge.bottom));
+          _legs.add(_Leg(Offset(_rightX, _rnd.nextBool() ? _minY : _between(_minY, _maxY)), _Edge.right));
+        } else {
+          // A dash right across the middle into a top corner, then on along the top.
+          final toLeft = !goRight;
+          _legs.add(_Leg(Offset(toLeft ? _minX : _maxX, _topY), _Edge.air, speed: 1.6));
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _topY), _Edge.top));
+        }
+      case _Edge.left:
+        if (r < 0.5 && y <= _minY + 2) {
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _topY), _Edge.top));
+        } else if (r < 0.75) {
+          _legs.add(_Leg(Offset(_leftX, _minY), _Edge.left));
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _topY), _Edge.top));
+        } else {
+          _legs.add(_Leg(Offset(_leftX, _maxY), _Edge.left));
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _bottomY), _Edge.bottom));
+        }
+      case _Edge.right:
+        if (r < 0.5 && y <= _minY + 2) {
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _topY), _Edge.top));
+        } else if (r < 0.75) {
+          _legs.add(_Leg(Offset(_rightX, _minY), _Edge.right));
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _topY), _Edge.top));
+        } else {
+          _legs.add(_Leg(Offset(_rightX, _maxY), _Edge.right));
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _bottomY), _Edge.bottom));
+        }
+      case _Edge.top:
+        if (r < 0.35) {
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _topY), _Edge.top));
+        } else if (r < 0.67) {
+          _legs.add(_Leg(Offset(_minX, _topY), _Edge.top));
+          _legs.add(_Leg(Offset(_leftX, _maxY), _Edge.left));
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _bottomY), _Edge.bottom));
+        } else {
+          _legs.add(_Leg(Offset(_maxX, _topY), _Edge.top));
+          _legs.add(_Leg(Offset(_rightX, _maxY), _Edge.right));
+          _legs.add(_Leg(Offset(_between(_minX, _maxX), _bottomY), _Edge.bottom));
+        }
+      case _Edge.air:
+        _legs.add(_Leg(Offset(_between(_minX, _maxX), _bottomY), _Edge.bottom));
+    }
+  }
+
   void _tick(Duration now) {
     final dt = ((now - _last).inMicroseconds / 1e6).clamp(0.0, 0.05).toDouble();
     _last = now;
+    if (_area.isEmpty) return;
+    if (!_placed) {
+      _placed = true;
+      _pos = Offset(_minX, _bottomY);
+    }
     _clock += dt;
     _modeTime += dt;
+    final busy = DateTime.now().isBefore(_quietFrom);
     if (_mode == _Mode.run) {
-      const speed = 0.16; // screen widths per second
-      final dir = _target > _x ? 1.0 : -1.0;
-      _right = dir > 0;
-      _x += dir * speed * dt;
-      if ((dir > 0 && _x >= _target) || (dir < 0 && _x <= _target)) {
-        _x = _target;
+      if (busy && _edge == _Edge.bottom) {
+        // The viewer is busy: stop right here and sit.
+        _legs.clear();
         _mode = _Mode.sit;
         _modeTime = 0;
-        _sitFor = 2.5 + _rnd.nextDouble() * 3;
+        _sitFor = 2;
+      } else if (_legs.isEmpty) {
+        _mode = _Mode.sit;
+        _modeTime = 0;
+      } else {
+        final leg = _legs.first;
+        if (leg.edge != _edge) _edge = leg.edge; // round the corner onto the next side
+        final speed = _area.width * 0.16 * leg.speed; // pixels per second
+        final d = leg.to - _pos;
+        final dist = d.distance;
+        final step = speed * dt;
+        if (dist <= step || dist < 0.5) {
+          _pos = leg.to;
+          _legs.removeAt(0);
+          if (_legs.isEmpty) {
+            _mode = _Mode.sit;
+            _modeTime = 0;
+            // Long rests on the floor, short pauses on the walls and the ceiling.
+            _sitFor = _edge == _Edge.bottom ? 2.5 + _rnd.nextDouble() * 3 : 0.8 + _rnd.nextDouble() * 1.2;
+          }
+        } else {
+          _dir = d / dist;
+          _pos += _dir * step;
+        }
       }
-    } else if (_modeTime > _sitFor) {
-      // Next stop: often the far corner, sometimes a spot in between.
-      final corner = _x < 0.5 ? 1.0 : 0.0;
-      _target = _rnd.nextDouble() < 0.6 ? corner : 0.15 + _rnd.nextDouble() * 0.7;
-      if ((_target - _x).abs() < 0.15) _target = corner;
+    } else if (_modeTime > _sitFor && !busy) {
+      if (_legs.isEmpty) _plan();
       _mode = _Mode.run;
       _modeTime = 0;
     }
@@ -76,53 +214,84 @@ class _RunningPuppyState extends State<RunningPuppy> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final h = widget.size * 0.78;
-    // Its own layer at the bottom of the screen: redrawing the puppy never redraws the rest.
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: SizedBox(
-        height: h + 22,
-        width: double.infinity,
-        child: RepaintBoundary(
-          child: CustomPaint(painter: _StripPainter(this, widget.size, _frame)),
-        ),
-      ),
-    );
+    return LayoutBuilder(builder: (context, box) {
+      final size = Size(box.maxWidth, box.maxHeight);
+      if (size != _area) {
+        final old = _area;
+        _area = size;
+        if (!old.isEmpty) {
+          // Screen size changed: back to the floor.
+          _legs.clear();
+          _edge = _Edge.bottom;
+          _pos = Offset(_pos.dx.clamp(_minX, _maxX).toDouble(), _bottomY);
+        }
+      }
+      // Its own layer: redrawing the puppy never redraws the rest of the screen.
+      return RepaintBoundary(
+        child: CustomPaint(size: size, painter: _ScreenPainter(this, _frame)),
+      );
+    });
   }
 }
 
-/// Draws the shadow and the puppy at its place in the strip along the bottom.
-class _StripPainter extends CustomPainter {
-  _StripPainter(this.s, this.w, Listenable repaint) : super(repaint: repaint);
+/// Draws the puppy where it is, turned to the side it walks on.
+class _ScreenPainter extends CustomPainter {
+  _ScreenPainter(this.s, Listenable repaint) : super(repaint: repaint);
   final _RunningPuppyState s;
-  final double w;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final h = w * 0.78;
+    if (size.isEmpty) return;
+    final w = s._w, h = s._h;
     final running = s._mode == _Mode.run;
     final phase = s._clock * 2 * math.pi / 0.36;
     final bounce = running ? math.sin(phase * 2).abs() * 4 : 0.0;
     final sit = running ? 0.0 : (s._modeTime / 0.25).clamp(0.0, 1.0).toDouble();
-    final left = 12 + (size.width - w - 24) * s._x.clamp(0.0, 1.0).toDouble();
-    // Soft shadow.
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(left + w * 0.15, size.height - 12, w * 0.7, 6), const Radius.circular(6)),
-      Paint()..color = Colors.black.withValues(alpha: 0.28 - bounce * 0.03),
-    );
-    canvas.save();
-    canvas.translate(left, size.height - 8 - bounce - h);
-    if (!s._right) {
-      canvas.translate(w, 0);
-      canvas.scale(-1, 1);
+
+    // Which way is "down" (the feet) and which way it faces.
+    late Offset floor; // unit vector from the puppy to the surface under its feet
+    switch (s._edge) {
+      case _Edge.bottom:
+        floor = const Offset(0, 1);
+      case _Edge.top:
+        floor = const Offset(0, -1);
+      case _Edge.left:
+        floor = const Offset(-1, 0);
+      case _Edge.right:
+        floor = const Offset(1, 0);
+      case _Edge.air:
+        floor = const Offset(0, 1);
     }
+    var dir = s._dir;
+    // Sitting / standing still: face along the surface, the way it last went.
+    final along = Offset(-floor.dy, floor.dx);
+    final dot = dir.dx * along.dx + dir.dy * along.dy;
+    if (s._edge != _Edge.air || !running) dir = dot >= 0 ? along : -along;
+    final angle = math.atan2(dir.dy, dir.dx);
+    // Feet of the picture point to (-sin a, cos a) after turning; flip when that is the wrong side.
+    final feet = Offset(-math.sin(angle), math.cos(angle));
+    final flip = (feet.dx * floor.dx + feet.dy * floor.dy) < 0;
+
+    // Soft shadow on the floor only.
+    if (s._edge == _Edge.bottom) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromCenter(center: Offset(s._pos.dx, size.height - 9), width: w * 0.7, height: 6), const Radius.circular(6)),
+        Paint()..color = Colors.black.withValues(alpha: 0.28 - bounce * 0.03),
+      );
+    }
+    canvas.save();
+    canvas.translate(s._pos.dx - floor.dx * bounce, s._pos.dy - floor.dy * bounce);
+    canvas.rotate(angle);
+    if (flip) canvas.scale(1, -1);
+    canvas.translate(-w / 2, -h / 2);
     _PuppyPainter(phase: running ? phase : 0, sit: sit, time: s._clock, sitTime: running ? 0 : s._modeTime)
         .paint(canvas, Size(w, h));
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_StripPainter old) => false;
+  bool shouldRepaint(_ScreenPainter old) => false;
 }
 
 /// The puppy faces right. [phase] drives the running legs, [sit] (0..1) folds it into a sitting

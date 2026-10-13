@@ -251,7 +251,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
               );
             }),
           ),
-          const IgnorePointer(child: ExcludeFocus(child: RunningPuppy())),
+          const Positioned.fill(child: IgnorePointer(child: ExcludeFocus(child: RunningPuppy()))),
         ],
       ),
     ));

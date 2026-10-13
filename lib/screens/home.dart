@@ -6,6 +6,7 @@ import '../backend.dart';
 import '../i18n.dart';
 import '../m3u.dart';
 import '../prefetch.dart';
+import '../puppy.dart';
 import '../speedtest.dart';
 import '../store.dart';
 import '../theme.dart';
@@ -57,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_account == null) _refreshAccount();
     // A few seconds after start: pick up a new server / login set on the website.
     Timer(const Duration(seconds: 6), _followSite);
-    _follow = Timer.periodic(const Duration(minutes: 20), (_) => _followSite());
+    _follow = Timer.periodic(const Duration(minutes: 5), (_) => _followSite());
     Weather.refresh().then((_) {
       if (mounted) setState(() {});
     });
@@ -117,7 +118,37 @@ class _HomeScreenState extends State<HomeScreen> {
       for (final l in lists) {
         if (l.id == id) p = l;
       }
-      if (p == null || !mounted) return;
+      if (!mounted) return;
+      if (p == null) {
+        // The playlist was deleted on the website.
+        if (ModalRoute.of(context)?.isCurrent != true) {
+          _pendingFollow = true; // not in the middle of a channel: when back on this screen
+          return;
+        }
+        if (lists.isEmpty) {
+          // None left: back to the start screen (QR code / sign-in) to add one.
+          log('playlist removed on the website: none left, back to the start screen');
+          await Store.logout();
+          await Store.forgetSitePlaylist();
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute<void>(
+                builder: (_) => const ConnectScreen(
+                    message: 'This playlist was removed. Scan the QR code or add a playlist on the website.')),
+            (_) => false,
+          );
+          return;
+        }
+        // Another playlist is still there: open that one.
+        log('playlist removed on the website: opening "${lists.first.name}"');
+        final result = await openSitePlaylist(lists.first);
+        if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute<void>(builder: (_) => HomeScreen(api: result.$1, account: result.$2)),
+          (_) => false,
+        );
+        return;
+      }
       // Compared with what the website said when this playlist was opened, not with the player's
       // own connection (an M3U link opens through the Xtream API, http may become https…).
       final sig = sitePlaylistSig(p);
@@ -368,6 +399,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           SafeArea(child: _content()),
+          // The puppy roams the edges; stops when the viewer uses the remote, and stands still
+          // while another screen is open on top.
+          const Positioned.fill(child: IgnorePointer(child: ExcludeFocus(child: RunningPuppy(size: 56)))),
         ],
       ),
     ));
