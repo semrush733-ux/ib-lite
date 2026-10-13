@@ -1,0 +1,1479 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+
+import 'api.dart';
+import 'main.dart' show toast, SettingsPage;
+
+const _red = Color(0xFFE3262F);
+const _card = Color(0xFF1B1113);
+const _line = Color(0xFF3A2A2D);
+const _muted = Color(0xFFB9A9AC);
+const _green = Color(0xFF22C55E);
+const _amber = Color(0xFFF5B400);
+
+Color statusColor(String s) => switch (s) {
+      'active' => _green,
+      'trial' => const Color(0xFF1E88FF),
+      'expired' => const Color(0xFFFF7B81),
+      'suspended' => const Color(0xFF9E9E9E),
+      _ => _muted,
+    };
+
+String statusName(String s) => switch (s) {
+      'suspended' => 'Blocked',
+      'active' => 'Active',
+      'trial' => 'Trial',
+      'expired' => 'Expired',
+      _ => s,
+    };
+
+// ------------------------------------------------------------------------------------------ data
+
+class TvPlaylist2 {
+  TvPlaylist2(Map<String, dynamic> j)
+      : id = (j['id'] as num?)?.toInt() ?? 0,
+        name = '${j['name'] ?? ''}',
+        username = '${j['username'] ?? ''}',
+        locked = j['locked'] == true,
+        owner = '${j['owner'] ?? ''}';
+  final int id;
+  final String name, username, owner;
+  final bool locked;
+}
+
+class TvDevice {
+  TvDevice(Map<String, dynamic> j)
+      : id = '${j['device_id'] ?? ''}',
+        mac = '${j['mac'] ?? j['device_id'] ?? ''}',
+        status = '${j['status'] ?? ''}',
+        plan = '${j['plan'] ?? ''}',
+        ends = '${j['ends'] ?? ''}',
+        daysLeft = (j['days_left'] as num?)?.toInt() ?? 0,
+        online = j['online'] == true,
+        lastSeen = '${j['last_seen'] ?? ''}',
+        country = '${j['country'] ?? ''}',
+        app = '${j['app'] ?? ''}',
+        playlists = [for (final p in (j['playlists'] as List? ?? const [])) TvPlaylist2(p as Map<String, dynamic>)];
+  final String id, mac, status, plan, ends, lastSeen, country, app;
+  final int daysLeft;
+  final bool online;
+  final List<TvPlaylist2> playlists;
+
+  String get title => playlists.isEmpty ? mac : (playlists.first.username.isNotEmpty ? playlists.first.username : playlists.first.name);
+  String get owners => playlists.map((p) => p.owner).where((o) => o.isNotEmpty).toSet().join(', ');
+}
+
+class Panel {
+  Panel._();
+
+  static Future<Map<String, dynamic>> dashboard() => Api.call('/panel/dashboard');
+
+  static Future<List<TvDevice>> devices({String filter = 'all', String q = '', int days = 7, int reseller = 0}) async {
+    final j = await Api.call('/panel/devices', query: {
+      'filter': filter,
+      if (q.isNotEmpty) 'q': q,
+      'days': '$days',
+      if (reseller > 0) 'reseller': '$reseller',
+    });
+    return [for (final d in (j['devices'] as List? ?? const [])) TvDevice(d as Map<String, dynamic>)];
+  }
+
+  /// To the chosen TVs, or (all) to every TV of a filter.
+  static Future<String> notify({List<String> ids = const [], bool all = false, String filter = 'all', required String title, required String body}) async {
+    final j = await Api.call('/panel/notify', body: {
+      'title': title,
+      'body': body,
+      if (all) 'all': '1',
+      if (all) 'filter': filter,
+      if (!all) 'device_ids': ids,
+    });
+    return '${j['message']}';
+  }
+
+  static Future<String> command(String action, List<String> ids, {int playlistId = 0}) async {
+    final j = await Api.call('/panel/command', body: {'action': action, 'device_ids': ids, if (playlistId > 0) 'playlist_id': playlistId});
+    return '${j['message']}';
+  }
+}
+
+// ------------------------------------------------------------------------------------- dashboard
+
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key});
+
+  @override
+  State<DashboardPage> createState() => DashboardPageState();
+}
+
+class DashboardPageState extends State<DashboardPage> {
+  Map<String, dynamic>? _d;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    reload();
+  }
+
+  Future<void> reload() async {
+    try {
+      final d = await Panel.dashboard();
+      if (mounted) {
+        setState(() {
+          _d = d;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  void _open(String filter, String title) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => DevicesPage(filter: filter, title: title)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = Api.profile;
+    final c = (_d?['counts'] as Map?) ?? const {};
+    int n(String k) => (c[k] as num?)?.toInt() ?? 0;
+    final tiles = <(String, String, String, IconData, Color)>[
+      ('online', 'Online now', '${n('online')}', Icons.wifi_tethering_rounded, _green),
+      ('active', 'Active', '${n('active')}', Icons.verified_rounded, _green),
+      ('trial', 'On trial', '${n('trial')}', Icons.hourglass_bottom_rounded, const Color(0xFF1E88FF)),
+      ('expiring', 'Ending in 7 days', '${n('expiring7')}', Icons.notification_important_rounded, _amber),
+      ('expired', 'Expired', '${n('expired')}', Icons.timer_off_rounded, const Color(0xFFFF7B81)),
+      ('suspended', 'Blocked', '${n('suspended')}', Icons.block_rounded, const Color(0xFF9E9E9E)),
+      ('all', 'All TVs', '${n('total')}', Icons.tv_rounded, _muted),
+      ('lifetime', 'Lifetime', '${n('lifetime')}', Icons.all_inclusive_rounded, const Color(0xFFB37BFF)),
+    ];
+    final top = (_d?['top'] as List?) ?? const [];
+    return RefreshIndicator(
+      onRefresh: reload,
+      color: _red,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          if (Api.impersonating) const _AsBanner(),
+          Text('Hello ${p?.name ?? ''}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+          Text(p?.isSuper == true ? 'Every TV on your website' : 'Your clients and your team\'s',
+              style: const TextStyle(color: _muted)),
+          const SizedBox(height: 14),
+          if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFFF8A90))),
+          if (_d == null && _error == null)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator())),
+          if (_d != null) ...[
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: 1.7,
+              children: [
+                for (final t in tiles)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => _open(t.$1, t.$2),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: _card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: t.$5.withValues(alpha: 0.35)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(children: [
+                            Icon(t.$4, color: t.$5, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(t.$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _muted))),
+                          ]),
+                          Text(t.$3, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(16), border: Border.all(color: _line)),
+              child: Row(
+                children: [
+                  Expanded(child: _big('Activations this month', '${n('month_activations')}')),
+                  Expanded(child: _big('Credits used this month', '${_d?['credits_month'] ?? 0}')),
+                ],
+              ),
+            ),
+            if (top.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Text('Top sellers this month', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              for (var i = 0; i < top.length; i++)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(backgroundColor: _red.withValues(alpha: 0.18), child: Text('${i + 1}')),
+                  title: Text('${(top[i] as Map)['username']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  trailing: Text('${(top[i] as Map)['activations']} activations · ${(top[i] as Map)['credits']} cr',
+                      style: const TextStyle(color: _muted)),
+                ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotifyPage())),
+                    icon: const Icon(Icons.campaign_rounded),
+                    label: const Text('Send message'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _open('expiring', 'Ending in 7 days'),
+                    icon: const Icon(Icons.notification_important_rounded),
+                    label: const Text('Ending soon'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _big(String label, String value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+          Text(label, style: const TextStyle(color: _muted, fontSize: 12.5)),
+        ],
+      );
+}
+
+/// Shown while the super admin looks at the app as another account.
+class _AsBanner extends StatelessWidget {
+  const _AsBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: _amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14), border: Border.all(color: _amber)),
+      child: Text('You are looking at the app as ${Api.profile?.name ?? 'another account'}. More → "Back to my account" returns.',
+          style: const TextStyle(fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+// -------------------------------------------------------------------------- TVs (search, select)
+
+/// TVs with search and filters. Tap one for its actions; "Select" picks several for one message
+/// or one action. With [pick] it returns the chosen ids instead (for the message screen).
+class DevicesPage extends StatefulWidget {
+  const DevicesPage({super.key, this.filter = 'all', this.title = 'TVs', this.pick = false, this.initial = const []});
+  final String filter;
+  final String title;
+  final bool pick;
+  final List<String> initial;
+
+  @override
+  State<DevicesPage> createState() => _DevicesPageState();
+}
+
+class _DevicesPageState extends State<DevicesPage> {
+  late String _filter = widget.filter;
+  final _q = TextEditingController();
+  List<TvDevice>? _list;
+  String? _error;
+  late final Set<String> _chosen = {...widget.initial};
+  late bool _selecting = widget.pick;
+  bool _busy = false;
+
+  static const _filters = [
+    ('all', 'All'),
+    ('online', 'Online'),
+    ('active', 'Active'),
+    ('trial', 'Trial'),
+    ('expiring', 'Ending soon'),
+    ('expired', 'Expired'),
+    ('suspended', 'Blocked'),
+    ('lifetime', 'Lifetime'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _error = null);
+    try {
+      final l = await Panel.devices(filter: _filter, q: _q.text.trim());
+      if (mounted) setState(() => _list = l);
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  Future<void> _bulk(String action) async {
+    final ids = _chosen.toList();
+    if (ids.isEmpty) return;
+    final ok = await confirm(context, '${actionName(action)} ${ids.length} TV(s)?');
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final m = await Panel.command(action, ids);
+      if (!mounted) return;
+      toast(context, m);
+      setState(() {
+        _selecting = false;
+        _chosen.clear();
+      });
+      _load();
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = _list;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.pick ? 'Choose TVs' : widget.title),
+        actions: [
+          if (list != null && list.isNotEmpty)
+            TextButton(
+              onPressed: () => setState(() {
+                _selecting = true;
+                final all = list.map((d) => d.id).toSet();
+                if (_chosen.containsAll(all)) {
+                  _chosen.removeAll(all);
+                } else {
+                  _chosen.addAll(all);
+                }
+              }),
+              child: const Text('All'),
+            ),
+          if (!widget.pick)
+            TextButton(
+              onPressed: () => setState(() {
+                _selecting = !_selecting;
+                if (!_selecting) _chosen.clear();
+              }),
+              child: Text(_selecting ? 'Cancel' : 'Select'),
+            ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            child: TextField(
+              controller: _q,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _load(),
+              decoration: InputDecoration(
+                hintText: 'MAC address, playlist name or login',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(icon: const Icon(Icons.arrow_forward), onPressed: _load),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 46,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                for (final f in _filters)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(f.$2),
+                      selected: _filter == f.$1,
+                      onSelected: (_) {
+                        setState(() => _filter = f.$1);
+                        _load();
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (_error != null) Padding(padding: const EdgeInsets.all(16), child: Text(_error!, style: const TextStyle(color: Color(0xFFFF8A90)))),
+          Expanded(
+            child: list == null
+                ? (_error == null ? const Center(child: CircularProgressIndicator()) : const SizedBox())
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: list.isEmpty
+                        ? ListView(children: const [
+                            Padding(padding: EdgeInsets.all(40), child: Text('No TVs here.', textAlign: TextAlign.center, style: TextStyle(color: _muted))),
+                          ])
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
+                            itemCount: list.length,
+                            itemBuilder: (_, i) {
+                              final d = list[i];
+                              final on = _chosen.contains(d.id);
+                              return Card(
+                                color: on ? _red.withValues(alpha: 0.14) : _card,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14), side: BorderSide(color: on ? _red : _line)),
+                                child: ListTile(
+                                  onTap: () async {
+                                    if (_selecting) {
+                                      setState(() => on ? _chosen.remove(d.id) : _chosen.add(d.id));
+                                      return;
+                                    }
+                                    final changed = await showModalBottomSheet<bool>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: const Color(0xFF170E10),
+                                      builder: (_) => DeviceSheet(d: d),
+                                    );
+                                    if (changed == true) _load();
+                                  },
+                                  onLongPress: widget.pick
+                                      ? null
+                                      : () => setState(() {
+                                            _selecting = true;
+                                            _chosen.add(d.id);
+                                          }),
+                                  leading: _selecting
+                                      ? Checkbox(value: on, onChanged: (_) => setState(() => on ? _chosen.remove(d.id) : _chosen.add(d.id)))
+                                      : Icon(Icons.circle, size: 12, color: d.online ? _green : const Color(0xFF5A4A4D)),
+                                  title: Text(d.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  subtitle: Text(
+                                    [
+                                      d.mac,
+                                      if (d.owners.isNotEmpty) 'by ${d.owners}',
+                                      if (d.country.isNotEmpty) d.country,
+                                    ].join(' · '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(color: _muted, fontSize: 12.5),
+                                  ),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(statusName(d.status), style: TextStyle(color: statusColor(d.status), fontWeight: FontWeight.w800)),
+                                      Text(d.plan == 'lifetime' ? 'lifetime' : (d.ends.isEmpty ? '' : '${d.daysLeft} days'),
+                                          style: const TextStyle(color: _muted, fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
+      ),
+      bottomNavigationBar: !_selecting
+          ? null
+          : SafeArea(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                color: const Color(0xFF140B0D),
+                child: widget.pick
+                    ? FilledButton(
+                        onPressed: () => Navigator.of(context).pop(_chosen.toList()),
+                        child: Text('Use ${_chosen.length} TV(s)'),
+                      )
+                    : Row(
+                        children: [
+                          Text('${_chosen.length}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: 6,
+                              children: [
+                                _act(Icons.campaign_rounded, 'Message', _busy || _chosen.isEmpty
+                                    ? null
+                                    : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                                        builder: (_) => NotifyPage(initial: _chosen.toList())))),
+                                _act(Icons.refresh_rounded, 'Reload', _busy || _chosen.isEmpty ? null : () => _bulk('refresh')),
+                                _act(Icons.block_rounded, 'Block', _busy || _chosen.isEmpty ? null : () => _bulk('block')),
+                                _act(Icons.check_circle_outline, 'Unblock', _busy || _chosen.isEmpty ? null : () => _bulk('unblock')),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+    );
+  }
+
+  Widget _act(IconData icon, String label, VoidCallback? onTap) => TextButton.icon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+      );
+}
+
+String actionName(String a) => switch (a) {
+      'refresh' => 'Reload the playlist on',
+      'block' => 'Block',
+      'unblock' => 'Unblock',
+      _ => a,
+    };
+
+Future<bool?> confirm(BuildContext context, String text) => showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(text),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Yes')),
+        ],
+      ),
+    );
+
+/// One TV: what it is, and everything that can be done to it.
+class DeviceSheet extends StatefulWidget {
+  const DeviceSheet({super.key, required this.d});
+  final TvDevice d;
+
+  @override
+  State<DeviceSheet> createState() => _DeviceSheetState();
+}
+
+class _DeviceSheetState extends State<DeviceSheet> {
+  bool _busy = false;
+
+  Future<void> _run(Future<String> Function() job, {bool close = true}) async {
+    setState(() => _busy = true);
+    try {
+      final m = await job();
+      if (!mounted) return;
+      toast(context, m);
+      if (close) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _reminder() {
+    final d = widget.d;
+    final name = d.title;
+    final text = d.status == 'expired'
+        ? 'Hello $name, your IPTV player licence has ended. Reply here to renew it and keep watching.'
+        : 'Hello $name, your IPTV player ${d.status == 'trial' ? 'trial' : 'licence'} ends in ${d.daysLeft} day(s)'
+            '${d.ends.isNotEmpty ? ' (${d.ends})' : ''}. Reply here to renew it without a break.';
+    Share.share(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.d;
+    final blocked = d.status == 'suspended';
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(d.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            SelectableText(d.mac, style: const TextStyle(color: _muted)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _chip(statusName(d.status), statusColor(d.status)),
+                _chip(d.online ? 'Online' : 'Offline', d.online ? _green : _muted),
+                if (d.plan == 'lifetime') _chip('Lifetime', const Color(0xFFB37BFF)),
+                if (d.ends.isNotEmpty && d.plan != 'lifetime') _chip('Ends ${d.ends}', _amber),
+                if (d.country.isNotEmpty) _chip(d.country, _muted),
+                if (d.app.isNotEmpty) _chip('App build ${d.app}', _muted),
+              ],
+            ),
+            const SizedBox(height: 14),
+            for (final p in d.playlists)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
+                decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(12), border: Border.all(color: _line)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                          Text([if (p.username.isNotEmpty) p.username, if (p.owner.isNotEmpty) 'by ${p.owner}', if (p.locked) 'PIN'].join(' · '),
+                              style: const TextStyle(color: _muted, fontSize: 12.5)),
+                        ],
+                      ),
+                    ),
+                    if (p.locked)
+                      TextButton(
+                        onPressed: _busy ? null : () => _run(() => Panel.command('pin_reset', [d.id], playlistId: p.id)),
+                        child: const Text('Remove PIN'),
+                      ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => NotifyPage(initial: [d.id]))),
+              icon: const Icon(Icons.campaign_rounded),
+              label: const Text('Send a message to this TV'),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _run(() => Panel.command('refresh', [d.id])),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Reload'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: blocked ? _green : const Color(0xFFFF7B81)),
+                    onPressed: _busy ? null : () => _run(() => Panel.command(blocked ? 'unblock' : 'block', [d.id])),
+                    icon: Icon(blocked ? Icons.check_circle_outline : Icons.block_rounded),
+                    label: Text(blocked ? 'Unblock' : 'Block'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy || blocked ? null : () => _run(() => Api.activate(d.id, 'year')),
+                    child: const Text('Renew 1 year'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _busy || blocked ? null : () => _run(() => Api.activate(d.id, 'lifetime')),
+                    child: const Text('Lifetime'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _reminder,
+              icon: const Icon(Icons.chat_rounded),
+              label: const Text('Send a renewal reminder (WhatsApp…)'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String t, Color c) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(color: c.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+        child: Text(t, style: TextStyle(color: c, fontWeight: FontWeight.w700, fontSize: 12.5)),
+      );
+}
+
+// --------------------------------------------------------------------------------- send message
+
+class NotifyPage extends StatefulWidget {
+  const NotifyPage({super.key, this.initial = const []});
+  final List<String> initial;
+
+  @override
+  State<NotifyPage> createState() => _NotifyPageState();
+}
+
+class _NotifyPageState extends State<NotifyPage> {
+  final _title = TextEditingController();
+  final _body = TextEditingController();
+  late List<String> _ids = [...widget.initial];
+  // chosen | all | online | expiring | expired | trial
+  late String _to = widget.initial.isEmpty ? 'all' : 'chosen';
+  bool _busy = false;
+
+  static const _groups = [
+    ('chosen', 'Chosen TVs'),
+    ('all', 'All my TVs'),
+    ('online', 'Online now'),
+    ('expiring', 'Ending in 7 days'),
+    ('trial', 'On trial'),
+    ('expired', 'Expired'),
+  ];
+
+  Future<void> _choose() async {
+    final ids = await Navigator.of(context).push<List<String>>(
+        MaterialPageRoute(builder: (_) => DevicesPage(pick: true, initial: _ids)));
+    if (ids != null && mounted) {
+      setState(() {
+        _ids = ids;
+        _to = 'chosen';
+      });
+    }
+  }
+
+  Future<void> _send() async {
+    if (_title.text.trim().isEmpty && _body.text.trim().isEmpty) {
+      toast(context, 'Write a title or a message.', error: true);
+      return;
+    }
+    if (_to == 'chosen' && _ids.isEmpty) {
+      toast(context, 'Choose the TVs first.', error: true);
+      return;
+    }
+    final who = _to == 'chosen' ? '${_ids.length} chosen TV(s)' : _groups.firstWhere((g) => g.$1 == _to).$2.toLowerCase();
+    final ok = await confirm(context, 'Send this message to $who?');
+    if (ok != true) return;
+    setState(() => _busy = true);
+    try {
+      final m = await Panel.notify(
+        ids: _ids,
+        all: _to != 'chosen',
+        filter: _to,
+        title: _title.text.trim(),
+        body: _body.text.trim(),
+      );
+      if (!mounted) return;
+      toast(context, m);
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Message to TVs')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          const Text('Send to', style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final g in _groups)
+                ChoiceChip(
+                  label: Text(g.$1 == 'chosen' && _ids.isNotEmpty ? 'Chosen TVs (${_ids.length})' : g.$2),
+                  selected: _to == g.$1,
+                  onSelected: (_) => g.$1 == 'chosen' ? _choose() : setState(() => _to = g.$1),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          TextButton.icon(onPressed: _choose, icon: const Icon(Icons.checklist_rounded), label: const Text('Choose TVs from the list')),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _title,
+            maxLength: 120,
+            decoration: const InputDecoration(labelText: 'Title', hintText: 'e.g. Server maintenance tonight', prefixIcon: Icon(Icons.title)),
+          ),
+          TextField(
+            controller: _body,
+            minLines: 4,
+            maxLines: 8,
+            maxLength: 1500,
+            decoration: const InputDecoration(labelText: 'Message', alignLabelWithHint: true),
+          ),
+          const Text('It appears on the TV screen within a few minutes, with an OK button. A TV that is off sees it when it is turned on.',
+              style: TextStyle(color: _muted, fontSize: 12.5)),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _busy ? null : _send,
+            icon: const Icon(Icons.send_rounded),
+            label: const Text('Send'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------------------------- more tab
+
+class MorePage extends StatelessWidget {
+  const MorePage({super.key, required this.onChanged, required this.onSwitched});
+  final VoidCallback onChanged;
+  final VoidCallback onSwitched;
+
+  @override
+  Widget build(BuildContext context) {
+    final superAdmin = Api.profile?.isSuper == true;
+    void go(Widget page) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+    Widget tile(IconData icon, String title, String sub, VoidCallback onTap, {Color color = _red}) => Card(
+          color: _card,
+          margin: const EdgeInsets.only(bottom: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _line)),
+          child: ListTile(
+            leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.16), child: Icon(icon, color: color)),
+            title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(sub, style: const TextStyle(color: _muted, fontSize: 12.5)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: onTap,
+          ),
+        );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      children: [
+        const Text('More', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 12),
+        if (Api.impersonating)
+          tile(Icons.undo_rounded, 'Back to my account', 'Leave ${Api.profile?.name ?? 'this account'}', () async {
+            await Api.backToMine();
+            onSwitched();
+          }, color: _amber),
+        tile(Icons.campaign_rounded, 'Send a message', 'To one TV, chosen TVs or all of them', () => go(const NotifyPage())),
+        tile(Icons.tv_rounded, 'All TVs', 'Search by MAC, name or login; block, reload, renew', () => go(const DevicesPage(title: 'All TVs'))),
+        tile(Icons.notification_important_rounded, 'Ending soon', 'Renew or remind before they stop', () => go(const DevicesPage(filter: 'expiring', title: 'Ending in 7 days')), color: _amber),
+        tile(Icons.monitor_heart_rounded, 'Server health', 'Which IPTV servers answer, and how fast', () => go(const HealthPage()), color: _green),
+        tile(Icons.download_rounded, 'Backup to Excel (CSV)', 'Every TV with status, plan and playlists', () => exportCsv(context)),
+        if (superAdmin) ...[
+          tile(Icons.system_update_rounded, 'App updates', 'Send a new build to all TVs or to test TVs first', () => go(const UpdatesPage()), color: const Color(0xFF1E88FF)),
+          tile(Icons.palette_rounded, 'App look', 'Name, app name under the icon, icon, intro, news', () => go(const BrandingPage()), color: const Color(0xFFB37BFF)),
+          tile(Icons.sell_rounded, 'Prices and trial', 'Trial days, yearly and lifetime price', () => go(const PricingPage()), color: _amber),
+          tile(Icons.history_rounded, 'Activity log', 'Who did what, and when', () => go(const LogsPage()), color: _muted),
+        ],
+        tile(Icons.settings_rounded, 'Settings', 'Your server, replace a server, sign out', () => go(Scaffold(
+              appBar: AppBar(title: const Text('Settings')),
+              body: SettingsPage(onChanged: onChanged),
+            )), color: _muted),
+      ],
+    );
+  }
+}
+
+Future<void> exportCsv(BuildContext context) async {
+  try {
+    final j = await Api.call('/panel/export');
+    final dir = await getTemporaryDirectory();
+    final f = File('${dir.path}/${j['file'] ?? 'clients.csv'}');
+    await f.writeAsString('${j['csv'] ?? ''}');
+    await Share.shareXFiles([XFile(f.path, mimeType: 'text/csv')], subject: 'Clients backup');
+  } catch (e) {
+    if (context.mounted) toast(context, '$e', error: true);
+  }
+}
+
+// ---------------------------------------------------------------------------------- server health
+
+class HealthPage extends StatefulWidget {
+  const HealthPage({super.key});
+
+  @override
+  State<HealthPage> createState() => _HealthPageState();
+}
+
+class _HealthPageState extends State<HealthPage> {
+  List<(String, int)> _servers = const [];
+  final Map<String, (bool, int, String)> _result = {}; // up, ms, note
+  String? _error;
+  Timer? _again;
+  bool _checking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    // Looked at again every 5 minutes while this screen is open.
+    _again = Timer.periodic(const Duration(minutes: 5), (_) => _checkAll());
+  }
+
+  @override
+  void dispose() {
+    _again?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await Api.call('/panel/servers');
+      final l = [for (final s in (j['servers'] as List? ?? const [])) ('${(s as Map)['server']}', (s['playlists'] as num?)?.toInt() ?? 0)];
+      if (!mounted) return;
+      setState(() => _servers = l);
+      _checkAll();
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    }
+  }
+
+  Future<void> _checkAll() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    await Future.wait(_servers.map((s) => _check(s.$1)));
+    if (mounted) setState(() => _checking = false);
+  }
+
+  /// Any answer from the server (even "wrong login") means it is up.
+  Future<void> _check(String server) async {
+    final sw = Stopwatch()..start();
+    try {
+      final r = await http.get(Uri.parse('$server/player_api.php')).timeout(const Duration(seconds: 8));
+      sw.stop();
+      if (mounted) setState(() => _result[server] = (true, sw.elapsedMilliseconds, 'answer ${r.statusCode}'));
+    } on TimeoutException {
+      if (mounted) setState(() => _result[server] = (false, 0, 'no answer in 8 s'));
+    } catch (e) {
+      if (mounted) setState(() => _result[server] = (false, 0, 'cannot connect'));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final down = _servers.where((s) => _result[s.$1]?.$1 == false).length;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Server health'),
+        actions: [IconButton(onPressed: _checking ? null : _checkAll, icon: const Icon(Icons.refresh))],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        children: [
+          if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFFF8A90))),
+          if (down > 0)
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(color: const Color(0x33FF4D4D), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFFF4D4D))),
+              child: Text('$down server(s) not answering from this phone. More → Settings → "Replace server" moves the clients to a new address.',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          const Text('Checked from this phone, again every 5 minutes while this screen is open.', style: TextStyle(color: _muted, fontSize: 12.5)),
+          const SizedBox(height: 10),
+          if (_servers.isEmpty && _error == null) const Center(child: Padding(padding: EdgeInsets.all(30), child: CircularProgressIndicator())),
+          for (final s in _servers)
+            Card(
+              color: _card,
+              margin: const EdgeInsets.only(bottom: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _line)),
+              child: ListTile(
+                leading: Icon(
+                  _result[s.$1] == null ? Icons.more_horiz : (_result[s.$1]!.$1 ? Icons.check_circle : Icons.error),
+                  color: _result[s.$1] == null ? _muted : (_result[s.$1]!.$1 ? (_result[s.$1]!.$2 > 1500 ? _amber : _green) : const Color(0xFFFF4D4D)),
+                ),
+                title: Text(s.$1, style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                  '${s.$2} playlist(s)${_result[s.$1] == null ? '' : _result[s.$1]!.$1 ? ' · ${_result[s.$1]!.$2} ms${_result[s.$1]!.$2 > 1500 ? ' (slow)' : ''}' : ' · ${_result[s.$1]!.$3}'}',
+                  style: const TextStyle(color: _muted),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------------- app updates
+
+class UpdatesPage extends StatefulWidget {
+  const UpdatesPage({super.key});
+
+  @override
+  State<UpdatesPage> createState() => _UpdatesPageState();
+}
+
+class _UpdatesPageState extends State<UpdatesPage> {
+  Map<String, dynamic>? _u;
+  final _testers = TextEditingController();
+  final _notes = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _take(Map<String, dynamic> j) {
+    _u = j;
+    _testers.text = ((j['test_devices'] as List?) ?? const []).join(', ');
+    _notes.text = '${j['notes'] ?? ''}';
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await Api.call('/panel/updates');
+      if (mounted) setState(() => _take(j));
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _save(Map<String, dynamic> body, {String? done}) async {
+    setState(() => _busy = true);
+    try {
+      final j = await Api.call('/panel/updates', body: {'save': '1', ...body});
+      if (!mounted) return;
+      setState(() => _take(j));
+      toast(context, done ?? 'Saved.');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _addTesters() async {
+    final ids = await Navigator.of(context).push<List<String>>(MaterialPageRoute(builder: (_) => const DevicesPage(pick: true)));
+    if (ids == null || ids.isEmpty) return;
+    final now = _testers.text.split(RegExp(r'[\s,]+')).where((s) => s.isNotEmpty).toSet()..addAll(ids);
+    setState(() => _testers.text = now.join(', '));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final u = _u;
+    final latest = (u?['latest'] as Map?) ?? const {};
+    final build = (latest['build'] as num?)?.toInt() ?? 0;
+    final ok = latest['ok'] == true;
+    final announced = (u?['announced'] as num?)?.toInt() ?? 0;
+    return Scaffold(
+      appBar: AppBar(title: const Text('App updates')),
+      body: u == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(16), border: Border.all(color: _line)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Newest build: ${build > 0 ? '#$build' : 'unknown'}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      Text('${latest['msg'] ?? ''}', style: TextStyle(color: ok ? _green : _muted)),
+                      const SizedBox(height: 6),
+                      Text('TVs are offered: ${announced > 0 ? 'build $announced' : 'nothing'}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      if (u['test_only'] == true) const Text('Only the test TVs see it now.', style: TextStyle(color: _amber)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (ok && build > announced)
+                  FilledButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            if (await confirm(context, 'Offer build $build to ${u['test_only'] == true ? 'the test TVs' : 'all TVs'}?') == true) {
+                              _save({'build': build}, done: 'Build $build offered.');
+                            }
+                          },
+                    icon: const Icon(Icons.system_update_rounded),
+                    label: Text('Send build $build to the TVs'),
+                  ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  value: u['test_only'] == true,
+                  onChanged: _busy ? null : (v) => _save({'test_only': v ? '1' : '0'}),
+                  title: const Text('Test TVs first'),
+                  subtitle: const Text('Only the TVs below get the update; turn off to send it to everyone.'),
+                ),
+                TextField(
+                  controller: _testers,
+                  minLines: 1,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'Test TVs (MAC addresses, comma separated)'),
+                ),
+                Row(
+                  children: [
+                    TextButton.icon(onPressed: _addTesters, icon: const Icon(Icons.add), label: const Text('Add from list')),
+                    const Spacer(),
+                    OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _save({'test_devices': _testers.text.split(RegExp(r'[\s,]+')).where((s) => s.isNotEmpty).toList()}),
+                      child: const Text('Save test TVs'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 28),
+                SwitchListTile(
+                  value: u['follow'] == true,
+                  onChanged: _busy ? null : (v) => _save({'follow': v ? '1' : '0'}),
+                  title: const Text('Follow new builds automatically'),
+                  subtitle: const Text('Every good new build is offered to the TVs by itself (within an hour).'),
+                ),
+                SwitchListTile(
+                  value: u['force'] == true,
+                  onChanged: _busy ? null : (v) => _save({'force': v ? '1' : '0'}),
+                  title: const Text('Must update'),
+                  subtitle: const Text('Customers cannot press "Later" (only for a broken version).'),
+                ),
+                TextField(
+                  controller: _notes,
+                  minLines: 2,
+                  maxLines: 5,
+                  decoration: const InputDecoration(labelText: 'What\'s new (shown on the TV)'),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(onPressed: _busy ? null : () => _save({'notes': _notes.text}), child: const Text('Save text')),
+              ],
+            ),
+    );
+  }
+}
+
+// -------------------------------------------------------------------------------------- branding
+
+class BrandingPage extends StatefulWidget {
+  const BrandingPage({super.key});
+
+  @override
+  State<BrandingPage> createState() => _BrandingPageState();
+}
+
+class _BrandingPageState extends State<BrandingPage> {
+  final Map<String, TextEditingController> _c = {
+    for (final k in ['brand', 'app_label', 'logo_name', 'intro_name', 'news_label', 'news_title', 'news_body', 'app_icon_url', 'intro_url', 'intro_seconds'])
+      k: TextEditingController(),
+  };
+  String _introType = 'builtin';
+  bool _newsOn = false;
+  bool _loaded = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await Api.call('/panel/branding');
+      final b = (j['branding'] as Map?) ?? const {};
+      if (!mounted) return;
+      setState(() {
+        for (final e in _c.entries) {
+          e.value.text = '${b[e.key] ?? ''}';
+        }
+        _introType = '${b['intro_type'] ?? 'builtin'}';
+        _newsOn = '${b['news_on']}' == '1' || b['news_on'] == true;
+        _loaded = true;
+      });
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _upload(String field, {bool video = false}) async {
+    final picker = ImagePicker();
+    final f = video ? await picker.pickVideo(source: ImageSource.gallery) : await picker.pickImage(source: ImageSource.gallery);
+    if (f == null) return;
+    setState(() => _busy = true);
+    try {
+      final url = await Api.upload('/panel/branding/upload', f.path);
+      if (!mounted) return;
+      setState(() => _c[field]!.text = url);
+      toast(context, 'Uploaded. Tap Save.');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    try {
+      final j = await Api.call('/panel/branding', body: {
+        'save': '1',
+        for (final e in _c.entries) e.key: e.value.text.trim(),
+        'intro_type': _introType,
+        'news_on': _newsOn ? '1' : '0',
+      });
+      if (mounted) toast(context, '${j['message'] ?? 'Saved.'}');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Widget _field(String key, String label, {String? hint, int lines = 1}) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextField(
+          controller: _c[key],
+          minLines: lines,
+          maxLines: lines == 1 ? 1 : lines + 3,
+          decoration: InputDecoration(labelText: label, hintText: hint),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = _c['app_icon_url']!.text;
+    return Scaffold(
+      appBar: AppBar(title: const Text('App look')),
+      body: !_loaded
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 30),
+              children: [
+                _field('brand', 'Brand name (website and app)'),
+                _field('app_label', 'App name under the icon', hint: 'needs a new build: made by itself within an hour'),
+                _field('logo_name', 'Name on the logo inside the app'),
+                _field('intro_name', 'Name in the start animation'),
+                const SizedBox(height: 6),
+                const Text('App icon (symbol)', style: TextStyle(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(14), border: Border.all(color: _line)),
+                      clipBehavior: Clip.antiAlias,
+                      child: icon.startsWith('http') ? Image.network(icon, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image)) : const Icon(Icons.image),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _busy ? null : () => _upload('app_icon_url'),
+                        icon: const Icon(Icons.upload_rounded),
+                        label: const Text('Upload icon (square PNG, 512+)'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('Start animation (intro)', style: TextStyle(fontWeight: FontWeight.w800)),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    for (final t in const [('builtin', 'Built-in'), ('image', 'Picture'), ('video', 'Video')])
+                      ChoiceChip(label: Text(t.$2), selected: _introType == t.$1, onSelected: (_) => setState(() => _introType = t.$1)),
+                  ],
+                ),
+                if (_introType != 'builtin') ...[
+                  const SizedBox(height: 8),
+                  _field('intro_url', _introType == 'video' ? 'Video address (MP4)' : 'Picture address'),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _upload('intro_url', video: _introType == 'video'),
+                    icon: const Icon(Icons.upload_rounded),
+                    label: Text(_introType == 'video' ? 'Upload a video' : 'Upload a picture'),
+                  ),
+                  const SizedBox(height: 8),
+                  _field('intro_seconds', 'Seconds on screen (2–15)'),
+                ],
+                const Divider(height: 28),
+                SwitchListTile(
+                  value: _newsOn,
+                  onChanged: (v) => setState(() => _newsOn = v),
+                  title: const Text('News button on the website'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+                _field('news_label', 'Button text'),
+                _field('news_title', 'News title'),
+                _field('news_body', 'News text', lines: 3),
+                const SizedBox(height: 10),
+                FilledButton(onPressed: _busy ? null : _save, child: const Text('Save')),
+              ],
+            ),
+    );
+  }
+}
+
+// --------------------------------------------------------------------------------------- pricing
+
+class PricingPage extends StatefulWidget {
+  const PricingPage({super.key});
+
+  @override
+  State<PricingPage> createState() => _PricingPageState();
+}
+
+class _PricingPageState extends State<PricingPage> {
+  final _trial = TextEditingController();
+  final _year = TextEditingController();
+  final _life = TextEditingController();
+  final _cur = TextEditingController();
+  Map<String, dynamic>? _p;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  void _take(Map<String, dynamic> j) {
+    _p = j;
+    _trial.text = '${j['trial_days'] ?? ''}';
+    _year.text = '${j['price_year'] ?? ''}';
+    _life.text = '${j['price_lifetime'] ?? ''}';
+    _cur.text = '${j['currency'] ?? ''}';
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await Api.call('/panel/pricing');
+      if (mounted) setState(() => _take(j));
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    try {
+      final j = await Api.call('/panel/pricing', body: {
+        'save': '1',
+        'trial_days': int.tryParse(_trial.text.trim()) ?? 0,
+        'price_year': _year.text.trim(),
+        'price_lifetime': _life.text.trim(),
+        'currency': _cur.text.trim(),
+      });
+      if (!mounted) return;
+      setState(() => _take(j));
+      toast(context, 'Saved. New TVs get the new trial; prices show on the website.');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = _p;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Prices and trial')),
+      body: p == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                TextField(
+                  controller: _trial,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(labelText: 'Free trial (days) for new TVs'),
+                ),
+                const SizedBox(height: 10),
+                TextField(controller: _cur, decoration: const InputDecoration(labelText: 'Currency sign', hintText: '£')),
+                const SizedBox(height: 10),
+                TextField(controller: _year, decoration: const InputDecoration(labelText: 'Price for 1 year')),
+                const SizedBox(height: 10),
+                TextField(controller: _life, decoration: const InputDecoration(labelText: 'Price for lifetime')),
+                const SizedBox(height: 14),
+                Text('Resellers pay ${p['credit_year']} credit for 1 year and ${p['credit_life']} credits for lifetime.',
+                    style: const TextStyle(color: _muted)),
+                const SizedBox(height: 16),
+                FilledButton(onPressed: _busy ? null : _save, child: const Text('Save')),
+              ],
+            ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------------------------------ logs
+
+class LogsPage extends StatefulWidget {
+  const LogsPage({super.key});
+
+  @override
+  State<LogsPage> createState() => _LogsPageState();
+}
+
+class _LogsPageState extends State<LogsPage> {
+  final _q = TextEditingController();
+  List<Map<String, dynamic>>? _logs;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await Api.call('/panel/logs', query: {if (_q.text.trim().isNotEmpty) 'q': _q.text.trim()});
+      if (mounted) setState(() => _logs = [for (final l in (j['logs'] as List? ?? const [])) l as Map<String, dynamic>]);
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final logs = _logs;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Activity log')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: TextField(
+              controller: _q,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _load(),
+              decoration: const InputDecoration(hintText: 'Search (MAC, user, action)', prefixIcon: Icon(Icons.search)),
+            ),
+          ),
+          Expanded(
+            child: logs == null
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: logs.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1, color: _line),
+                      itemBuilder: (_, i) {
+                        final l = logs[i];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('${l['action']}'.replaceAll('_', ' '), style: const TextStyle(fontWeight: FontWeight.w700)),
+                          subtitle: Text(
+                            [l['detail'], l['device_id'], l['actor']].where((x) => '${x ?? ''}'.isNotEmpty).join(' · '),
+                            style: const TextStyle(color: _muted, fontSize: 12.5),
+                          ),
+                          trailing: Text('${l['at'] ?? ''}'.replaceFirst(' ', '\n'), textAlign: TextAlign.end, style: const TextStyle(color: _muted, fontSize: 11.5)),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}

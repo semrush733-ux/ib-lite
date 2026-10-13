@@ -55,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Every list downloads once in the background, out of the player's way.
     ListPrefetch.start(widget.api);
     Backend.changes.addListener(_onBackendChange);
+    Backend.refreshSignal.addListener(_onRefreshSignal);
     if (_account == null) _refreshAccount();
     // A few seconds after start: pick up a new server / login set on the website.
     Timer(const Duration(seconds: 6), _followSite);
@@ -75,7 +76,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _tick?.cancel();
     _follow?.cancel();
     Backend.changes.removeListener(_onBackendChange);
+    Backend.refreshSignal.removeListener(_onRefreshSignal);
     super.dispose();
+  }
+
+  /// "Reload" from the Admin Panel: playlist and website looked at again.
+  void _onRefreshSignal() {
+    if (!mounted) return;
+    log('reload asked by the admin panel');
+    _reload();
   }
 
   void _onBackendChange() {

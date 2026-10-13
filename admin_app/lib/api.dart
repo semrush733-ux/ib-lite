@@ -69,14 +69,16 @@ class Client {
         username = '${j['username'] ?? ''}',
         url = '${j['url'] ?? ''}',
         locked = j['locked'] == true,
+        owner = '${j['owner'] ?? ''}',
+        mine = j['mine'] != false,
         deviceId = '${j['device_id'] ?? ''}',
         status = '${j['status'] ?? ''}',
         plan = '${j['plan'] ?? ''}',
         expires = '${j['expires'] ?? ''}',
         lastSeen = '${j['last_seen'] ?? ''}';
   final int id;
-  final String name, type, username, url, deviceId, status, plan, expires, lastSeen;
-  final bool locked;
+  final String name, type, username, url, deviceId, status, plan, expires, lastSeen, owner;
+  final bool locked, mine;
 
   /// What to show as the client's title: the login, or the playlist name for an M3U link.
   String get title => username.isNotEmpty ? username : name;
@@ -140,7 +142,7 @@ class Api {
     }
     if (j['code'] == 'rest_no_route' || (res.statusCode == 404 && j['success'] == null)) {
       throw ApiException(
-          'The website is running an old Lite Player plugin. Install Lite Player plugin 1.0.17 '
+          'The website is running an old Lite Player plugin. Install Lite Player plugin 1.0.19 '
           '(WordPress → Plugins → Add New → Upload), then sign out and sign in again here.',
           404);
     }
@@ -148,6 +150,57 @@ class Api {
       throw ApiException('${j['message'] ?? 'Something went wrong.'}', res.statusCode);
     }
     return j;
+  }
+
+  /// For the other screens of the app.
+  static Future<Map<String, dynamic>> call(String path, {Map<String, dynamic>? body, Map<String, String>? query}) =>
+      _call(path, body: body, query: query);
+
+  /// Sends a picture / video from the phone to the website's media library; returns its address.
+  static Future<String> upload(String path, String filePath) async {
+    final base = _base(site);
+    final req = http.MultipartRequest('POST', Uri.parse('$base$path'))
+      ..headers['X-Panel-Token'] = token
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(await http.MultipartFile.fromPath('file', filePath));
+    http.Response res;
+    try {
+      res = await http.Response.fromStream(await req.send().timeout(const Duration(seconds: 120)));
+    } catch (_) {
+      throw ApiException('Upload failed. Check the internet.');
+    }
+    Map<String, dynamic> j;
+    try {
+      j = jsonDecode(res.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw ApiException('Upload failed (${res.statusCode}). The file may be too big for the website.');
+    }
+    if (j['success'] != true) throw ApiException('${j['message'] ?? 'Upload failed.'}');
+    return '${j['url']}';
+  }
+
+  /// Super admin looking at another account ("Open as"): the own session waits here.
+  static String get superToken => _p?.getString('super_token') ?? '';
+  static bool get impersonating => superToken.isNotEmpty;
+
+  static Future<void> openAs(int userId) async {
+    final j = await _call('/panel/users/impersonate', body: {'user_id': userId});
+    await _p?.setString('super_token', token);
+    token = '${j['token']}';
+    await _p?.setString('token', token);
+    await me();
+  }
+
+  static Future<void> backToMine() async {
+    final mine = superToken;
+    if (mine.isEmpty) return;
+    try {
+      await _call('/panel/logout', body: {}); // ends the borrowed session
+    } catch (_) {}
+    token = mine;
+    await _p?.setString('token', token);
+    await _p?.remove('super_token');
+    await me();
   }
 
   static Future<void> signIn(String siteInput, String user, String pass) async {
@@ -169,6 +222,7 @@ class Api {
     token = '';
     profile = null;
     await _p?.remove('token');
+    await _p?.remove('super_token');
   }
 
   static Future<Profile> me() async {
@@ -268,9 +322,14 @@ class PanelUser {
         credits = (j['credits'] as num?)?.toInt() ?? 0,
         clients = (j['clients'] as num?)?.toInt() ?? 0,
         parent = '${j['parent'] ?? ''}',
-        disabled = j['disabled'] == true;
-  final int id, credits, clients;
-  final String username, email, level, parent;
+        disabled = j['disabled'] == true,
+        maxChildren = (j['max_children'] as num?)?.toInt() ?? 0,
+        children = (j['children'] as num?)?.toInt() ?? 0,
+        creditsUsed = (j['credits_used'] as num?)?.toInt() ?? 0,
+        activations = (j['activations'] as num?)?.toInt() ?? 0,
+        lastActivation = '${j['last_activation'] ?? ''}';
+  final int id, credits, clients, maxChildren, children, creditsUsed, activations;
+  final String username, email, level, parent, lastActivation;
   final bool disabled;
 }
 
@@ -314,13 +373,21 @@ class UsersApi {
     return '${j['message']}';
   }
 
-  static Future<String> update(int userId, {String password = '', bool? disabled}) async {
+  static Future<String> update(int userId, {String password = '', bool? disabled, String? level, int? maxChildren}) async {
     final j = await Api._call('/panel/users/update', body: {
       'user_id': userId,
       if (password.isNotEmpty) 'password': password,
       if (disabled != null) 'disabled': disabled ? '1' : '0',
+      if (level != null) 'level': level,
+      if (maxChildren != null) 'max_children': maxChildren,
     });
     return '${j['message']}';
+  }
+
+  /// Credits given, received and spent by an account (newest first).
+  static Future<List<Map<String, dynamic>>> history(int userId) async {
+    final j = await Api._call('/panel/users/history', query: {'user_id': '$userId'});
+    return [for (final h in (j['history'] as List? ?? const [])) h as Map<String, dynamic>];
   }
 }
 

@@ -18,8 +18,10 @@ Color _levelColor(String l) => switch (l) {
 
 /// Accounts under me: admins, resellers and sub-resellers, with their credits.
 class UsersPage extends StatefulWidget {
-  const UsersPage({super.key, required this.onChanged});
+  const UsersPage({super.key, required this.onChanged, this.onSwitched});
   final VoidCallback onChanged;
+  /// The super admin opened the app as another account: the whole app reloads.
+  final VoidCallback? onSwitched;
 
   @override
   State<UsersPage> createState() => UsersPageState();
@@ -116,7 +118,7 @@ class UsersPageState extends State<UsersPage> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: _line)),
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => _open(_UserSheet(u: u)),
+                onTap: () => _open(_UserSheet(u: u, onSwitched: widget.onSwitched)),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Row(
@@ -268,8 +270,9 @@ class _AddUserSheetState extends State<_AddUserSheet> {
 }
 
 class _UserSheet extends StatefulWidget {
-  const _UserSheet({required this.u});
+  const _UserSheet({required this.u, this.onSwitched});
   final PanelUser u;
+  final VoidCallback? onSwitched;
 
   @override
   State<_UserSheet> createState() => _UserSheetState();
@@ -278,7 +281,27 @@ class _UserSheet extends StatefulWidget {
 class _UserSheetState extends State<_UserSheet> {
   final _amount = TextEditingController();
   final _pass = TextEditingController();
+  late final _limit = TextEditingController(text: widget.u.maxChildren > 0 ? '${widget.u.maxChildren}' : '');
   bool _busy = false;
+  List<Map<String, dynamic>>? _history;
+
+  Widget _fact(String label, String value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: const TextStyle(color: _muted, fontSize: 12)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+        ],
+      );
+
+  Future<void> _loadHistory() async {
+    try {
+      final h = await UsersApi.history(widget.u.id);
+      if (mounted) setState(() => _history = h);
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
 
   Future<void> _run(Future<String> Function() job) async {
     setState(() => _busy = true);
@@ -309,6 +332,70 @@ class _UserSheetState extends State<_UserSheet> {
             Text('${levelName(u.level)}  ·  ${u.credits} credits  ·  ${u.clients} clients',
                 style: const TextStyle(color: _muted)),
             if (u.email.isNotEmpty) Text(u.email, style: const TextStyle(color: _muted, fontSize: 12.5)),
+            const SizedBox(height: 12),
+            // Report: what this account did.
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: _card, borderRadius: BorderRadius.circular(14), border: Border.all(color: _line)),
+              child: Wrap(
+                spacing: 18,
+                runSpacing: 6,
+                children: [
+                  _fact('Activations', '${u.activations}'),
+                  _fact('Credits used', '${u.creditsUsed}'),
+                  _fact('Accounts under it', u.maxChildren > 0 ? '${u.children} / ${u.maxChildren}' : '${u.children}'),
+                  _fact('Last activation', u.lastActivation.isEmpty ? '—' : u.lastActivation.split(' ').first),
+                  if (u.parent.isNotEmpty) _fact('Created by', u.parent),
+                ],
+              ),
+            ),
+            if (p?.isSuper == true) ...[
+              const SizedBox(height: 16),
+              const Text('Account type', style: TextStyle(fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final l in const ['admin', 'reseller', 'subreseller'])
+                    ChoiceChip(
+                      label: Text(levelName(l)),
+                      selected: u.level == l,
+                      selectedColor: _levelColor(l).withValues(alpha: 0.3),
+                      onSelected: _busy || u.level == l
+                          ? null
+                          : (_) => _run(() => UsersApi.update(u.id, level: l)),
+                    ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('Its clients, credits and the accounts under it stay as they are.',
+                    style: TextStyle(color: _muted, fontSize: 12.5)),
+              ),
+            ],
+            if (u.level != 'subreseller') ...[
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _limit,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: const InputDecoration(
+                          labelText: 'Max accounts it may create', hintText: 'empty = no limit', prefixIcon: Icon(Icons.group_add)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run(() => UsersApi.update(u.id, maxChildren: int.tryParse(_limit.text.trim()) ?? 0)),
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 18),
             const Text('Credits', style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
@@ -357,6 +444,59 @@ class _UserSheetState extends State<_UserSheet> {
               label: Text(u.disabled ? 'Enable this account' : 'Disable this account (cannot sign in)'),
               onPressed: _busy ? null : () => _run(() => UsersApi.update(u.id, disabled: !u.disabled)),
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.receipt_long_rounded),
+              label: Text(_history == null ? 'Credit history' : 'Credit history (${_history!.length})'),
+              onPressed: _busy ? null : _loadHistory,
+            ),
+            for (final h in _history ?? const <Map<String, dynamic>>[])
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 46,
+                      child: Text(
+                        '${(h['change'] as num? ?? 0) > 0 ? '+' : ''}${h['change']}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: (h['change'] as num? ?? 0) >= 0 ? const Color(0xFF2ECC71) : const Color(0xFFFF7B81)),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        [h['type'], h['note'], h['device_id']].where((x) => '${x ?? ''}'.isNotEmpty).join(' · '),
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    Text('${h['at'] ?? ''}'.split(' ').first, style: const TextStyle(color: _muted, fontSize: 12)),
+                  ],
+                ),
+              ),
+            if (p?.isSuper == true) ...[
+              const SizedBox(height: 14),
+              FilledButton.tonalIcon(
+                icon: const Icon(Icons.switch_account_rounded),
+                label: const Text('Open the app as this account'),
+                onPressed: _busy
+                    ? null
+                    : () async {
+                        setState(() => _busy = true);
+                        try {
+                          await Api.openAs(u.id);
+                          final switched = widget.onSwitched;
+                          if (!context.mounted) return;
+                          Navigator.of(context).popUntil((r) => r.isFirst);
+                          switched?.call();
+                        } catch (e) {
+                          if (context.mounted) toast(context, '$e', error: true);
+                        } finally {
+                          if (mounted) setState(() => _busy = false);
+                        }
+                      },
+              ),
+            ],
           ],
         ),
       ),

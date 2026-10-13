@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'api.dart';
+import 'more.dart';
 import 'scan.dart';
 import 'users.dart';
 
@@ -182,6 +183,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   final _clientsKey = GlobalKey<_ClientsPageState>();
+  final _homeKey = GlobalKey<DashboardPageState>();
 
   @override
   void initState() {
@@ -195,18 +197,24 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  /// Opened as another account (or back): the whole app starts again with that account.
+  void _restart() {
+    Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute<void>(builder: (_) => const HomeShell()), (_) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     // Sub-resellers create no accounts: no Users tab for them.
     final showUsers = Api.profile == null || Api.profile!.canCreate.isNotEmpty;
     final pages = [
+      DashboardPage(key: _homeKey),
       ClientsPage(key: _clientsKey),
       AddClientPage(onAdded: () {
-        setState(() => _tab = 0);
+        setState(() => _tab = 1);
         _clientsKey.currentState?.reload();
       }),
-      if (showUsers) UsersPage(onChanged: () => setState(() {})),
-      SettingsPage(onChanged: () => setState(() {})),
+      if (showUsers) UsersPage(onChanged: () => setState(() {}), onSwitched: _restart),
+      MorePage(onChanged: () => setState(() {}), onSwitched: _restart),
     ];
     if (_tab >= pages.length) _tab = 0;
     return Scaffold(
@@ -215,17 +223,20 @@ class _HomeShellState extends State<HomeShell> {
         backgroundColor: const Color(0xFF140B0D),
         indicatorColor: _red.withValues(alpha: 0.3),
         selectedIndex: _tab,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (i) {
           setState(() => _tab = i);
-          if (i == 0) _clientsKey.currentState?.reload();
+          if (i == 0) _homeKey.currentState?.reload();
+          if (i == 1) _clientsKey.currentState?.reload();
         },
         destinations: [
+          const NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Home'),
           const NavigationDestination(icon: Icon(Icons.people_alt_outlined), selectedIcon: Icon(Icons.people_alt), label: 'Clients'),
-          const NavigationDestination(icon: Icon(Icons.qr_code_scanner), label: 'Add client'),
+          const NavigationDestination(icon: Icon(Icons.qr_code_scanner), label: 'Add'),
           if (showUsers)
             const NavigationDestination(
                 icon: Icon(Icons.manage_accounts_outlined), selectedIcon: Icon(Icons.manage_accounts), label: 'Users'),
-          const NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
+          const NavigationDestination(icon: Icon(Icons.apps_rounded), label: 'More'),
         ],
       ),
     );
@@ -372,6 +383,8 @@ class _ClientCard extends StatelessWidget {
                     ]),
                     const SizedBox(height: 2),
                     Text('${c.deviceId}  ·  ${c.type == 'm3u' ? 'M3U' : 'Xtream'}${c.username.isNotEmpty ? '  ·  ${c.name}' : ''}', style: const TextStyle(color: _muted, fontSize: 12.5)),
+                    if (!c.mine && c.owner.isNotEmpty)
+                      Text('by ${c.owner}', style: const TextStyle(color: Color(0xFFF5B400), fontSize: 12)),
                   ],
                 ),
               ),
@@ -967,7 +980,7 @@ class _SettingsPageState extends State<SettingsPage> {
               _Info(label: 'Clients', value: '${p?.clients ?? 0}'),
               _Info(
                   label: 'Website plugin',
-                  value: (p?.version.isNotEmpty ?? false) ? p!.version : 'old version, please update to 1.0.14'),
+                  value: (p?.version.isNotEmpty ?? false) ? p!.version : 'old version, please update to 1.0.19'),
               const SizedBox(height: 12),
               TextField(
                 controller: _src,

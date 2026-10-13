@@ -23,6 +23,8 @@ class AppGate extends StatefulWidget {
 
 class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
   Timer? _timer;
+  Timer? _inboxTimer;
+  bool _showingMessage = false;
   bool _checking = false;
   int _promptedFor = 0;
 
@@ -32,18 +34,82 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _check();
     _timer = Timer.periodic(const Duration(hours: 6), (_) => _check());
+    // Messages / reload / block from the Admin Panel: a light look every 3 minutes.
+    Future<void>.delayed(const Duration(seconds: 25), _inbox);
+    _inboxTimer = Timer.periodic(const Duration(minutes: 3), (_) => _inbox());
+  }
+
+  Future<void> _inbox() async {
+    final messages = await Backend.pollInbox();
+    if (!mounted) return;
+    _act(); // a TV blocked from the panel goes to the activation screen at once
+    for (final m in messages) {
+      await _showMessage(m);
+    }
+  }
+
+  Future<void> _showMessage(InboxMessage m) async {
+    final nav = navigatorKey.currentState;
+    final overlay = nav?.overlay;
+    if (overlay == null || _showingMessage) return;
+    _showingMessage = true;
+    log('inbox message shown');
+    try {
+      await showDialog<void>(
+        context: overlay.context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: C.panel,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          titlePadding: const EdgeInsets.fromLTRB(26, 22, 26, 6),
+          title: Row(
+            children: [
+              const Icon(Icons.campaign_rounded, color: C.accent, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(m.title.isEmpty ? 'Message' : m.title,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+              ),
+            ],
+          ),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 320),
+            child: SingleChildScrollView(
+              child: Text(m.body, style: const TextStyle(fontSize: 17, height: 1.5)),
+            ),
+          ),
+          actions: [
+            FilledButton(
+              autofocus: true,
+              style: FilledButton.styleFrom(backgroundColor: C.accent),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                child: Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+    } finally {
+      _showingMessage = false;
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    _inboxTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _check();
+    if (state == AppLifecycleState.resumed) {
+      _check();
+      _inbox();
+    }
   }
 
   Future<void> _check() async {

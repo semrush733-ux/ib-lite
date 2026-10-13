@@ -158,6 +158,13 @@ class BUpdate {
 
 /// Talks to the B1G website: device registration, licence status,
 /// activation codes, remote playlists, the default server and app updates.
+/// A message from the provider, shown on the TV screen.
+class InboxMessage {
+  const InboxMessage(this.title, this.body);
+  final String title;
+  final String body;
+}
+
 class Backend {
   /// Browser version only: IPTV servers are plain http and send no CORS headers, so a browser
   /// on the https website cannot call them. The website fetches them instead (b1g/v1/relay).
@@ -472,6 +479,43 @@ class Backend {
     } catch (e) {
       log('backend register failed: ${e.runtimeType}');
       return false;
+    }
+  }
+
+  /// "Reload" sent from the Admin Panel: the home screen listens and reloads the playlist.
+  static final ValueNotifier<int> refreshSignal = ValueNotifier<int>(0);
+
+  /// Messages and commands from the Admin Panel waiting for this TV (and its licence status).
+  /// Returns the messages to show; commands (reload) are carried out here. Everything that
+  /// arrives is marked as seen, so nothing shows twice.
+  static Future<List<InboxMessage>> pollInbox() async {
+    if (!registered || !configured) return const [];
+    try {
+      final data = await _get('/device/inbox?device_id=$deviceId&pairing_code=$pairingCode');
+      await _storeStatus(data['device']);
+      final items = data['items'];
+      if (items is! List || items.isEmpty) return const [];
+      final shown = <InboxMessage>[];
+      final ids = <int>[];
+      for (final i in items) {
+        if (i is! Map) continue;
+        final id = int.tryParse('${i['id']}') ?? 0;
+        if (id <= 0) continue;
+        ids.add(id);
+        switch ('${i['kind']}') {
+          case 'refresh':
+            refreshSignal.value++;
+          case 'message':
+            shown.add(InboxMessage('${i['title'] ?? ''}', '${i['body'] ?? ''}'));
+        }
+      }
+      if (ids.isNotEmpty) {
+        await _post('/device/inbox/seen', {'device_id': deviceId, 'pairing_code': pairingCode, 'ids': ids});
+      }
+      return shown;
+    } catch (e) {
+      log('inbox: ${e.runtimeType}');
+      return const [];
     }
   }
 
