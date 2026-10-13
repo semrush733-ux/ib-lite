@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'theme.dart';
+import 'tizen_exit.dart' if (dart.library.js_interop) 'tizen_exit_web.dart';
 
 bool _isSelectKey(LogicalKeyboardKey k) =>
     k == LogicalKeyboardKey.select ||
@@ -568,7 +569,10 @@ class ExitGuard extends StatelessWidget {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (await confirmExit(context)) await SystemNavigator.pop();
+        if (await confirmExit(context)) {
+          tizenExit(); // Samsung TV closes here; Android below
+          await SystemNavigator.pop();
+        }
       },
       child: child,
     );

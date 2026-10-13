@@ -27,3 +27,7 @@ const bool kNoAutoDirect = bool.fromEnvironment('B1G_NO_AUTO_DIRECT');
 const String kTmdbKey = String.fromEnvironment('B1G_TMDB_KEY');
 const String kTmdbBase = String.fromEnvironment('B1G_TMDB_BASE', defaultValue: 'https://api.themoviedb.org/3');
 const String kTmdbImages = String.fromEnvironment('B1G_TMDB_IMAGES', defaultValue: 'https://image.tmdb.org/t/p');
+
+/// Samsung TV (Tizen) build: the web app packaged for the TV. It talks to IPTV servers directly
+/// (no website relay) and the remote's Back / Exit keys work like on Android TV.
+const bool kTizen = bool.fromEnvironment('B1G_TIZEN');
