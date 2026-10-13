@@ -1,0 +1,143 @@
+name: iPhone app (IPA)
+
+# Builds the same player for iPhone / iPad on a Mac in the cloud.
+#
+# Result: release "ios-latest" with LitePlayer.ipa.
+#
+# The IPA is NOT signed by Apple (that needs a paid Apple Developer account). It installs with a
+# sideloading tool that signs it with your own Apple ID (AltStore, Sideloadly, ...) or can be
+# signed later with your developer certificate. Errors of a failed build go into the release notes.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    runs-on: macos-14
+    timeout-minutes: 60
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          APP_NAME="$(get APP_NAME)"; PACKAGE_ID="$(get PACKAGE_ID)"; WEBSITE="$(get WEBSITE)"
+          WEBSITE="${WEBSITE%/}"
+          API_BASE=""; [ -n "$WEBSITE" ] && API_BASE="$WEBSITE/wp-json/b1g/v1"
+          APK_NAME="$(echo "$APP_NAME" | tr -cd '[:alnum:]')"; [ -n "$APK_NAME" ] || APK_NAME=App
+          python3 -m pip install --quiet --break-system-packages pillow 2>/dev/null || python3 -m pip install --quiet pillow || true
+          python3 tools/fetch_brand.py "$WEBSITE" || true
+          if [ -s brand/site_label.txt ]; then APP_NAME="$(cat brand/site_label.txt)"; fi
+          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "API_BASE=$API_BASE"; echo "APK_NAME=$APK_NAME"; } >> "$GITHUB_ENV"
+          echo "brand: $APP_NAME ($PACKAGE_ID) website: ${WEBSITE:-(not set)}"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create the iOS project
+        run: |
+          set -e
+          mkdir -p out
+          flutter create --no-pub --platforms=ios --org com.b1g --project-name b1gtv "$RUNNER_TEMP/scaffold"
+          cp -r "$RUNNER_TEMP/scaffold/ios" ios
+          # The video engine's iPhone part (the Android build uses its Android part).
+          flutter pub add media_kit_libs_ios_video
+          P=ios/Runner/Info.plist
+          plutil -replace CFBundleDisplayName -string "$APP_NAME" "$P"
+          plutil -replace CFBundleName -string "$APP_NAME" "$P"
+          # IPTV servers are plain http: allow it.
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoadsForMedia bool true" "$P" || true
+          # Sound keeps playing with the silent switch on.
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string audio" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool true" "$P" || true
+          sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.b1g.b1gtv;/PRODUCT_BUNDLE_IDENTIFIER = $APP_ID;/g" ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
+          if [ -f ios/Podfile ]; then
+            sed -i '' "s/^# platform :ios.*/platform :ios, '14.0'/" ios/Podfile
+            grep -q "^platform :ios" ios/Podfile || sed -i '' "1s/^/platform :ios, '14.0'\n/" ios/Podfile
+          fi
+          # App icon: the brand symbol on the dark brand colour (Apple wants no transparency).
+          python3 - <<'PY'
+          import json, os
+          from PIL import Image
+          d = 'ios/Runner/Assets.xcassets/AppIcon.appiconset'
+          sym = Image.open('brand/icon.png').convert('RGBA')
+          bb = sym.getbbox()
+          if bb: sym = sym.crop(bb)
+          for f in os.listdir(d):
+              if not f.endswith('.png'): continue
+              p = os.path.join(d, f)
+              s = Image.open(p).size[0]
+              img = Image.new('RGB', (s, s), (20, 10, 13))
+              k = 0.62 * s / max(sym.size)
+              sm = sym.resize((max(1, round(sym.width * k)), max(1, round(sym.height * k))), Image.LANCZOS)
+              img.paste(sm, ((s - sm.width) // 2, (s - sm.height) // 2), sm)
+              img.save(p)
+          print('icons done')
+          PY
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build the IPA
+        id: build
+        continue-on-error: true
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set -o pipefail
+          SERVER="$(tr -d ' \r\n' < config/server.txt 2>/dev/null || true)"
+          flutter build ios --release --no-codesign \
+            --build-name "1.0.$BUILD_NUMBER" --build-number "$BUILD_NUMBER" \
+            --dart-define=B1G_SERVER="$SERVER" --dart-define=B1G_TMDB_KEY="$TMDB_API_KEY" \
+            --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_API_BASE="$API_BASE" \
+            2>&1 | tee out/build.log
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qr "out/$APK_NAME.ipa" Payload
+          ls -la out
+
+      - name: Publish to the "ios-latest" release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILES=""
+          [ -f "out/$APK_NAME.ipa" ] && FILES="out/$APK_NAME.ipa"
+          TITLE="$APP_NAME iPhone - build #$BUILD_NUMBER"
+          [ -z "$FILES" ] && TITLE="$TITLE FAILED"
+          {
+            echo "iPhone / iPad app (not signed by Apple: install with AltStore / Sideloadly or sign with your developer certificate)."
+            echo ""
+            if [ -z "$FILES" ]; then
+              echo "### Errors"
+              echo '```'
+              grep -E "error:|Error:|Error \(Xcode\)|Failed|could not|Could not" out/build.log 2>/dev/null | cut -c1-300 | sort -u | head -60 || true
+              echo '---'
+              tail -60 out/build.log 2>/dev/null | cut -c1-300 || true
+              echo '```'
+            fi
+          } > out/NOTES.md
+          if gh release view ios-latest >/dev/null 2>&1; then
+            [ -n "$FILES" ] && gh release upload ios-latest $FILES --clobber
+            gh release edit ios-latest --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          else
+            gh release create ios-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          fi
