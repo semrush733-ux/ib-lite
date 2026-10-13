@@ -251,12 +251,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return n.length > 22 ? '${n.substring(0, 21)}…' : n;
   }
 
-  /// "Change Style": the next background picture.
-  void _nextStyle() {
-    Store.setWallpaper((Store.wallpaper + 1) % 21);
-    setState(() {});
-  }
-
   void _openSettings() {
     Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(api: widget.api)))
@@ -399,8 +393,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _PillButton(icon: Icons.palette_rounded, label: t('Change Style'), onTap: _nextStyle),
-                        const SizedBox(width: 14),
                         _PillButton(
                           icon: Icons.playlist_play_rounded,
                           label: _shortName(playlistTitle(widget.api), t('Change Playlist')),

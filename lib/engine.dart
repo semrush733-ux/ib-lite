@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'dart:io' show File;
 
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform, Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -64,6 +64,13 @@ abstract class PlaybackEngine {
   /// Pictures a second of the stream (0 when unknown).
   Future<double> fps() async => 0;
 
+  /// The same engine can open the next address (keeps the last picture, skips start-up).
+  bool get reusable => false;
+  /// Lets go of the stream and the server connection, keeps the engine and its last picture.
+  Future<void> stop() async {}
+  /// The picture on screen now (to hold it during a reconnect), or null.
+  Future<Uint8List?> snapshot() async => null;
+
   /// The stream's sound cannot be decoded by this engine on this device (the format's name).
   Stream<String> get soundUnsupported => const Stream.empty();
   /// The enhanced picture could not start: plays on without it.
@@ -102,6 +109,8 @@ class MpvEngine extends PlaybackEngine {
 
   final bool live;
   final bool direct;
+  /// Seconds to refill after the buffer ran dry (smart buffer); null = the standard.
+  String? pauseWait;
   late final Player player;
   late final VideoController controller;
   final _messages = StreamController<EngineMessage>.broadcast();
@@ -155,7 +164,7 @@ class MpvEngine extends PlaybackEngine {
       set('stream-lavf-o', 'reconnect=1,reconnect_streamed=1,reconnect_delay_max=4'),
       set('cache', 'yes'),
       set('cache-pause-initial', 'no'),
-      set('cache-pause-wait', live ? '1' : '2'),
+      set('cache-pause-wait', pauseWait ?? (live ? '1' : '2')),
       set('demuxer-readahead-secs', live ? '10' : '60'),
       set('demuxer-max-bytes', live ? '64MiB' : '192MiB'),
       set('demuxer-max-back-bytes', live ? '16MiB' : '64MiB'),
@@ -244,6 +253,7 @@ class MpvEngine extends PlaybackEngine {
         _set('saturation', '0'),
         _set('contrast', '0'),
         _set('scale', 'bilinear'),
+        _set('deinterlace', 'no'),
       ]);
       return true;
     }
@@ -253,8 +263,21 @@ class MpvEngine extends PlaybackEngine {
       _set('saturation', level >= 2 ? '9' : '5'),
       _set('contrast', level >= 2 ? '5' : '3'),
       _set('scale', level >= 2 ? 'spline36' : 'bilinear'),
+      // Interlaced channels (1080i sport): smooth lines instead of combing; progressive ones
+      // are left alone ("auto"). Only on devices strong enough for Enhance.
+      _set('deinterlace', 'auto'),
     ]);
     return true;
+  }
+
+  @override
+  Future<Uint8List?> snapshot() async {
+    if (kIsWeb || direct) return null; // the direct picture never passes through the app
+    try {
+      return await player.screenshot(format: 'image/jpeg').timeout(const Duration(milliseconds: 700));
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -264,7 +287,11 @@ class MpvEngine extends PlaybackEngine {
   }
 
   @override
-  Future<double> fps() async => double.tryParse(await _get('container-fps')) ?? 0;
+  Future<double> fps() async {
+    final c = double.tryParse(await _get('container-fps')) ?? 0;
+    if (c > 0) return c;
+    return double.tryParse(await _get('estimated-vf-fps')) ?? 0;
+  }
 
   @override
   Future<void> play() => player.play();
@@ -376,7 +403,7 @@ class ExoEngine extends PlaybackEngine {
   bool _isBuffering = true;
 
   /// Creates the native engine (and the picture surface for it).
-  static Future<ExoEngine> create({required bool live}) async {
+  static Future<ExoEngine> create({required bool live, int startMs = 1500, int rebufMs = 3000}) async {
     if (!_hooked) {
       _hooked = true;
       _channel.setMethodCallHandler((call) async {
@@ -389,7 +416,8 @@ class ExoEngine extends PlaybackEngine {
       });
     }
     final e = ExoEngine._(live);
-    final r = await _channel.invokeMethod<Map<dynamic, dynamic>>('create', {'live': live, 'ua': kUserAgent});
+    final r = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+        'create', {'live': live, 'ua': kUserAgent, 'startMs': startMs, 'rebufMs': rebufMs});
     e._id = (r?['id'] as num?)?.toInt() ?? 0;
     e._texture = (r?['texture'] as num?)?.toInt() ?? -1;
     if (e._id == 0 || e._texture < 0) throw StateError('ExoPlayer could not start');
@@ -499,8 +527,18 @@ class ExoEngine extends PlaybackEngine {
   bool get isBuffering => _isBuffering;
 
   @override
-  Future<void> open(String url, Duration start) =>
-      _call('open', {'url': url, 'startMs': start.inMilliseconds, 'enhance': enhanceLevel});
+  Future<void> open(String url, Duration start) {
+    // A reused engine: forget what belonged to the previous stream.
+    _lastFps = 0;
+    _dur = Duration.zero;
+    _trackList = Tracks();
+    return _call('open', {'url': url, 'startMs': start.inMilliseconds, 'enhance': enhanceLevel});
+  }
+
+  @override
+  bool get reusable => !_disposed;
+  @override
+  Future<void> stop() => _call('stop');
 
   @override
   bool get canEnhance => true;
@@ -520,7 +558,9 @@ class ExoEngine extends PlaybackEngine {
     try {
       final f = await _channel.invokeMethod<Map<dynamic, dynamic>>('facts', {'id': _id});
       _lastDropped = (f?['dropped'] as num?)?.toInt() ?? _lastDropped;
-      _lastFps = (f?['fps'] as num?)?.toDouble() ?? _lastFps;
+      final declared = (f?['fps'] as num?)?.toDouble() ?? 0;
+      final measured = (f?['fpsEst'] as num?)?.toDouble() ?? 0;
+      _lastFps = declared > 0 ? declared : (measured > 0 ? _roundFps(measured) : _lastFps);
     } catch (_) {}
   }
 
@@ -531,7 +571,16 @@ class ExoEngine extends PlaybackEngine {
   }
 
   @override
-  Future<double> fps() async => _lastFps;
+  Future<double> fps() async {
+    if (_lastFps <= 0) {
+      await _readStats();
+      if (_lastFps <= 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 1200));
+        await _readStats();
+      }
+    }
+    return _lastFps;
+  }
   @override
   Future<void> play() => _call('play');
   @override
@@ -653,3 +702,18 @@ vec4 hook() {
 """;
 
 String _levelName(int level) => level >= 2 ? 'High' : (level == 1 ? 'Low' : 'Off');
+
+/// A measured rate snapped to the usual video rates (23.976, 24, 25, 29.97, 30, 50, 59.94, 60).
+double _roundFps(double v) {
+  const rates = [23.976, 24.0, 25.0, 29.97, 30.0, 50.0, 59.94, 60.0];
+  var best = 0.0;
+  var diff = 1e9;
+  for (final r in rates) {
+    final d = (v - r).abs();
+    if (d < diff) {
+      diff = d;
+      best = r;
+    }
+  }
+  return diff <= best * 0.04 ? best : 0;
+}

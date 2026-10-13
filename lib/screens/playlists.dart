@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../backend.dart';
+import '../input_mode.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -101,17 +102,25 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.playlist_play_rounded, color: C.accent, size: 30),
-                  SizedBox(width: 12),
-                  Text('Playlists', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-                  Spacer(),
-                  _Legend(color: Color(0xFF2ECC71), text: 'Active'),
-                  SizedBox(width: 18),
-                  _Legend(color: C.danger, text: 'Expired'),
-                  SizedBox(width: 18),
-                  _Legend(color: C.dim, text: 'Not checked'),
+                  // Phones and touch screens have no remote Back key on screen: a back arrow.
+                  if (!InputMode.remote)
+                    ExcludeFocus(
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: C.text),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                    ),
+                  const Icon(Icons.playlist_play_rounded, color: C.accent, size: 30),
+                  const SizedBox(width: 12),
+                  const Text('Playlists', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                  const Spacer(),
+                  const _Legend(color: Color(0xFF2ECC71), text: 'Active'),
+                  const SizedBox(width: 18),
+                  const _Legend(color: C.danger, text: 'Expired'),
+                  const SizedBox(width: 18),
+                  const _Legend(color: C.dim, text: 'Not checked'),
                 ],
               ),
               const SizedBox(height: 22),

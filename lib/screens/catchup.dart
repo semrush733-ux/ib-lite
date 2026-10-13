@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../input_mode.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -136,6 +137,13 @@ class _CatchupScreenState extends State<CatchupScreen> {
             children: [
               Row(
                 children: [
+                  if (!InputMode.remote)
+                    ExcludeFocus(
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: C.text),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                    ),
                   const Icon(Icons.history_rounded, color: C.accent, size: 26),
                   const SizedBox(width: 10),
                   const Text('Catch Up', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),

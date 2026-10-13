@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -14,6 +14,7 @@ import '../input_mode.dart';
 import '../lang.dart';
 import '../prefetch.dart';
 import '../quality.dart';
+import '../smooth.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -189,6 +190,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   bool _sawFirstFrame = false;
   DateTime _readyAt = DateTime.now();
   String _streamKey = '';
+  // Reconnects keep the last picture on screen (instead of black) until the stream is back;
+  // zapping and reconnects reuse the ExoPlayer engine when they can (quicker start).
+  bool _reuseNext = false;
+  bool _holdPicture = false;
+  Uint8List? _heldPicture;
 
   PlayEntry get _entry => widget.entries[_index];
 
@@ -216,18 +222,19 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       _engineName = 'mpv';
       _engineSwitched = true;
     }
+    final buf = Smooth.profileFor(_streamKey, live: widget.live);
     if (_engineName == 'exo' && ExoEngine.available) {
       try {
-        engine = await ExoEngine.create(live: widget.live);
+        engine = await ExoEngine.create(live: widget.live, startMs: buf.startMs, rebufMs: buf.rebufMs);
       } catch (e) {
         // ExoPlayer could not start on this device: MPV plays instead.
         log('exo could not start: ${e.runtimeType}');
         _engineName = 'mpv';
         _engineSwitched = true;
-        engine = MpvEngine(live: widget.live, direct: _direct);
+        engine = MpvEngine(live: widget.live, direct: _direct)..pauseWait = buf.mpvWait;
       }
     } else {
-      engine = MpvEngine(live: widget.live, direct: _direct);
+      engine = MpvEngine(live: widget.live, direct: _direct)..pauseWait = buf.mpvWait;
     }
     _engine = engine;
     engine.enhanceLevel = engine.canEnhance ? await EnhanceLevel.start() : 0;
@@ -253,6 +260,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _subs.add(engine.buffering.listen((b) {
       if (b == _buffering) return;
       _buffering = b;
+      _noteStall(b);
       if (mounted) setState(() {});
     }));
     _subs.add(engine.completed.listen((done) {
@@ -307,10 +315,38 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _closePlayer();
     log('player closed');
     _keepScreenOn(false);
+    if (_fpsApplied > 0) {
+      _device.invokeMethod<void>('resetFrameRate').catchError((Object _) {});
+    }
     _mainButton.dispose();
     _timelineNode.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  /// Frame rate matching: a few seconds after a video starts, the TV's screen is set to a
+  /// refresh rate that fits it (50 Hz for 25/50 fps). Only when the rate changes, so zapping
+  /// between channels of the same kind never blinks the screen.
+  double _fpsApplied = 0;
+  double _fpsAskedFor = 0;
+
+  Future<void> _matchFrameRate() async {
+    if (kIsWeb || !Store.matchFrameRate) return;
+    final e = _engine;
+    if (e == null) return;
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!identical(e, _engine) || !_ready || !mounted) return;
+    final fps = await e.fps();
+    if (fps < 20 || fps > 121) return;
+    if ((fps - _fpsAskedFor).abs() < 0.05) return;
+    _fpsAskedFor = fps;
+    try {
+      final rate = await _device.invokeMethod<double>('matchFrameRate', fps);
+      if (rate != null && rate > 0) {
+        _fpsApplied = rate;
+        log('frame rate match: ${fps.toStringAsFixed(2)} fps -> ${rate.toStringAsFixed(2)} Hz');
+      }
+    } catch (_) {}
   }
 
   Future<void> _keepScreenOn(bool on) async {
@@ -355,6 +391,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     final format = kIsWeb ? 'm3u8' : formatOfUrl(raw);
     final url = playable[pick];
     _streamKey = raw;
+    _cleanCounted = false;
     _sawFirstFrame = false;
     _dropBase = -1;
     _heavyTicks = 0;
@@ -391,16 +428,34 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _wantStart = start;
     log('open index=$_index format=$format try=$_fails engine=$_engineName');
     try {
-      // The old engine is closed completely before the new one starts: most accounts allow a
-      // single connection, and one engine at a time is what has proved reliable on TV boxes.
-      await _closePlayer();
-      if (generation != _generation || !mounted) return;
-      final engine = await _createEngine();
-      if (generation != _generation || !mounted) {
-        if (identical(engine, _engine)) await _closePlayer();
-        return;
+      // This stream's sound did not play on ExoPlayer before: it goes to MPV.
+      if (_engineName == 'exo' && Store.exoNoSound.contains(_streamKey)) {
+        _engineName = 'mpv';
+        _engineSwitched = true;
       }
-      setState(() {}); // show the new engine's picture surface
+      final current = _engine;
+      final reuse = _reuseNext && current != null && current.reusable && current.name == _engineName;
+      _reuseNext = false;
+      PlaybackEngine engine;
+      if (reuse) {
+        // Same engine (ExoPlayer) for the next channel or a reconnect: the old stream is let go
+        // by the new address, the picture surface stays, start-up is skipped.
+        engine = current;
+        _pictureFailed = false;
+        engine.enhanceLevel = engine.canEnhance ? await EnhanceLevel.start() : 0;
+        if (generation != _generation || !mounted) return;
+      } else {
+        // The old engine is closed completely before the new one starts: most accounts allow a
+        // single connection, and one engine at a time is what has proved reliable on TV boxes.
+        await _closePlayer();
+        if (generation != _generation || !mounted) return;
+        engine = await _createEngine();
+        if (generation != _generation || !mounted) {
+          if (identical(engine, _engine)) await _closePlayer();
+          return;
+        }
+        setState(() {}); // show the new engine's picture surface
+      }
       await engine.open(url, start);
       if (_speed != 1.0) await engine.setRate(_speed);
     } catch (e) {
@@ -438,6 +493,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     if (now.difference(_openedAt) > const Duration(seconds: 8)) {
       // Playing for a while: this stream works, forget earlier failures.
       _fails = 0;
+      _noteCleanRun();
       if (widget.live && !kIsWeb) {
         final url = _entry.urls[_urlIndex % _entry.urls.length];
         Store.setLiveFormat(formatOfUrl(url) == 'm3u8' ? 'm3u8' : 'ts');
@@ -453,9 +509,35 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     }
   }
 
+  // Smart buffer learning: a stop while watching counts against the server (once in 30 s),
+  // ten minutes without a stop count for it (once per video).
+  DateTime _lastStallAt = DateTime.fromMillisecondsSinceEpoch(0);
+  bool _cleanCounted = false;
+
+  void _noteStall(bool buffering) {
+    if (!buffering || !_ready || !_accepting || _userPaused || _scrubbing || _streamKey.isEmpty) return;
+    final now = DateTime.now();
+    if (now.difference(_readyAt) < const Duration(seconds: 5)) return;
+    if (now.difference(_lastStallAt) < const Duration(seconds: 30)) return;
+    _lastStallAt = now;
+    Smooth.stalled(_streamKey);
+    log('stall: buffer score now ${Smooth.score(_streamKey)}');
+  }
+
+  void _noteCleanRun() {
+    if (_cleanCounted || !_ready || _streamKey.isEmpty) return;
+    final now = DateTime.now();
+    if (now.difference(_readyAt) < const Duration(minutes: 10)) return;
+    if (now.difference(_lastStallAt) < const Duration(minutes: 10)) return;
+    _cleanCounted = true;
+    Smooth.cleanRun(_streamKey);
+  }
+
   void _markReady() {
     _ready = true;
     _readyAt = DateTime.now();
+    _holdPicture = false;
+    _heldPicture = null;
     _playedThisUrl = true;
     final player = _engine;
     if (player == null) return;
@@ -473,6 +555,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _videoHeight = h;
     log('ready index=$_index format=${formatOfUrl(url)} video=${w}x$h mode=${_direct ? 'direct' : 'gpu'} engine=$_engineName');
     _applyPreferredTracks();
+    _matchFrameRate();
     if (mounted) setState(() => _status = null);
     _showOverlay();
   }
@@ -557,7 +640,27 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   void _failed({bool countsAsFailure = true}) {
     _accepting = false;
     _generation++;
-    _closePlayer(); // frees the connection before the next attempt
+    final engine = _engine;
+    final wasPlaying = _ready;
+    // The picture that was on screen stays there while reconnecting (no black screen).
+    _holdPicture = wasPlaying;
+    if (engine != null && engine.reusable && !_suspended) {
+      engine.stop(); // frees the connection, keeps the engine and its last picture
+      _reuseNext = true;
+    } else {
+      _reuseNext = false;
+      if (wasPlaying && engine != null) {
+        // MPV: keep a still of the last picture, then close (frees the connection).
+        _heldPicture = null;
+        engine.snapshot().then((img) {
+          if (mounted && _holdPicture && !_ready && img != null) setState(() => _heldPicture = img);
+        }).whenComplete(() {
+          if (identical(engine, _engine)) _closePlayer();
+        });
+      } else {
+        _closePlayer(); // frees the connection before the next attempt
+      }
+    }
     if (!mounted || _suspended) return;
     if (countsAsFailure) {
       _fails++;
@@ -577,6 +680,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       if (_switchEngine()) return;
       if (!_focus.hasPrimaryFocus) _focus.requestFocus();
       setState(() {
+        _holdPicture = false;
+        _heldPicture = null;
         _dead = true;
         _status = widget.live ? 'This channel is not available right now.' : 'This video cannot be played right now.';
       });
@@ -869,6 +974,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   /// Opens the same stream again at the same place (after a picture-mode change).
   void _reopenHere() {
+    _reuseNext = false;
     _saveResume();
     _fails = 0;
     _open(startAt: widget.live ? null : _position);
@@ -1069,6 +1175,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _zapTimer?.cancel();
     _saveResume();
     _resetEngine();
+    _reuseNext = true;
+    _holdPicture = false;
+    _heldPicture = null;
     setState(() {
       _index = index;
       _zapTarget = null;
@@ -1411,9 +1520,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
               children: [
                 // The picture is hidden until it really plays, so the last frame of the previous
                 // channel never shows under the new channel's name.
+                // Reconnecting the same channel: the last picture (MPV's still) stays behind.
+                if (_holdPicture && !_ready && _heldPicture != null)
+                  Image.memory(_heldPicture!, fit: _fits[_fit], gaplessPlayback: true),
                 if (engine != null)
                   Opacity(
-                    opacity: _ready ? 1 : 0,
+                    opacity: (_ready || (_holdPicture && engine.reusable)) ? 1 : 0,
                     child: IgnorePointer(
                       child: ExcludeFocus(
                         // Subtitles sit above the controls while those are on screen.

@@ -344,6 +344,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           '${Store.enhanceCap == 0 ? ' This TV: off (too heavy here).' : Store.enhanceCap > 0 ? ' This TV: up to ${EnhanceLevel.label(Store.enhanceCap)}.' : ''}',
           style: const TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),
+        const SizedBox(height: 24),
+        const Text('MATCH FRAME RATE',
+            style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _chip('On', Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(true))),
+            const SizedBox(width: 10),
+            _chip('Off', !Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(false))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'The TV switches to the refresh rate of the video (50 Hz for UK / European channels) so moving '
+          'pictures glide without judder. The screen may go dark for a second when the rate changes. '
+          'Turn it off if your TV does not like it.',
+          style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+        ),
         if (withMode && mpvChosen) ...[
           const SizedBox(height: 24),
           const Text('MPV PICTURE MODE',

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../input_mode.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -317,7 +318,19 @@ class _GuideScreenState extends State<GuideScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _details(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!InputMode.remote)
+                      ExcludeFocus(
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_rounded, color: C.text),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        ),
+                      ),
+                    Expanded(child: _details()),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 Expanded(
                   child: LayoutBuilder(builder: (context, box) {

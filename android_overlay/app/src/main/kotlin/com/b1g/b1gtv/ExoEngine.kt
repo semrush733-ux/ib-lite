@@ -72,7 +72,9 @@ class ExoEngine(
                 val id = nextId++
                 val live = call.argument<Boolean>("live") ?: true
                 val ua = call.argument<String>("ua") ?: "CloudPlayer/1.0 (Android TV)"
-                val s = Session(id, live, ua)
+                val startMs = (call.argument<Number>("startMs") ?: 1500).toInt().coerceIn(500, 8000)
+                val rebufMs = (call.argument<Number>("rebufMs") ?: 3000).toInt().coerceIn(1000, 15000)
+                val s = Session(id, live, ua, startMs, rebufMs)
                 sessions[id] = s
                 result.success(mapOf("id" to id, "texture" to s.textureId))
                 return
@@ -90,6 +92,9 @@ class ExoEngine(
                     (call.argument<Number>("enhance") ?: 0).toInt(),
                 )
                 "play" -> s.player.play()
+                // Lets go of the stream (and the server connection) but keeps the last picture
+                // on screen; the same engine opens the next address.
+                "stop" -> s.player.stop()
                 "pause" -> s.player.pause()
                 "seek" -> s.player.seekTo((call.argument<Number>("ms") ?: 0).toLong())
                 "rate" -> s.player.playbackParameters = PlaybackParameters((call.argument<Number>("rate") ?: 1.0).toFloat())
@@ -113,7 +118,13 @@ class ExoEngine(
         }
     }
 
-    private inner class Session(val id: Int, private val live: Boolean, ua: String) {
+    private inner class Session(
+        val id: Int,
+        private val live: Boolean,
+        ua: String,
+        startMs: Int = 1500,
+        rebufMs: Int = 3000,
+    ) {
         private val producer: TextureRegistry.SurfaceProducer = textures.createSurfaceProducer()
         val textureId: Long = producer.id()
         val player: ExoPlayer
@@ -138,9 +149,12 @@ class ExoEngine(
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(15000)
                 .setReadTimeoutMs(20000)
-            // Live: start after 1.5 s of video and keep up to 30 s; films keep up to 60 s.
+            // Live: keep up to 30 s, films up to 60 s. How much must be there before the picture
+            // starts / restarts comes from the app: little on a server that never stalls (quick
+            // start), more on one that often does (fewer stops).
+            val minBuf = maxOf(if (live) 10000 else 20000, rebufMs * 2)
             val load = DefaultLoadControl.Builder()
-                .setBufferDurationsMs(if (live) 10000 else 20000, if (live) 30000 else 60000, 1500, 3000)
+                .setBufferDurationsMs(minBuf, maxOf(if (live) 30000 else 60000, minBuf + 5000), startMs, rebufMs)
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
             val renderers = DefaultRenderersFactory(context)
@@ -237,7 +251,16 @@ class ExoEngine(
         }
 
         fun open(url: String, startMs: Long, level: Int) {
+            fpsCount = -1L
+            fpsEst = 0.0
+            val before = enhance
             enhance = level.coerceIn(0, 2)
+            if (before > 0 && enhance == 0) {
+                try {
+                    player.setVideoEffects(emptyList())
+                } catch (_: Throwable) {
+                }
+            }
             // Effects only when asked: without them ExoPlayer keeps its plain, lightest path.
             if (enhance > 0) try {
                 player.setVideoEffects(Enhance.effects(enhance))
@@ -246,7 +269,23 @@ class ExoEngine(
                 enhance = 0
                 send(id, "enhanceoff", mapOf("message" to (e.message ?: "")))
             }
-            player.setMediaItem(MediaItem.fromUri(url), if (!live && startMs > 0) startMs else C.TIME_UNSET)
+            // Live HLS: stay ~4 s behind the newest second (a network hiccup no longer stops the
+            // picture) and let ExoPlayer catch up by playing 1-3 % faster or slower, unnoticed.
+            val item = if (live) {
+                MediaItem.Builder()
+                    .setUri(url)
+                    .setLiveConfiguration(
+                        MediaItem.LiveConfiguration.Builder()
+                            .setTargetOffsetMs(4000)
+                            .setMinPlaybackSpeed(0.97f)
+                            .setMaxPlaybackSpeed(1.03f)
+                            .build()
+                    )
+                    .build()
+            } else {
+                MediaItem.fromUri(url)
+            }
+            player.setMediaItem(item, if (!live && startMs > 0) startMs else C.TIME_UNSET)
             player.prepare()
             player.playWhenReady = true
         }
@@ -329,12 +368,36 @@ class ExoEngine(
             player.trackSelectionParameters = b.build()
         }
 
+        private var fpsCount = -1L
+        private var fpsAt = 0L
+        private var fpsEst = 0.0
+
+        /** Pictures a second measured from the frames actually shown (TS streams rarely say). */
+        private fun measureFps() {
+            val c = player.videoDecoderCounters ?: return
+            c.ensureUpdated()
+            val n = c.renderedOutputBufferCount.toLong()
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (fpsCount >= 0 && n > fpsCount && now - fpsAt >= 800) {
+                fpsEst = (n - fpsCount) * 1000.0 / (now - fpsAt)
+            }
+            if (fpsCount < 0 || now - fpsAt >= 800) {
+                fpsCount = n
+                fpsAt = now
+            }
+        }
+
         fun facts(): Map<String, Any?> {
+            try {
+                measureFps()
+            } catch (_: Throwable) {
+            }
             val v = player.videoFormat
             val a = player.audioFormat
             return mapOf(
                 "video" to (v?.sampleMimeType ?: ""),
                 "fps" to (v?.frameRate ?: 0f).toDouble(),
+                "fpsEst" to fpsEst,
                 "decoder" to decoder,
                 "audio" to (a?.sampleMimeType ?: ""),
                 "dropped" to dropped,

@@ -27,6 +27,45 @@ class MainActivity : FlutterActivity() {
         hideSystemFocusOutline(window.decorView)
     }
 
+    /**
+     * Frame rate matching: puts the TV's screen on a refresh rate that is a whole multiple of the
+     * video's (25/50 fps on 50 Hz, 30/60 fps on 60 Hz, 24 fps on 24 Hz) at the same resolution,
+     * so no picture is shown longer than the next one (the slight judder on pans). Only modes the
+     * TV itself lists are used; nothing changes when the screen already fits or none fits.
+     * Returns the refresh rate now asked for, or 0 when nothing was changed.
+     */
+    private fun matchFrameRate(fps: Double): Double {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || fps < 20 || fps > 121) return 0.0
+        @Suppress("DEPRECATION")
+        val display = windowManager.defaultDisplay ?: return 0.0
+        val current = display.mode
+        fun fits(rate: Float): Boolean {
+            val k = Math.round(rate / fps)
+            if (k < 1) return false
+            return Math.abs(rate / (fps * k) - 1.0) < 0.0025
+        }
+        if (fits(current.refreshRate)) return 0.0
+        val same = display.supportedModes.filter {
+            it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight && fits(it.refreshRate)
+        }
+        if (same.isEmpty()) return 0.0
+        // Prefer 48 Hz and above (the app's own screens stay smooth), the lowest of those.
+        val pick = same.filter { it.refreshRate >= 47f }.minByOrNull { it.refreshRate } ?: same.minByOrNull { it.refreshRate }!!
+        val lp = window.attributes
+        if (lp.preferredDisplayModeId == pick.modeId) return 0.0
+        lp.preferredDisplayModeId = pick.modeId
+        window.attributes = lp
+        return pick.refreshRate.toDouble()
+    }
+
+    private fun resetFrameRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val lp = window.attributes
+        if (lp.preferredDisplayModeId == 0) return
+        lp.preferredDisplayModeId = 0
+        window.attributes = lp
+    }
+
     private fun hideSystemFocusOutline(view: View) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             view.defaultFocusHighlightEnabled = false
@@ -108,6 +147,18 @@ class MainActivity : FlutterActivity() {
                     }
                 } else if (call.method == "deviceIds") {
                     result.success(deviceIds())
+                } else if (call.method == "matchFrameRate") {
+                    try {
+                        result.success(matchFrameRate((call.arguments as? Number)?.toDouble() ?: 0.0))
+                    } catch (e: Exception) {
+                        result.success(0.0)
+                    }
+                } else if (call.method == "resetFrameRate") {
+                    try {
+                        resetFrameRate()
+                    } catch (_: Exception) {
+                    }
+                    result.success(null)
                 } else if (call.method == "deviceClass") {
                     // How strong this TV box is: decides whether "Picture Enhance" starts by itself.
                     try {

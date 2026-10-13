@@ -219,6 +219,15 @@ class Store {
   }
   static void setEngine(String engine) => _p.setString('player_engine2', engine);
 
+  /// Smart buffer: how often streams of one server stopped to buffer (0 never … 6 often).
+  /// Unknown servers start in the middle (1).
+  static int stallScore(String host) => _p.getInt('stall_$host') ?? 1;
+  static void setStallScore(String host, int v) => _p.setInt('stall_$host', v);
+
+  /// Frame rate matching: the TV's screen follows the video (50 Hz for 25/50 fps channels...).
+  static bool get matchFrameRate => _p.getBool('match_fps') ?? true;
+  static void setMatchFrameRate(bool v) => _p.setBool('match_fps', v);
+
   /// Picture Enhance: "auto" (on when the device is strong enough), "off" or "on".
   static String get enhanceMode {
     final v = _p.getString('enhance_mode') ?? '';
