@@ -86,12 +86,16 @@ class PlayerScreen extends StatefulWidget {
     required this.entries,
     required this.index,
     required this.live,
+    this.adopt,
   });
 
   final Source api;
   final List<PlayEntry> entries;
   final int index;
   final bool live;
+  /// An engine already playing entries[index] (the Live TV preview): full screen carries on with
+  /// it, no reload. The player owns it from then on.
+  final PlaybackEngine? adopt;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -208,8 +212,33 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _keepScreenOn(true);
     _watchdog = Timer.periodic(const Duration(seconds: 2), (_) => _checkHealth());
     _enhanceTimer = Timer.periodic(const Duration(seconds: 3), (_) => _watchEnhance());
-    _open();
+    final adopt = widget.adopt;
+    if (adopt != null) {
+      _adoptEngine(adopt);
+    } else {
+      _open();
+    }
     _scheduleEpg();
+  }
+
+  /// The preview's engine goes on playing here: no reconnect, no "Loading".
+  bool _adopting = false;
+
+  void _adoptEngine(PlaybackEngine engine) {
+    _generation++;
+    _engineName = engine.name;
+    _direct = engine is MpvEngine && engine.direct;
+    _streamKey = _entry.urls.isEmpty ? '' : _entry.urls.first;
+    _engine = engine;
+    _attach(engine);
+    _adopting = true;
+    _ready = false;
+    _openedAt = DateTime.now();
+    _lastProgress = DateTime.now();
+    _status = null;
+    _accepting = true;
+    _readTracks(engine.tracksNow);
+    log('full screen carries on the preview (engine=${engine.name})');
   }
 
   /// Starts a fresh engine of the kind chosen for this screen and listens to it.
@@ -238,6 +267,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     }
     _engine = engine;
     engine.enhanceLevel = engine.canEnhance ? await EnhanceLevel.start() : 0;
+    _attach(engine);
+    return engine;
+  }
+
+  /// Listens to an engine (a new one, or the preview's taken over).
+  void _attach(PlaybackEngine engine) {
     _subs.add(engine.firstFrame.listen((_) => _sawFirstFrame = true));
     _subs.add(engine.enhanceFailed.listen((_) {
       log('picture enhance could not start on this device: off');
@@ -274,7 +309,6 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       // ExoPlayer stops on an error (mpv carries on and reports hiccups): try again at once.
       if (m.error && engine is ExoEngine && _accepting && identical(engine, _engine)) _failed();
     }));
-    return engine;
   }
 
   /// Closes the engine (and with it the connection to the server). Waits for a
@@ -535,6 +569,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   void _markReady() {
     _ready = true;
+    _adopting = false;
     _readyAt = DateTime.now();
     _holdPicture = false;
     _heldPicture = null;
@@ -1525,7 +1560,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                   Image.memory(_heldPicture!, fit: _fits[_fit], gaplessPlayback: true),
                 if (engine != null)
                   Opacity(
-                    opacity: (_ready || (_holdPicture && engine.reusable)) ? 1 : 0,
+                    opacity: (_ready || _adopting || (_holdPicture && engine.reusable)) ? 1 : 0,
                     child: IgnorePointer(
                       child: ExcludeFocus(
                         // Subtitles sit above the controls while those are on screen.

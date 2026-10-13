@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../backend.dart';
 import '../engine.dart';
 import '../i18n.dart';
@@ -98,12 +100,18 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Timer? _epgTimer;
   int _epgRequest = 0;
   Timer? _clock;
+  // The guide box scrolls (remote: move onto it, then Up / Down; touch: drag).
+  final ScrollController _guideScroll = ScrollController();
+  final FocusNode _guideFocus = FocusNode(debugLabel: 'guide-box');
 
   bool get _live => widget.kind == XKind.live;
 
   @override
   void initState() {
     super.initState();
+    _guideFocus.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadCategories();
     if (_live) {
       // Keeps "now" and the progress bar of the guide box current.
@@ -121,6 +129,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
     _focusTimer?.cancel();
     _epgTimer?.cancel();
     _clock?.cancel();
+    _guideScroll.dispose();
+    _guideFocus.dispose();
     _stopPreview();
     super.dispose();
   }
@@ -185,6 +195,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
   /// The remote moved onto a channel: show its guide under the preview once it settles there.
   void _focusChannel(XItem item, int number) {
     if (_focusItem?.id == item.id) return;
+    if (_guideScroll.hasClients) _guideScroll.jumpTo(0);
     final id = item.url.isEmpty ? item.id : item.epgId;
     final cached = _epgCache[id];
     setState(() {
@@ -229,10 +240,30 @@ class _BrowseScreenState extends State<BrowseScreen> {
 
   Future<void> _playFull(List<XItem> items, int index) async {
     Store.addRecent(items[index]);
-    await _stopPreview();
-    if (!mounted) return;
+    // The channel is already playing in the preview: full screen takes over that same stream
+    // (no reload, it simply carries on). Otherwise the preview stops and full screen opens it.
+    final engine = _pv;
+    PlaybackEngine? handOver;
+    if (engine != null && _pvItem?.id == items[index].id && !_pvBuffering && !kIsWeb) {
+      _pvRequest++;
+      for (final s in _pvSubs) {
+        s.cancel();
+      }
+      _pvSubs.clear();
+      _pv = null;
+      _pvItem = null;
+      handOver = engine;
+      if (mounted) setState(() {});
+    } else {
+      await _stopPreview();
+    }
+    if (!mounted) {
+      handOver?.dispose().catchError((Object _) {});
+      return;
+    }
     await Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => PlayerScreen(api: widget.api, entries: _entriesFor(items), index: index, live: true)));
+        builder: (_) => PlayerScreen(
+            api: widget.api, entries: _entriesFor(items), index: index, live: true, adopt: handOver)));
   }
 
   /// TV Guide for the channels of this category, starting on the selected one.
@@ -514,13 +545,40 @@ class _BrowseScreenState extends State<BrowseScreen> {
 
   static String _hm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-  /// Live: the preview picture on top, the channel's guide under it, and quick buttons.
+  /// Full screen for a channel (the one playing in the preview carries on without reload).
+  void _fullScreenFor(XItem item) {
+    final items = _items;
+    if (items == null) return;
+    final i = items.indexWhere((x) => x.id == item.id);
+    if (i >= 0) _playFull(items, i);
+  }
+
+  /// Remote on the guide box: Up / Down scroll it; Up at the top goes back to the buttons.
+  KeyEventResult _guideKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent && e is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (!_guideScroll.hasClients) return KeyEventResult.ignored;
+    final pos = _guideScroll.position;
+    if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (pos.pixels >= pos.maxScrollExtent) return KeyEventResult.handled;
+      _guideScroll.animateTo(math.min(pos.maxScrollExtent, pos.pixels + 70),
+          duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+      return KeyEventResult.handled;
+    }
+    if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (pos.pixels <= 0) return KeyEventResult.ignored;
+      _guideScroll.animateTo(math.max(0, pos.pixels - 70), duration: const Duration(milliseconds: 180), curve: Curves.easeOut);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Live: quick buttons on top, the preview picture, the channel's guide under it.
   Widget _previewPane() {
     final engine = _pv;
     final playing = _pvItem;
     final item = _focusItem ?? playing;
     final now = DateTime.now();
-    final upcoming = _focusEpg.where((e) => e.end.isAfter(now)).take(5).toList();
+    final upcoming = _focusEpg.where((e) => e.end.isAfter(now)).take(10).toList();
     final current = upcoming.isNotEmpty && !upcoming.first.start.isAfter(now) ? upcoming.first : null;
     final later = current == null ? upcoming : upcoming.skip(1).toList();
     final double progress = current == null
@@ -531,13 +589,29 @@ class _BrowseScreenState extends State<BrowseScreen> {
     final fav = item != null && Store.isFavourite(item);
 
     return LayoutBuilder(builder: (context, box) {
-      final videoH = math.min(box.maxWidth * 9 / 16, box.maxHeight * 0.6);
+      final videoH = math.min(box.maxWidth * 9 / 16, (box.maxHeight - 52) * 0.6);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ---- picture
+          // ---- buttons, above the picture
+          if (item != null) ...[
+            Row(
+              children: [
+                _paneButton(Icons.fullscreen_rounded, t('Full screen'), () => _fullScreenFor(item)),
+                const SizedBox(width: 8),
+                _paneButton(Icons.calendar_view_day_rounded, t('TV Guide'), _openGuide),
+                const SizedBox(width: 8),
+                _paneButton(fav ? Icons.star_rounded : Icons.star_border_rounded, t('Favourite'),
+                    () => _toggleFavourite(item)),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          // ---- picture (touch: tap it for full screen)
           Center(
-            child: Container(
+            child: GestureDetector(
+              onTap: engine != null && playing != null ? () => _fullScreenFor(playing) : null,
+              child: Container(
               width: videoH * 16 / 9,
               height: videoH,
               decoration: BoxDecoration(
@@ -589,7 +663,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                             ),
-                            const Text('OK = full screen', style: TextStyle(fontSize: 12, color: Color(0xFFD5DAE3))),
+                            Text(InputMode.remote ? 'OK = full screen' : 'Tap = full screen',
+                                style: const TextStyle(fontSize: 12, color: Color(0xFFD5DAE3))),
                           ],
                         ),
                       ),
@@ -597,11 +672,15 @@ class _BrowseScreenState extends State<BrowseScreen> {
                 ],
               ),
             ),
+            ),
           ),
           const SizedBox(height: 12),
-          // ---- guide box
+          // ---- guide box (scrolls: remote Right onto it then Up / Down, or drag on touch)
           Expanded(
-            child: Container(
+            child: Focus(
+              focusNode: _guideFocus,
+              onKeyEvent: _guideKey,
+              child: Container(
               padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
@@ -610,7 +689,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
                   end: Alignment.bottomRight,
                   colors: [Color(0xFF1C2130), Color(0xFF151923), Color(0xFF2A1E08)],
                 ),
-                border: Border.all(color: const Color(0x1FFFC400)),
+                border: Border.all(
+                    color: _guideFocus.hasFocus ? C.accent : const Color(0x1FFFC400), width: _guideFocus.hasFocus ? 2 : 1),
               ),
               child: item == null
                   ? const Center(
@@ -620,6 +700,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        // Channel name with the time right next to it.
                         Row(
                           children: [
                             SizedBox(width: 38, height: 30, child: NetImage(item.icon, cacheWidth: 96)),
@@ -627,95 +708,97 @@ class _BrowseScreenState extends State<BrowseScreen> {
                             if (_focusNumber > 0)
                               Text('$_focusNumber  ',
                                   style: const TextStyle(fontSize: 15, color: C.accent, fontWeight: FontWeight.w800)),
-                            Expanded(
+                            Flexible(
                               child: Text(item.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                             ),
-                            Text(_hm(now), style: const TextStyle(fontSize: 14, color: C.dim, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 10),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                  color: const Color(0x1FFFFFFF), borderRadius: BorderRadius.circular(6)),
+                              child: Text(_hm(now),
+                                  style: const TextStyle(fontSize: 13.5, color: Color(0xFFD5DAE3), fontWeight: FontWeight.w700)),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 10),
-                        if (_focusEpgLoading)
-                          Text(t('Loading the guide…'), style: const TextStyle(color: C.dim, fontSize: 13.5))
-                        else if (upcoming.isEmpty)
-                          Text(t('No programme information for this channel.'),
-                              style: const TextStyle(color: C.dim, fontSize: 13.5))
-                        else ...[
-                          if (current != null) ...[
-                            Row(
+                        // The programmes scroll inside the box, so nothing runs off its bottom.
+                        Expanded(
+                          child: SingleChildScrollView(
+                            controller: _guideScroll,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text('${_hm(current.start)} – ${_hm(current.end)}',
-                                    style: const TextStyle(
-                                        fontSize: 13.5, color: C.accent, fontWeight: FontWeight.w800)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(current.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontSize: 15.5, color: C.accent, fontWeight: FontWeight.w800)),
-                                ),
+                                if (_focusEpgLoading)
+                                  Text(t('Loading the guide…'), style: const TextStyle(color: C.dim, fontSize: 13.5))
+                                else if (upcoming.isEmpty)
+                                  Text(t('No programme information for this channel.'),
+                                      style: const TextStyle(color: C.dim, fontSize: 13.5))
+                                else ...[
+                                  if (current != null) ...[
+                                    Row(
+                                      children: [
+                                        Text('${_hm(current.start)} – ${_hm(current.end)}',
+                                            style: const TextStyle(
+                                                fontSize: 13.5, color: C.accent, fontWeight: FontWeight.w800)),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(current.title,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                  fontSize: 15.5, color: C.accent, fontWeight: FontWeight.w800)),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(3),
+                                      child: LinearProgressIndicator(
+                                        value: progress,
+                                        minHeight: 4,
+                                        color: C.accent,
+                                        backgroundColor: const Color(0x26FFFFFF),
+                                      ),
+                                    ),
+                                    if (current.description.isNotEmpty) ...[
+                                      const SizedBox(height: 6),
+                                      Text(current.description,
+                                          style: const TextStyle(fontSize: 12.5, height: 1.35, color: Color(0xFFB9C0CC))),
+                                    ],
+                                    const SizedBox(height: 8),
+                                  ],
+                                  for (final e in later)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 5),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          SizedBox(
+                                            width: 104,
+                                            child: Text('${_hm(e.start)} – ${_hm(e.end)}',
+                                                style: const TextStyle(fontSize: 13, color: Color(0xFFD5DAE3))),
+                                          ),
+                                          Expanded(
+                                            child: Text(e.title,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
                               ],
                             ),
-                            const SizedBox(height: 6),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 4,
-                                color: C.accent,
-                                backgroundColor: const Color(0x26FFFFFF),
-                              ),
-                            ),
-                            if (current.description.isNotEmpty) ...[
-                              const SizedBox(height: 6),
-                              Text(current.description,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 12.5, height: 1.35, color: Color(0xFFB9C0CC))),
-                            ],
-                            const SizedBox(height: 8),
-                          ],
-                          for (final e in later.take(3))
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 5),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 104,
-                                    child: Text('${_hm(e.start)} – ${_hm(e.end)}',
-                                        style: const TextStyle(fontSize: 13, color: Color(0xFFD5DAE3))),
-                                  ),
-                                  Expanded(
-                                    child: Text(e.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                        ],
-                        const Spacer(),
-                        Row(
-                          children: [
-                            _paneButton(Icons.fullscreen_rounded, t('Full screen'), () {
-                              final items = _items;
-                              if (items == null) return;
-                              final i = items.indexWhere((x) => x.id == item.id);
-                              if (i >= 0) _playFull(items, i);
-                            }),
-                            const SizedBox(width: 8),
-                            _paneButton(Icons.calendar_view_day_rounded, t('TV Guide'), _openGuide),
-                            const SizedBox(width: 8),
-                            _paneButton(fav ? Icons.star_rounded : Icons.star_border_rounded, t('Favourite'),
-                                () => _toggleFavourite(item)),
-                          ],
+                          ),
                         ),
                       ],
                     ),
+              ),
             ),
           ),
         ],
