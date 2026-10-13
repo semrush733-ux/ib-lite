@@ -393,7 +393,7 @@ class _HomeScreenState extends State<HomeScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xE6400A10), Color(0xB3500C14), Color(0xEB1A0608)],
+                colors: [Color(0xEB2C0B0F), Color(0xD1361016), Color(0xF0140608)],
                 stops: [0, 0.5, 1],
               ),
             ),
@@ -672,7 +672,7 @@ class _PillButton extends StatelessWidget {
                     gradient: LinearGradient(
                       colors: f
                           ? const [Color(0xFFFF4A52), Color(0xFFE3262F)]
-                          : const [Color(0xFFB81E26), Color(0xFFE3262F)],
+                          : const [Color(0xFF8A1C23), Color(0xFFA6232B)],
                     ),
                   ),
                   child: Text(label,
@@ -753,8 +753,8 @@ class _HomeTile extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: f
-                  ? const [Color(0xFFFF3B44), Color(0xD9C1323A), Color(0xB3707078)]
-                  : const [Color(0xF2E3262F), Color(0xC0A0343A), Color(0x99606068)],
+                  ? const [Color(0xFFEF3A42), Color(0xD9B5323A), Color(0xB3707078)]
+                  : const [Color(0xD9AE2A32), Color(0xB3782E34), Color(0x99505058)],
               stops: const [0, 0.45, 1],
             ),
             boxShadow: [
