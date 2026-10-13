@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Before a build: takes the app icon (logo symbol) set in the website's admin
-(Lite Player -> Settings -> App look) so the launcher icons use it.
+"""Before a build: takes the app icon (logo symbol) and the app name under the icon set in the
+website's admin (Lite Player -> Settings -> App look) so the launcher uses them.
+Writes brand/site_label.txt (the name, when set) and out/brand_sig.txt (what this build used,
+so the hourly check knows when the website changed).
 Usage: python3 tools/fetch_brand.py https://your-site.com   (does nothing when empty or unreachable)"""
 import io
 import json
+import os
+import re
 import sys
 import urllib.request
 
@@ -15,7 +19,19 @@ if not site:
 try:
     with urllib.request.urlopen(site + '/wp-json/b1g/v1/app/config', timeout=20) as r:
         cfg = json.load(r).get('config', {})
-    icon = ((cfg.get('brand') or {}).get('icon') or '').strip()
+    brand = cfg.get('brand') or {}
+    icon = (brand.get('icon') or '').strip()
+    label = (brand.get('app_label') or '').strip()
+    # Letters, digits, spaces and a few signs only (it goes into the Android manifest).
+    label = re.sub(r'[^\w .()+-]', '', label.replace('&', 'and'), flags=re.UNICODE)
+    label = re.sub(r'\s+', ' ', label).strip()[:30]
+    os.makedirs('out', exist_ok=True)
+    with open('out/brand_sig.txt', 'w') as f:
+        f.write('%s|%s' % (label, icon))
+    if label:
+        with open('brand/site_label.txt', 'w') as f:
+            f.write(label)
+        print('app name under the icon from the website: %s' % label)
     if not icon:
         print('website has no app icon set: keeping brand/icon.png')
         sys.exit(0)

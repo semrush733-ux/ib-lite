@@ -20,9 +20,14 @@ on:
     paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml']
   # "Run workflow" button in GitHub Actions: rebuild with the icon set in the website admin.
   workflow_dispatch:
+  # Every hour: when the app name or icon was changed in the website admin (App look), a new
+  # build is made by itself. Nothing is built when nothing changed.
+  schedule:
+    - cron: '23 * * * *'
 
 concurrency:
-  group: lite-${{ github.ref }}
+  # The hourly check has its own group, so it never cancels a build that is running.
+  group: lite-${{ github.ref }}-${{ github.event_name == 'schedule' && 'auto' || 'main' }}
   cancel-in-progress: true
 
 permissions:
@@ -32,7 +37,34 @@ env:
   BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
+  # Hourly runs only: did the website's app name / icon change since the last build?
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      go: ${{ steps.c.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: c
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          site="$(grep -E '^WEBSITE=' brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//; s|/$||')"
+          if [ -z "$site" ]; then echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          want="$(curl -fsS --max-time 20 "$site/wp-json/b1g/v1/app/config" | python3 -c '
+          import json, re, sys
+          b = (json.load(sys.stdin).get("config") or {}).get("brand") or {}
+          label = re.sub(r"[^\w .()+-]", "", (b.get("app_label") or "").strip().replace("&", "and"))
+          label = re.sub(r"\s+", " ", label).strip()[:30]
+          print("%s|%s" % (label, (b.get("icon") or "").strip()))' 2>/dev/null || true)"
+          have="$(gh release view latest --json body -q .body 2>/dev/null | sed -n 's/^Brand: //p' | head -1)"
+          echo "website: [$want]  last build: [$have]"
+          if [ -n "$want" ] && [ "$want" != "|" ] && [ "$want" != "$have" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; else echo "go=false" >> "$GITHUB_OUTPUT"; fi
+
   build:
+    needs: check
+    if: needs.check.outputs.go == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
@@ -52,6 +84,13 @@ jobs:
           echo "brand: $APP_NAME ($PACKAGE_ID) website: ${WEBSITE:-(not set)}"
           python3 -m pip install --quiet pillow || true
           python3 tools/fetch_brand.py "$WEBSITE"
+          # The name under the icon set on the website wins over brand/brand.txt (the APK's file
+          # name stays the same, so download links keep working).
+          if [ -s brand/site_label.txt ]; then
+            APP_NAME="$(cat brand/site_label.txt)"
+            echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+            echo "app name from the website: $APP_NAME"
+          fi
           python3 tools/brand_icons.py
           mkdir -p out && (cd store_assets && zip -qr ../out/store-assets.zip .)
 
@@ -221,6 +260,8 @@ jobs:
           # Icons and banners for app stores (Amazon, Google Play) and Samsung Tizen.
           if [ -n "$FILES" ] && [ -f out/store-assets.zip ]; then FILES="$FILES out/store-assets.zip"; fi
           TITLE="$APP_NAME - build #$BUILD_NUMBER"
+          # What brand this build used (the hourly check compares it with the website).
+          if [ -n "$FILES" ] && [ -s out/brand_sig.txt ]; then { echo ""; echo "Brand: $(cat out/brand_sig.txt)"; } >> out/REPORT.md; fi
           if [ -z "$FILES" ]; then TITLE="$APP_NAME - build #$BUILD_NUMBER FAILED (APK below is from an earlier build)"; fi
           publish() {
             if gh release view latest >/dev/null 2>&1; then
