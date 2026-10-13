@@ -11,7 +11,7 @@ name: iPhone app (IPA)
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/tizen.yml', 'tizen/**']
+    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**']
   workflow_dispatch:
 
 concurrency:

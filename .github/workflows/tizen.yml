@@ -11,7 +11,7 @@ name: Samsung TV app (Tizen WGT)
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/ios.yml']
+    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/ios.yml', '.github/workflows/webos.yml', 'webos/**']
   workflow_dispatch:
 
 concurrency:

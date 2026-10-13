@@ -31,3 +31,6 @@ const String kTmdbImages = String.fromEnvironment('B1G_TMDB_IMAGES', defaultValu
 /// Samsung TV (Tizen) build: the web app packaged for the TV. It talks to IPTV servers directly
 /// (no website relay) and the remote's Back / Exit keys work like on Android TV.
 const bool kTizen = bool.fromEnvironment('B1G_TIZEN');
+
+/// Which TV the packaged web app runs on ('samsung-tv' or 'lg-tv'), shown in the admin panel.
+const String kTvPlatform = String.fromEnvironment('B1G_TV_PLATFORM', defaultValue: 'samsung-tv');

@@ -1,0 +1,119 @@
+name: LG TV app (webOS IPK)
+
+# Packs the player for LG Smart TVs (webOS): the web version of the app with the remote's keys
+# (Back / play-pause / channel) and direct connections to the IPTV server (no website relay).
+#
+# Result: release "webos-latest" with the .ipk. Install it on an LG TV in Developer Mode with
+# webOS Dev Manager / ares-install, or upload it in LG Seller Lounge (LG signs store apps itself).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**']
+  workflow_dispatch:
+
+concurrency:
+  group: webos-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  ipk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          APP_NAME="$(get APP_NAME)"; PACKAGE_ID="$(get PACKAGE_ID)"; WEBSITE="$(get WEBSITE)"
+          WEBSITE="${WEBSITE%/}"
+          API_BASE=""; [ -n "$WEBSITE" ] && API_BASE="$WEBSITE/wp-json/b1g/v1"
+          APK_NAME="$(echo "$APP_NAME" | tr -cd '[:alnum:]')"; [ -n "$APK_NAME" ] || APK_NAME=App
+          python3 -m pip install --quiet pillow || true
+          python3 tools/fetch_brand.py "$WEBSITE" || true
+          if [ -s brand/site_label.txt ]; then APP_NAME="$(cat brand/site_label.txt)"; fi
+          python3 tools/brand_icons.py
+          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "API_BASE=$API_BASE"; echo "APK_NAME=$APK_NAME"; echo "WEBSITE=$WEBSITE"; } >> "$GITHUB_ENV"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build the web app for the TV
+        id: build
+        continue-on-error: true
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set -o pipefail
+          mkdir -p out
+          flutter create --no-pub --platforms=web --org com.b1g --project-name b1gtv "$RUNNER_TEMP/webscaffold"
+          cp -r "$RUNNER_TEMP/webscaffold/web" web
+          cp web_brand/favicon.png web/favicon.png
+          sed -i "s|<title>b1gtv</title>|<title>$APP_NAME</title>|" web/index.html
+          # The TV's remote keys (Back, Exit, play / pause), before Flutter starts.
+          cp webos/webos.js web/webos.js
+          sed -i 's|<head>|<head>\n  <script src="webos.js"></script>|' web/index.html
+          flutter pub get
+          SERVER="$(tr -d ' \r\n' < config/server.txt 2>/dev/null || true)"
+          DEFS=(--dart-define=B1G_TIZEN=true --dart-define=B1G_TV_PLATFORM=lg-tv --dart-define=B1G_SERVER="$SERVER" --dart-define=B1G_TMDB_KEY="$TMDB_API_KEY" --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_API_BASE="$API_BASE")
+          # Everything inside the package (the TV may not reach Google's CDN).
+          flutter build web --release --no-web-resources-cdn "${DEFS[@]}" 2>&1 | tee out/build.log \
+            || flutter build web --release "${DEFS[@]}" 2>&1 | tee -a out/build.log
+          test -f build/web/index.html
+          # The package opens index.html from its own folder.
+          sed -i 's|<base href="/">|<base href="./">|' build/web/index.html
+          # webOS package description and icons.
+          APPID="$(echo "$APP_ID" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9.-')"; [ -n "$APPID" ] || APPID=com.liteplayer.tv
+          VENDOR="$(printf '%s' "${WEBSITE#*://}" | cut -d/ -f1)"; [ -n "$VENDOR" ] || VENDOR="$APP_NAME"
+          NAME_JSON="$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1])[1:-1])' "$APP_NAME")"
+          sed -e "s|@APPID@|$APPID|" -e "s|@VERSION@|1.0.$BUILD_NUMBER|" -e "s|@VENDOR@|$VENDOR|" -e "s|@NAME@|$NAME_JSON|" webos/appinfo.json.in > build/web/appinfo.json
+          python3 - <<'PY'
+          from PIL import Image
+          src = Image.open('store_assets/icon-512.png').convert('RGB')
+          src.resize((80, 80), Image.LANCZOS).save('build/web/icon.png')
+          src.resize((130, 130), Image.LANCZOS).save('build/web/largeIcon.png')
+          PY
+          rm -f build/web/flutter_service_worker.js
+          npm install -g --silent @webos-tools/cli
+          ares-package --no-minify build/web -o out 2>&1 | tee -a out/build.log
+          f="$(ls out/*.ipk | head -1)"; mv "$f" "out/$APK_NAME.ipk"
+          echo "APPID=$APPID" >> "$GITHUB_ENV"
+          ls -la out
+
+      - name: Publish to the "webos-latest" release
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILES=""
+          [ -f "out/$APK_NAME.ipk" ] && FILES="out/$APK_NAME.ipk"
+          TITLE="$APP_NAME LG TV - build #$BUILD_NUMBER"
+          [ -z "$FILES" ] && TITLE="$TITLE FAILED"
+          {
+            echo "LG Smart TV (webOS) package. Install on a TV in Developer Mode (webOS Dev Manager / ares-install) or upload it in LG Seller Lounge."
+            echo ""
+            echo "webOS app id: ${APPID:-?}"
+            if [ -z "$FILES" ]; then
+              echo ""
+              echo "### Errors"
+              echo '```'
+              grep -E "Error|error:|Exception" out/build.log 2>/dev/null | cut -c1-300 | sort -u | head -50 || true
+              echo '---'
+              tail -40 out/build.log 2>/dev/null | cut -c1-300 || true
+              echo '```'
+            fi
+          } > out/NOTES.md
+          if gh release view webos-latest >/dev/null 2>&1; then
+            [ -n "$FILES" ] && gh release upload webos-latest $FILES --clobber
+            gh release edit webos-latest --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          else
+            gh release create webos-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          fi

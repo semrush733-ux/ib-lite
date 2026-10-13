@@ -462,7 +462,7 @@ class Backend {
       log('backend register hwid=${ids.containsKey('hwid') ? 'yes' : 'no'} mac=${ids.containsKey('mac') ? 'yes' : 'no'}');
       final data = await _post('/device/register', {
         'platform': kTizen
-            ? 'samsung-tv'
+            ? kTvPlatform
             : kIsWeb
             ? 'web'
             : (defaultTargetPlatform == TargetPlatform.android ? 'android-tv' : defaultTargetPlatform.name),
