@@ -250,8 +250,9 @@ jobs:
           retention-days: 3
 
       # A failed build still publishes its report (so the errors can be read), but never replaces a good APK.
+      # Not when the run was cancelled (a newer one replaces it): it would mark the release FAILED.
       - name: Publish to the "latest" release
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

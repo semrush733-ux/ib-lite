@@ -115,7 +115,7 @@ jobs:
           ls -la out
 
       - name: Publish to the "ios-latest" release
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
