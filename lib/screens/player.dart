@@ -600,15 +600,6 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     Smooth.cleanRun(_streamKey);
   }
 
-  void _warmNeighbours() {
-    final n = widget.entries.length;
-    if (n < 2) return;
-    for (final d in const [1, -1]) {
-      final e = widget.entries[(_index + d + n) % n];
-      if (e.urls.isNotEmpty) Warmup.host(e.urls.first);
-    }
-  }
-
   void _markReady() {
     final wasAdopted = _adopting;
     _ready = true;
@@ -640,8 +631,6 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         Store.noteFormat(Smooth.hostOf(url), formatOfUrl(url), ms);
         log('start ms=$ms');
       }
-      // The channels next to this one: their server is ready before the remote gets there.
-      _warmNeighbours();
     }
     _applyPreferredTracks();
     _matchFrameRate();
