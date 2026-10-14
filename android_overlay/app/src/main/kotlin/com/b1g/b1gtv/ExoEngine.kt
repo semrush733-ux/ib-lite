@@ -90,6 +90,7 @@ class ExoEngine(
                     call.argument<String>("url") ?: "",
                     (call.argument<Number>("startMs") ?: 0).toLong(),
                     (call.argument<Number>("enhance") ?: 0).toInt(),
+                    call.argument<Boolean>("paused") ?: false,
                 )
                 "play" -> s.player.play()
                 // Lets go of the stream (and the server connection) but keeps the last picture
@@ -250,7 +251,7 @@ class ExoEngine(
             main.post(ticker)
         }
 
-        fun open(url: String, startMs: Long, level: Int) {
+        fun open(url: String, startMs: Long, level: Int, paused: Boolean = false) {
             fpsCount = -1L
             fpsEst = 0.0
             val before = enhance
@@ -287,7 +288,8 @@ class ExoEngine(
             }
             player.setMediaItem(item, if (!live && startMs > 0) startMs else C.TIME_UNSET)
             player.prepare()
-            player.playWhenReady = true
+            // Paused = preloaded (a film page fills the buffer before "Watch" is pressed).
+            player.playWhenReady = !paused
         }
 
         /** With effects the renderer must be told the size of the picture surface. */

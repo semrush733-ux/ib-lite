@@ -10,6 +10,7 @@ import '../i18n.dart';
 import '../parental.dart';
 import '../input_mode.dart';
 import '../store.dart';
+import '../warmup.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -197,6 +198,11 @@ class _BrowseScreenState extends State<BrowseScreen> {
   /// The remote moved onto a channel: show its guide under the preview once it settles there.
   void _focusChannel(XItem item, int number) {
     if (_focusItem?.id == item.id) return;
+    // The server of the channel under the remote gets ready (name lookup + connection).
+    if (!kIsWeb) {
+      final urls = widget.api.liveUrlsFor(item, Store.liveFormat);
+      if (urls.isNotEmpty) Warmup.host(urls.first);
+    }
     if (_guideScroll.hasClients) _guideScroll.jumpTo(0);
     final id = item.url.isEmpty ? item.id : item.epgId;
     final cached = _epgCache[id];

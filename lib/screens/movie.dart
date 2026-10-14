@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+import '../engine.dart';
 import '../input_mode.dart';
+import '../smooth.dart';
+import '../warmup.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../tmdb.dart';
@@ -34,10 +41,57 @@ class _MovieScreenState extends State<MovieScreen> {
 
   String get _resumeKey => '${widget.movie.kind.name}:${widget.movie.id}';
 
+  // The film is opened (paused) while this page is read, so "Watch" starts at once.
+  PlaybackEngine? _pre;
+  Duration _preAt = Duration.zero;
+  Timer? _preTimer;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _preTimer = Timer(const Duration(milliseconds: 900), _preload);
+  }
+
+  @override
+  void dispose() {
+    _preTimer?.cancel();
+    final e = _pre;
+    _pre = null;
+    e?.dispose().catchError((Object _) {});
+    super.dispose();
+  }
+
+  Future<void> _preload() async {
+    if (!mounted || kIsWeb || _pre != null || !Store.vodPreload) return;
+    final url = widget.api.movieUrlFor(widget.movie);
+    if (url.isEmpty) return;
+    final saved = Store.resume(_resumeKey);
+    final at = saved > 30 ? Duration(seconds: saved) : Duration.zero;
+    PlaybackEngine? engine;
+    try {
+      final buf = Smooth.profileFor(url, live: false);
+      if (ExoEngine.available && Store.engine == 'exo' && !Store.exoNoSound.contains(url)) {
+        engine = await ExoEngine.create(live: false, startMs: buf.startMs, rebufMs: buf.rebufMs);
+      } else if (!ExoEngine.available || Store.engine != 'exo') {
+        engine = MpvEngine(live: false, direct: Store.videoMode == 'direct')..pauseWait = buf.mpvWait;
+      }
+    } catch (_) {
+      engine = null;
+    }
+    if (engine == null || !engine.canPreload) {
+      engine?.dispose().catchError((Object _) {});
+      Warmup.film(url);
+      return;
+    }
+    if (!mounted) {
+      engine.dispose().catchError((Object _) {});
+      return;
+    }
+    _pre = engine;
+    _preAt = at;
+    log('film preload engine=${engine.name} at=${at.inSeconds}s');
+    await engine.preload(url, at).catchError((Object _) {});
   }
 
   Future<void> _load() async {
@@ -77,8 +131,17 @@ class _MovieScreenState extends State<MovieScreen> {
         item: movie,
       ),
     ];
+    _preTimer?.cancel();
+    // The preloaded film is handed to the player (no new connection, no waiting).
+    final pre = _pre;
+    _pre = null;
+    if (pre != null && fromStart && _preAt > Duration.zero) await pre.seek(Duration.zero).catchError((Object _) {});
+    if (!mounted) {
+      pre?.dispose().catchError((Object _) {});
+      return;
+    }
     await Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => PlayerScreen(api: widget.api, entries: entries, index: 0, live: false)));
+        builder: (_) => PlayerScreen(api: widget.api, entries: entries, index: 0, live: false, adopt: pre)));
     if (mounted) setState(() {});
   }
 

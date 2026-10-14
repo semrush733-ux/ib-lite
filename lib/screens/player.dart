@@ -19,6 +19,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
+import '../warmup.dart';
 import 'guide.dart';
 
 /// One thing the player can show. [urls] are tried in order (live channels
@@ -242,6 +243,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _status = null;
     _accepting = true;
     _readTracks(engine.tracksNow);
+    if (!widget.live) {
+      // A film preloaded on its page (paused): it starts now.
+      engine.play();
+      log('player starts the preloaded film (engine=${engine.name})');
+      return;
+    }
     log('full screen carries on the preview (engine=${engine.name})');
   }
 
@@ -585,6 +592,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     Smooth.cleanRun(_streamKey);
   }
 
+  void _warmNeighbours() {
+    final n = widget.entries.length;
+    if (n < 2) return;
+    for (final d in const [1, -1]) {
+      final e = widget.entries[(_index + d + n) % n];
+      if (e.urls.isNotEmpty) Warmup.host(e.urls.first);
+    }
+  }
+
   void _markReady() {
     _ready = true;
     _adopting = false;
@@ -607,6 +623,13 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _videoSize = w > 0 && h > 0 ? '$w x $h' : '';
     _videoHeight = h;
     log('ready index=$_index format=${formatOfUrl(url)} video=${w}x$h mode=${_direct ? 'direct' : 'gpu'} engine=$_engineName');
+    if (widget.live && !kIsWeb) {
+      final ms = DateTime.now().difference(_openedAt).inMilliseconds;
+      Store.noteFormat(Smooth.hostOf(url), formatOfUrl(url), ms);
+      log('start ms=$ms');
+      // The channels next to this one: their server is ready before the remote gets there.
+      _warmNeighbours();
+    }
     _applyPreferredTracks();
     _matchFrameRate();
     if (mounted) setState(() => _status = null);
@@ -720,6 +743,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       // A format that never played is swapped for the other one at once; a
       // stream that did play and then dropped gets a second chance first.
       if (_entry.urls.length > 1 && (!_playedThisUrl || _fails % 2 == 0)) {
+        if (!_playedThisUrl && widget.live) {
+          // This format did not play here: remember it as slow for this server.
+          final bad = _entry.urls[_urlIndex % _entry.urls.length];
+          Store.noteFormat(Smooth.hostOf(bad), formatOfUrl(bad), 15000);
+        }
         _urlIndex++;
         _playedThisUrl = false;
       }

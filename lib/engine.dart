@@ -39,6 +39,9 @@ abstract class PlaybackEngine {
   bool get isBuffering;
 
   Future<void> open(String url, Duration start);
+  /// Opens the address paused and fills the buffer (film page: "Watch" then starts at once).
+  bool get canPreload => false;
+  Future<void> preload(String url, Duration start) => open(url, start);
   Future<void> play();
   Future<void> pause();
   Future<void> seek(Duration to);
@@ -202,6 +205,21 @@ class MpvEngine extends PlaybackEngine {
           httpHeaders: kIsWeb ? null : const {'User-Agent': kUserAgent},
           start: start > Duration.zero ? start : null),
       play: true,
+    );
+    if (enhanceLevel > 0) await setEnhance(enhanceLevel);
+  }
+
+  @override
+  bool get canPreload => !kIsWeb;
+
+  @override
+  Future<void> preload(String url, Duration start) async {
+    await _configure();
+    await player.open(
+      Media(url,
+          httpHeaders: kIsWeb ? null : const {'User-Agent': kUserAgent},
+          start: start > Duration.zero ? start : null),
+      play: false,
     );
     if (enhanceLevel > 0) await setEnhance(enhanceLevel);
   }
@@ -533,6 +551,17 @@ class ExoEngine extends PlaybackEngine {
     _dur = Duration.zero;
     _trackList = Tracks();
     return _call('open', {'url': url, 'startMs': start.inMilliseconds, 'enhance': enhanceLevel});
+  }
+
+  @override
+  bool get canPreload => true;
+
+  @override
+  Future<void> preload(String url, Duration start) {
+    _lastFps = 0;
+    _dur = Duration.zero;
+    _trackList = Tracks();
+    return _call('open', {'url': url, 'startMs': start.inMilliseconds, 'enhance': enhanceLevel, 'paused': true});
   }
 
   @override

@@ -314,4 +314,42 @@ class Store {
   static void setLiveFormat(String format) {
     if (format != liveFormat) _p.setString('live_format', format);
   }
+
+  /// Film pages open the film in the background (paused) so "Watch" starts at once.
+  static bool get vodPreload => _p.getBool('vod_preload') ?? true;
+  static void setVodPreload(bool v) => _p.setBool('vod_preload', v);
+
+  // ---- Fastest stream format per IPTV server (TS or HLS) ----
+  // The player notes how long each format takes to show the picture; channels then open in the
+  // faster one. Each server tries the other format once to learn it.
+  static int formatMs(String host, String f) => _p.getInt('fmt_ms:$host:$f') ?? 0;
+  static int formatCount(String host, String f) => _p.getInt('fmt_n:$host:$f') ?? 0;
+
+  static void noteFormat(String host, String f, int ms) {
+    if (host.isEmpty || (f != 'ts' && f != 'm3u8') || ms <= 0) return;
+    final n = formatCount(host, f);
+    final old = formatMs(host, f);
+    _p.setInt('fmt_ms:$host:$f', n == 0 ? ms : (old * 3 + ms) ~/ 4);
+    _p.setInt('fmt_n:$host:$f', (n + 1).clamp(0, 50));
+  }
+
+  static final Map<String, String> _fmtSession = {};
+
+  /// The format to try first on this server ([fallback]: the general choice).
+  static String bestFormat(String host, String fallback) {
+    if (host.isEmpty) return fallback;
+    final known = _fmtSession[host];
+    if (known != null) return known;
+    final other = fallback == 'ts' ? 'm3u8' : 'ts';
+    String pick = fallback;
+    final a = formatCount(host, fallback), b = formatCount(host, other);
+    if (a > 0 && b > 0) {
+      final fa = formatMs(host, fallback), fb = formatMs(host, other);
+      if (fb + 300 < fa) pick = other;
+    } else if (a >= 3 && b == 0) {
+      pick = other; // learn the other format once
+    }
+    _fmtSession[host] = pick;
+    return pick;
+  }
 }

@@ -367,6 +367,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Works on Android TV boxes, Firestick and Android TVs that support it.',
           style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),
+        const SizedBox(height: 24),
+        const Text('QUICK START FOR FILMS',
+            style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _chip('On', Store.vodPreload, () => setState(() => Store.setVodPreload(true))),
+            const SizedBox(width: 10),
+            _chip('Off', !Store.vodPreload, () => setState(() => Store.setVodPreload(false))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'While you read a film\'s page, the film is already loaded in the background, so "Watch" '
+          'starts straight away. Turn it off if your server allows only one connection and you watch '
+          'live TV on another device at the same time.',
+          style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+        ),
         if (withMode && mpvChosen) ...[
           const SizedBox(height: 24),
           const Text('MPV PICTURE MODE',
