@@ -1,0 +1,115 @@
+name: Bisect emulator test
+
+on:
+  push:
+    branches: ['bisect-*']
+
+permissions:
+  contents: write
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          APP_NAME="$(get APP_NAME)"; PACKAGE_ID="$(get PACKAGE_ID)"; WEBSITE="$(get WEBSITE)"
+          WEBSITE="${WEBSITE%/}"
+          API_BASE=""; [ -n "$WEBSITE" ] && API_BASE="$WEBSITE/wp-json/b1g/v1"
+          APK_NAME="$(echo "$APP_NAME" | tr -cd '[:alnum:]')"; [ -n "$APK_NAME" ] || APK_NAME=App
+          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "API_BASE=$API_BASE"; echo "APK_NAME=$APK_NAME"; } >> "$GITHUB_ENV"
+          echo "brand: $APP_NAME ($PACKAGE_ID) website: ${WEBSITE:-(not set)}"
+          python3 -m pip install --quiet pillow || true
+          python3 tools/fetch_brand.py "$WEBSITE"
+          # The name under the icon set on the website wins over brand/brand.txt (the APK's file
+          # name stays the same, so download links keep working).
+          if [ -s brand/site_label.txt ]; then
+            APP_NAME="$(cat brand/site_label.txt)"
+            echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+            echo "app name from the website: $APP_NAME"
+          fi
+          python3 tools/brand_icons.py
+          mkdir -p out && (cd store_assets && zip -qr ../out/store-assets.zip .)
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create the Android project
+        run: |
+          flutter --version
+          echo "FLUTTER_VERSION=$(flutter --version | head -1 | awk '{print $2}')" >> "$GITHUB_ENV"
+          flutter create --no-pub --platforms=android --org com.b1g --project-name b1gtv "$RUNNER_TEMP/scaffold"
+          cp -r "$RUNNER_TEMP/scaffold/android" android
+          cp -r android_overlay/. android/
+          sed -i "s|android:label=\"[^\"]*\"|android:label=\"$APP_NAME\"|" android/app/src/main/AndroidManifest.xml
+          if [ -f android/app/build.gradle.kts ]; then
+            cat android_extra/app-build-extra.gradle.kts >> android/app/build.gradle.kts
+          else
+            cat android_extra/app-build-extra.gradle >> android/app/build.gradle
+          fi
+          mkdir -p out/logs
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build the test app
+        env:
+          B1G_ABIS: x86_64
+        run: |
+          set -o pipefail
+          flutter build apk --release --target-platform android-x64 \
+            --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_VERBOSE=true --dart-define=B1G_NO_AUTO_DIRECT=true --dart-define=B1G_TMDB_KEY=test --dart-define=B1G_TMDB_BASE=http://10.0.2.2:8787/3 --dart-define=B1G_TMDB_IMAGES=http://10.0.2.2:8787/t/p --dart-define=B1G_API_BASE=http://10.0.2.2:8787/wp-json/b1g/v1 --dart-define=B1G_PREFILL_SERVER=http://10.0.2.2:8787 --dart-define=B1G_PREFILL_USER=demo --dart-define=B1G_PREFILL_PASS=demo \
+            2>&1 | tee out/logs/build-test.log
+          mkdir -p out/smoke-apk
+          cp build/app/outputs/flutter-apk/app-release.apk out/smoke-apk/b1g-smoke.apk
+
+
+      - name: Make the test videos
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg python3-pil
+          ci/make_media.sh
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        continue-on-error: true
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -memory 4096
+          script: python3 ci/smoke.py
+
+
+      - name: Publish the result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D="$RUNNER_TEMP/r"; rm -rf "$D"; mkdir -p "$D"
+          cp out/smoke/*.md out/smoke/mock-server.log "$D"/ 2>/dev/null || true
+          { grep -E "flutter|FATAL|AndroidRuntime|ANR|lowmemorykiller|am_crash|OutOfMemory" out/smoke/logcat-live.txt | cut -c1-400 | tail -3000; } > "$D/logcat-live-filtered.txt" 2>/dev/null || true
+          tail -200 out/smoke/logcat-live.txt 2>/dev/null | cut -c1-300 > "$D/logcat-live-tail.txt" || true
+          cd "$D"
+          git init -q && git checkout -q -b "ci-${{ github.ref_name }}" && git add -A
+          git -c user.name=ci -c user.email=ci@example.com commit -q -m "bisect result ${{ github.ref_name }} ${{ github.sha }}"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "ci-${{ github.ref_name }}"
