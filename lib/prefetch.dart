@@ -44,6 +44,8 @@ class ListPrefetch {
   static void start(Source api) {
     if (identical(_for, api)) return;
     _for = api;
+    // A new playlist: the old one's lists leave memory.
+    if (api is XtreamApi) api.makeActive();
     final run = ++_run;
     unawaited(_go(api, run));
   }
@@ -60,7 +62,9 @@ class ListPrefetch {
     // Let the home screen settle first.
     await Future<void>.delayed(const Duration(seconds: 4));
     for (final kind in const [XKind.live, XKind.vod, XKind.series]) {
-      for (final step in const ['categories', 'items']) {
+      // Categories for every section (small); the full list only for Live (search and zapping).
+      // Films and series are huge on most servers: they load a category at a time instead.
+      for (final step in kind == XKind.live ? const ['categories', 'items'] : const ['categories']) {
         await _waitCalm(run);
         if (run != _run) return;
         final watch = Stopwatch()..start();

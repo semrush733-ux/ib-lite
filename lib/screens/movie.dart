@@ -71,10 +71,10 @@ class _MovieScreenState extends State<MovieScreen> {
     PlaybackEngine? engine;
     try {
       final buf = Smooth.profileFor(url, live: false);
+      // Only the Google player (ExoPlayer) preloads: it is light and holds the film paused
+      // safely. MPV only gets the server ready.
       if (ExoEngine.available && Store.engine == 'exo' && !Store.exoNoSound.contains(url)) {
         engine = await ExoEngine.create(live: false, startMs: buf.startMs, rebufMs: buf.rebufMs);
-      } else if (!ExoEngine.available || Store.engine != 'exo') {
-        engine = MpvEngine(live: false, direct: Store.videoMode == 'direct')..pauseWait = buf.mpvWait;
       }
     } catch (_) {
       engine = null;

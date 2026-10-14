@@ -597,7 +597,24 @@ class XtreamApi implements Source {
   /// Lists already downloaded for this login (kept for the whole session, filled by the
   /// screens and by the background download in prefetch.dart).
   static final Map<String, Object> _lists = {};
-  String _key(String what) => '$server|$username|$what';
+  String get _prefix => '$server|$username|';
+  String _key(String what) => '$_prefix$what';
+
+  /// The playlist in use. Lists of other playlists are dropped (switching playlists used to
+  /// keep every big list in memory and made the app slow), and late downloads of the old
+  /// playlist are not stored any more.
+  static String _active = '';
+
+  void makeActive() {
+    if (_active == _prefix) return;
+    _active = _prefix;
+    _lists.removeWhere((k, _) => !k.startsWith(_prefix));
+    _pending.removeWhere((k, _) => !k.startsWith(_prefix));
+  }
+
+  void _keep(String key, Object value) {
+    if (_active.isEmpty || key.startsWith(_active)) _lists[key] = value;
+  }
 
   /// True when the full list of [kind] is already downloaded.
   bool hasAll(XKind kind) => _lists.containsKey(_key('items-${kind.name}'));
@@ -608,7 +625,7 @@ class XtreamApi implements Source {
     final cached = _lists[key];
     if (cached is List<XCategory>) return cached;
     final list = parseCategories(await _json({'action': _actions[kind]![0]}));
-    _lists[key] = list;
+    _keep(key, list);
     return list;
   }
 
@@ -625,7 +642,7 @@ class XtreamApi implements Source {
       final hit = _lists[key];
       if (hit is List<XItem>) return hit;
       final list = await _download(kind, categoryId);
-      _lists[key] = list;
+      _keep(key, list);
       return list;
     }
     final key = _key('items-${kind.name}');
@@ -635,7 +652,7 @@ class XtreamApi implements Source {
     _pending[key] = job;
     try {
       final list = await job;
-      _lists[key] = list;
+      _keep(key, list);
       return list;
     } finally {
       _pending.remove(key);
