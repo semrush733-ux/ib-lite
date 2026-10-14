@@ -17,7 +17,21 @@ import sys
 import time
 import urllib.request
 
-PKG = 'com.b1g.b1gtv'
+def _package():
+    # The app id comes from the brand (e.g. com.liteplayer.tv); the activity class keeps its name.
+    try:
+        for line in open('brand/brand.txt', encoding='utf-8'):
+            if line.startswith('PACKAGE_ID='):
+                v = line.split('=', 1)[1].strip()
+                if v:
+                    return v
+    except OSError:
+        pass
+    return 'com.b1g.b1gtv'
+
+
+PKG = _package()
+ACTIVITY = PKG + '/com.b1g.b1gtv.MainActivity'
 APK = 'out/smoke-apk/b1g-smoke.apk'
 OUT = 'out/smoke'
 os.makedirs(OUT, exist_ok=True)
@@ -163,7 +177,7 @@ def run():
     if not check('app installs', 'Success' in out, out.strip()[-200:]):
         return
     adb('logcat', '-c')
-    adb('shell', 'am', 'start', '-n', PKG + '/.MainActivity')
+    adb('shell', 'am', 'start', '-n', ACTIVITY)
 
     # 1. sign in (server, username and password are pre-filled in the test build)
     ok = wait_log(r'screen=login', 0, 90) is not None
@@ -601,7 +615,7 @@ def run():
     adb('shell', 'am', 'force-stop', PKG)
     time.sleep(1)
     m = mark()
-    adb('shell', 'am', 'start', '-n', PKG + '/.MainActivity')
+    adb('shell', 'am', 'start', '-n', ACTIVITY)
     home = wait_log(r'screen=home', m, 60) is not None
     prompt = wait_log(r'update prompt version=999', m, 30)
     time.sleep(2)
