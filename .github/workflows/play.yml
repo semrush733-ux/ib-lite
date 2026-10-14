@@ -121,9 +121,13 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          # Flutter signs release builds with its debug key when no key is set up: that signature
+          # is removed first (Play refuses a bundle signed with a debug key or with two keys).
+          zip -q -d "out/$APK_NAME-play.aab" 'META-INF/MANIFEST.MF' 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.DSA' 'META-INF/*.EC' || true
           jarsigner -sigalg SHA256withRSA -digestalg SHA-256 -keystore "$RUNNER_TEMP/release.jks" \
             -storepass:env KEYSTORE_PASSWORD -keypass:env KEY_PASSWORD "out/$APK_NAME-play.aab" "$KEY_ALIAS"
-          jarsigner -verify "out/$APK_NAME-play.aab" | tail -1
+          jarsigner -verify -verbose -certs "out/$APK_NAME-play.aab" | grep -m3 -E "X.509|verified" || true
+          unzip -l "out/$APK_NAME-play.aab" | grep -E " META-INF/[^/]+$" 
           # The upload key's fingerprint (Play Console shows the same under App integrity).
           keytool -list -v -keystore "$RUNNER_TEMP/release.jks" -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" | grep -E "SHA256:" | head -1 > out/upload-key-sha256.txt || true
           rm -f "$RUNNER_TEMP/release.jks"
