@@ -434,6 +434,8 @@ jobs:
           D="$RUNNER_TEMP/smoke-branch"; rm -rf "$D"; mkdir -p "$D"
           cp out/smoke/*.png out/smoke/*.md out/smoke/app-log.txt out/smoke/mock-server.log "$D"/ 2>/dev/null || true
           { grep -E "flutter|FATAL|AndroidRuntime|MediaCodec|b1gtv" out/smoke/logcat.txt | cut -c1-400 | tail -3000; } > "$D/logcat-filtered.txt" 2>/dev/null || true
+          { grep -E "flutter|FATAL|AndroidRuntime|ANR|lowmemorykiller|am_crash|b1gtv|liteplayer|ExoPlayer|MediaCodec|OutOfMemory" out/smoke/logcat-live.txt | cut -c1-400 | tail -4000; } > "$D/logcat-live-filtered.txt" 2>/dev/null || true
+          tail -300 out/smoke/logcat-live.txt 2>/dev/null | cut -c1-400 > "$D/logcat-live-tail.txt" || true
           cd "$D"
           git init -q && git checkout -q -b ci-smoke && git add -A
           git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -q -m "B1G emulator test output (build $BUILD_NUMBER)"

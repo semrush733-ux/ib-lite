@@ -177,6 +177,10 @@ def run():
     if not check('app installs', 'Success' in out, out.strip()[-200:]):
         return
     adb('logcat', '-c')
+    # Everything the device logs goes to a file as it happens (kept even if the emulator hangs).
+    global live_log
+    live_log = subprocess.Popen(['adb', 'logcat', '-v', 'time'], stdout=open('%s/logcat-live.txt' % OUT, 'w'),
+                                stderr=subprocess.DEVNULL)
     adb('shell', 'am', 'start', '-n', ACTIVITY)
 
     # 1. sign in (server, username and password are pre-filled in the test build)
@@ -206,6 +210,12 @@ def run():
     key(RIGHT)
     key(UP)  # the list has two rows now: make sure the remote is on the first channel
     shot('live-channel-focused')
+    # OK plays the channel in the preview; OK again opens it full screen.
+    m = mark()
+    key(OK)
+    wait_log(r'preview open', m, 20)
+    time.sleep(3)
+    shot('live-preview')
     m = mark()
     key(OK)
     ready = wait_log(r'ready index=0 format=(\w+) video=(\d+)x(\d+)', m, 90)
