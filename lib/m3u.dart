@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:typed_data' show BytesBuilder;
+import 'dart:typed_data' show BytesBuilder, Uint8List;
 
 import 'package:archive/archive.dart' show GZipDecoder;
 import 'package:flutter/foundation.dart' show compute;
@@ -276,7 +276,7 @@ class M3uSource implements Source {
       if (uri == null || !(uri.scheme == 'http' || uri.scheme == 'https')) return const {};
 
       final client = http.Client();
-      List<int> bytes;
+      Uint8List bytes;
       try {
         final request = http.Request('GET', Backend.webUri(uri));
         request.headers['User-Agent'] = kUserAgent;
@@ -295,20 +295,9 @@ class M3uSource implements Source {
         client.close();
       }
 
-      // .gz guides are common; gzip starts with 1f 8b.
-      if (bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b) {
-        try {
-          bytes = GZipDecoder().decodeBytes(bytes);
-        } catch (_) {
-          return const {};
-        }
-        if (bytes.length > 160 * 1024 * 1024) return const {};
-      }
-
-      final xml = utf8.decode(bytes, allowMalformed: true);
-      final guide = xml.length > 200000
-          ? await compute(parseXmltv, xml)
-          : parseXmltv(xml);
+      // Unzip, read and parse in the background (big guides froze the TV and used lots of memory
+      // when this ran on the screen's own thread).
+      final guide = bytes.length > 100000 ? await compute(xmltvFromBytes, bytes) : xmltvFromBytes(bytes);
       log('epg guide channels=${guide.length}');
       return guide;
     } catch (e) {
@@ -340,6 +329,21 @@ class M3uSource implements Source {
 
 /// Parses an XMLTV guide into channel-id -> programmes (today and tomorrow).
 /// Top level so it can run in a background isolate via [compute].
+/// A downloaded guide (plain or .gz) to channels and programmes. Runs in a background isolate.
+Map<String, List<XEpg>> xmltvFromBytes(Uint8List raw) {
+  var bytes = raw;
+  // .gz guides are common; gzip starts with 1f 8b.
+  if (bytes.length > 2 && bytes[0] == 0x1f && bytes[1] == 0x8b) {
+    try {
+      bytes = Uint8List.fromList(GZipDecoder().decodeBytes(bytes));
+    } catch (_) {
+      return const {};
+    }
+    if (bytes.length > 160 * 1024 * 1024) return const {};
+  }
+  return parseXmltv(utf8.decode(bytes, allowMalformed: true));
+}
+
 Map<String, List<XEpg>> parseXmltv(String xml) {
   final programme = RegExp(
       r'<programme[^>]*?start="([^"]+)"[^>]*?(?:stop="([^"]+)")?[^>]*?channel="([^"]+)"[^>]*>(.*?)</programme>',

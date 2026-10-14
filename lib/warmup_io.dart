@@ -43,8 +43,17 @@ class Warmup {
     unawaited(_head(url));
   }
 
+  static http.Client? _filmClient;
+
+  /// The player opened: stop the film head start (one connection at a time).
+  static void stopFilm() {
+    _filmClient?.close();
+    _filmClient = null;
+  }
+
   static Future<void> _head(String url) async {
-    final client = http.Client();
+    stopFilm();
+    final client = _filmClient = http.Client();
     try {
       final req = http.Request('GET', Uri.parse(url))
         ..headers['User-Agent'] = kUserAgent
@@ -59,6 +68,7 @@ class Warmup {
     } catch (_) {
     } finally {
       client.close();
+      if (identical(_filmClient, client)) _filmClient = null;
     }
   }
 }

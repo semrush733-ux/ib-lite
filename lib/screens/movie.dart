@@ -29,7 +29,7 @@ class MovieScreen extends StatefulWidget {
   State<MovieScreen> createState() => _MovieScreenState();
 }
 
-class _MovieScreenState extends State<MovieScreen> {
+class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
   static const _device = MethodChannel('b1g/device');
 
   XMovieInfo _info = const XMovieInfo();
@@ -45,26 +45,39 @@ class _MovieScreenState extends State<MovieScreen> {
   PlaybackEngine? _pre;
   Duration _preAt = Duration.zero;
   Timer? _preTimer;
+  bool _started = false; // "Watch" was pressed: no preload any more
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // App in the background: the preloaded film lets go of its connection.
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) _dropPreload();
+  }
+
+  void _dropPreload() {
+    _preTimer?.cancel();
+    final e = _pre;
+    _pre = null;
+    e?.dispose().catchError((Object _) {});
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _preTimer = Timer(const Duration(milliseconds: 900), _preload);
   }
 
   @override
   void dispose() {
-    _preTimer?.cancel();
-    final e = _pre;
-    _pre = null;
-    e?.dispose().catchError((Object _) {});
+    WidgetsBinding.instance.removeObserver(this);
+    _dropPreload();
     super.dispose();
   }
 
   Future<void> _preload() async {
     // Only on TVs / boxes strong enough (a second video decoder is too much for weak ones).
-    if (!mounted || kIsWeb || _pre != null || !Store.vodPreload || Store.enhanceCap <= 0) return;
+    if (!mounted || _started || kIsWeb || _pre != null || !Store.vodPreload || Store.enhanceCap <= 0) return;
     final url = widget.api.movieUrlFor(widget.movie);
     if (url.isEmpty) return;
     final saved = Store.resume(_resumeKey);
@@ -82,10 +95,11 @@ class _MovieScreenState extends State<MovieScreen> {
     }
     if (engine == null || !engine.canPreload) {
       engine?.dispose().catchError((Object _) {});
-      Warmup.film(url);
+      if (!_started) Warmup.film(url);
       return;
     }
-    if (!mounted) {
+    // "Watch" pressed (or the page left) while the engine was being made: not needed any more.
+    if (!mounted || _started || ModalRoute.of(context)?.isCurrent == false) {
       engine.dispose().catchError((Object _) {});
       return;
     }
@@ -133,6 +147,7 @@ class _MovieScreenState extends State<MovieScreen> {
       ),
     ];
     _preTimer?.cancel();
+    _started = true;
     // The preloaded film is handed to the player (no new connection, no waiting).
     final pre = _pre;
     _pre = null;
@@ -143,6 +158,7 @@ class _MovieScreenState extends State<MovieScreen> {
     }
     await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(api: widget.api, entries: entries, index: 0, live: false, adopt: pre)));
+    _started = false; // back on the page: a later "Watch" opens normally
     if (mounted) setState(() {});
   }
 

@@ -45,7 +45,11 @@ class ListPrefetch {
     if (identical(_for, api)) return;
     _for = api;
     // A new playlist: the old one's lists leave memory.
-    if (api is XtreamApi) api.makeActive();
+    if (api is XtreamApi) {
+      api.makeActive();
+    } else {
+      XtreamApi.dropAll();
+    }
     final run = ++_run;
     unawaited(_go(api, run));
   }

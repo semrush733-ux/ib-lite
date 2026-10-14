@@ -211,6 +211,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
     Playback.open++;
+    Warmup.stopFilm(); // the film's head start must not hold a second connection
     _index = widget.index < 0 || widget.index >= widget.entries.length ? 0 : widget.index;
     _resetEngine();
     WidgetsBinding.instance.addObserver(this);
@@ -351,6 +352,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     Playback.open = (Playback.open - 1).clamp(0, 99).toInt();
     Playback.busy = false;
     WidgetsBinding.instance.removeObserver(this);
+    // Only a stream that is playing fine goes back to the preview (not one that is reconnecting).
+    final healthy = _accepting && (_ready || _adopting) && !_dead && _retryTimer?.isActive != true;
     _generation++;
     _accepting = false;
     for (final t in [_hideTimer, _watchdog, _zapTimer, _seekTimer, _retryTimer, _epgTimer, _enhanceTimer]) {
@@ -359,7 +362,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _saveResume();
     final back = widget.handBack;
     final keep = _engine;
-    if (back != null && widget.live && keep != null && !kIsWeb && (_ready || _adopting) && !_dead) {
+    if (back != null && widget.live && keep != null && !kIsWeb && healthy) {
       // Back to the preview: the same stream carries on there.
       _engine = null;
       for (final s in _subs) {
@@ -510,7 +513,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         if (generation != _generation || !mounted) return;
         engine = await _createEngine();
         if (generation != _generation || !mounted) {
-          if (identical(engine, _engine)) await _closePlayer();
+          if (identical(engine, _engine)) {
+            await _closePlayer();
+          } else {
+            // A newer open made its own engine meanwhile: this one is not used, close it.
+            await engine.dispose().catchError((Object _) {});
+          }
           return;
         }
         setState(() {}); // show the new engine's picture surface
@@ -1608,7 +1616,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                 // channel never shows under the new channel's name.
                 // Reconnecting the same channel: the last picture (MPV's still) stays behind.
                 if (_holdPicture && !_ready && _heldPicture != null)
-                  Image.memory(_heldPicture!, fit: _fits[_fit], gaplessPlayback: true),
+                  Image.memory(_heldPicture!, fit: _fits[_fit], gaplessPlayback: true, cacheWidth: 1280),
                 if (engine != null)
                   Opacity(
                     opacity: (_ready || _adopting || (_holdPicture && engine.reusable)) ? 1 : 0,

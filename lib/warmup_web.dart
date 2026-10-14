@@ -3,4 +3,5 @@ class Warmup {
   Warmup._();
   static void host(String url) {}
   static void film(String url) {}
+  static void stopFilm() {}
 }

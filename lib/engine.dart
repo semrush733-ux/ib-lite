@@ -10,6 +10,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'config.dart';
+import 'store.dart' show Store;
 
 /// A message from an engine: [error] true for real errors, false for chatter.
 class EngineMessage {
@@ -85,6 +86,14 @@ abstract class PlaybackEngine {
 // ------------------------------------------------------------------------------------- mpv
 
 class MpvEngine extends PlaybackEngine {
+  static bool get _weak {
+    try {
+      return Store.enhanceCap == 0; // measured as too weak for Picture Enhance
+    } catch (_) {
+      return false;
+    }
+  }
+
   MpvEngine({required this.live, required this.direct}) {
     player = Player(
       configuration: PlayerConfiguration(
@@ -169,8 +178,9 @@ class MpvEngine extends PlaybackEngine {
       set('cache-pause-initial', 'no'),
       set('cache-pause-wait', pauseWait ?? (live ? '1' : '2')),
       set('demuxer-readahead-secs', live ? '10' : '60'),
-      set('demuxer-max-bytes', live ? '64MiB' : '192MiB'),
-      set('demuxer-max-back-bytes', live ? '16MiB' : '64MiB'),
+      // Weak boxes (1-2 GB) get smaller buffers so a long film cannot use up their memory.
+      set('demuxer-max-bytes', live ? (_weak ? '32MiB' : '64MiB') : (_weak ? '64MiB' : '128MiB')),
+      set('demuxer-max-back-bytes', live ? (_weak ? '8MiB' : '16MiB') : (_weak ? '16MiB' : '32MiB')),
       if (!live) set('demuxer-seekable-cache', 'yes'),
       set('vd-lavc-dr', 'yes'),
       if (live) set('demuxer-lavf-analyzeduration', '1'),

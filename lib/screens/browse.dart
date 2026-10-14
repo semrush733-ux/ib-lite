@@ -70,7 +70,7 @@ class BrowseScreen extends StatefulWidget {
   State<BrowseScreen> createState() => _BrowseScreenState();
 }
 
-class _BrowseScreenState extends State<BrowseScreen> {
+class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver {
   List<XCategory>? _cats;
   String? _catsError;
   String _selected = '';
@@ -109,9 +109,21 @@ class _BrowseScreenState extends State<BrowseScreen> {
 
   bool get _live => widget.kind == XKind.live;
 
+  // Full screen is being opened: no new preview meanwhile (two streams at once).
+  bool _goingFull = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Home button / app in the background: the preview lets go of the stream and the decoder.
+    if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && _pv != null) {
+      _stopPreview();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _guideFocus.addListener(() {
       if (mounted) setState(() {});
     });
@@ -129,6 +141,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
   @override
   void dispose() {
     _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
     _focusTimer?.cancel();
     _epgTimer?.cancel();
     _clock?.cancel();
@@ -157,9 +170,9 @@ class _BrowseScreenState extends State<BrowseScreen> {
   Future<void> _preview(XItem item, List<String> streamUrls) async {
     // In a browser the preview needs the HLS address through the website relay, like full screen.
     final urls = Backend.playable(streamUrls);
-    if (urls.isEmpty) return;
+    if (urls.isEmpty || _goingFull) return;
     await _stopPreview();
-    if (!mounted) return;
+    if (!mounted || _goingFull) return;
     final request = ++_pvRequest;
     PlaybackEngine engine;
     try {
@@ -169,7 +182,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
     } catch (_) {
       engine = MpvEngine(live: true, direct: false);
     }
-    if (!mounted || request != _pvRequest) {
+    if (!mounted || request != _pvRequest || _goingFull || ModalRoute.of(context)?.isCurrent == false) {
       engine.dispose().catchError((Object _) {});
       return;
     }
@@ -220,7 +233,10 @@ class _BrowseScreenState extends State<BrowseScreen> {
       try {
         list = await widget.api.fullEpg(id);
       } catch (_) {}
-      if (_epgCache.length > 300) _epgCache.clear();
+      // Keep only the last few channels' guides (a full guide is big).
+      while (_epgCache.length >= 30) {
+        _epgCache.remove(_epgCache.keys.first);
+      }
       _epgCache[id] = list;
       if (!mounted || request != _epgRequest) return;
       setState(() {
@@ -247,6 +263,16 @@ class _BrowseScreenState extends State<BrowseScreen> {
   }
 
   Future<void> _playFull(List<XItem> items, int index) async {
+    if (_goingFull) return;
+    _goingFull = true;
+    try {
+      await _playFullNow(items, index);
+    } finally {
+      _goingFull = false;
+    }
+  }
+
+  Future<void> _playFullNow(List<XItem> items, int index) async {
     Store.addRecent(items[index]);
     // The channel is already playing in the preview: full screen takes over that same stream
     // (no reload, it simply carries on). Otherwise the preview stops and full screen opens it.

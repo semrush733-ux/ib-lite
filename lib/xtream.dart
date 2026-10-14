@@ -624,7 +624,30 @@ class XtreamApi implements Source {
   bool get _stale => _active.isNotEmpty && _active != _prefix;
 
   void _keep(String key, Object value) {
-    if (_active.isEmpty || key.startsWith(_active)) _lists[key] = value;
+    if (!(_active.isEmpty || key.startsWith(_active))) return;
+    if (key.contains('|cat-')) {
+      // Opened categories: only the last 20 stay in memory.
+      final cats = _lists.keys.where((k) => k.contains('|cat-')).toList();
+      for (var i = 0; i <= cats.length - 20; i++) {
+        _lists.remove(cats[i]);
+      }
+    } else if (key.contains('|items-')) {
+      // The full list holds every category already: drop the single categories of that kind.
+      final kind = key.substring(key.indexOf('|items-') + 7);
+      _lists.removeWhere((k, _) => k.contains('|cat-$kind-'));
+    }
+    _lists[key] = value;
+  }
+
+  /// A playlist that is not Xtream is in use: every Xtream list and connection leaves memory.
+  static void dropAll() {
+    _active = '';
+    _lists.clear();
+    _pending.clear();
+    for (final c in _clients.values) {
+      c.close();
+    }
+    _clients.clear();
   }
 
   /// True when the full list of [kind] is already downloaded.
