@@ -357,9 +357,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'The TV switches to the refresh rate of the video (50 Hz for UK / European channels) so moving '
-          'pictures glide without judder. The screen may go dark for a second when the rate changes. '
-          'Turn it off if your TV does not like it.',
+          'Off by default. Turn it ON for a smoother picture: the TV switches to the frame rate of the '
+          'channel (50 Hz for UK / European channels, 60 Hz for US) so moving pictures - football, '
+          'news tickers, scrolling text - glide without judder or jerky movement.\n'
+          '• Turn it ON if: the picture looks jerky or stutters on fast movement, or your TV / box is '
+          'weaker and you want the best streaming experience.\n'
+          '• Keep it OFF if: the screen goes black for a second every time you change channel, or your '
+          'TV shows "no signal" / flickers when a channel starts.\n'
+          'Works on Android TV boxes, Firestick and Android TVs that support it.',
           style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),
         if (withMode && mpvChosen) ...[

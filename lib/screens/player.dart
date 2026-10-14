@@ -87,6 +87,7 @@ class PlayerScreen extends StatefulWidget {
     required this.index,
     required this.live,
     this.adopt,
+    this.handBack,
   });
 
   final Source api;
@@ -96,6 +97,9 @@ class PlayerScreen extends StatefulWidget {
   /// An engine already playing entries[index] (the Live TV preview): full screen carries on with
   /// it, no reload. The player owns it from then on.
   final PlaybackEngine? adopt;
+  /// Live, opened from the preview: on the way back the channel playing here goes on playing in
+  /// the preview (no stop, no reload). Gets the engine and the channel (index in [entries]).
+  final void Function(PlaybackEngine engine, int index)? handBack;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -346,7 +350,21 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       t?.cancel();
     }
     _saveResume();
-    _closePlayer();
+    final back = widget.handBack;
+    final keep = _engine;
+    if (back != null && widget.live && keep != null && !kIsWeb && (_ready || _adopting) && !_dead) {
+      // Back to the preview: the same stream carries on there.
+      _engine = null;
+      for (final s in _subs) {
+        s.cancel();
+      }
+      _subs.clear();
+      final index = _index;
+      log('full screen hands the channel back to the preview');
+      Future<void>.microtask(() => back(keep, index));
+    } else {
+      _closePlayer();
+    }
     log('player closed');
     _keepScreenOn(false);
     if (_fpsApplied > 0) {

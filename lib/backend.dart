@@ -130,7 +130,11 @@ class BUpdate {
     required this.apkUrl,
     this.notes = '',
     this.force = false,
+    this.sourceUrl = '',
   });
+
+  /// iPhone: the AltStore / SideStore source that keeps the app updated.
+  final String sourceUrl;
 
   final int versionCode;
   final String versionName;
@@ -273,6 +277,37 @@ class Backend {
       }
     } catch (_) {
       // Not on Android (tests): no update check.
+    }
+    if (_ios && kIosBuild > 0) {
+      appVersionCode = kIosBuild;
+      appVersionName = '1.0.$kIosBuild';
+    }
+  }
+
+  static bool get _ios => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// iPhone: newer builds come from the iPhone release, not from the website (Android numbers).
+  static Future<void> _checkIosUpdate() async {
+    if (kIosFeed.isEmpty) return;
+    try {
+      final r = await http.get(Uri.parse(kIosFeed)).timeout(const Duration(seconds: 15));
+      if (r.statusCode != 200) return;
+      final j = jsonDecode(r.body);
+      if (j is! Map) return;
+      final code = int.tryParse('${j['version_code'] ?? ''}') ?? 0;
+      final ipa = '${j['ipa_url'] ?? ''}'.trim();
+      if (code <= 0 || !ipa.startsWith('http')) return;
+      update = BUpdate(
+        versionCode: code,
+        versionName: '${j['version_name'] ?? ''}'.trim(),
+        apkUrl: ipa,
+        notes: '${j['notes'] ?? ''}'.trim(),
+        sourceUrl: '${j['source_url'] ?? ''}'.trim(),
+      );
+      log('ios update feed=$code app=$appVersionCode');
+      changes.value++;
+    } catch (e) {
+      log('ios update feed: ${e.runtimeType}');
     }
   }
 
@@ -417,7 +452,11 @@ class Backend {
       }
       // Logo and start screen set on the website (downloaded in the background).
       if (c is Map) unawaited(RemoteBrand.apply(c['brand']));
-      update = BUpdate.fromJson(data['update']);
+      if (_ios) {
+        unawaited(_checkIosUpdate());
+      } else {
+        update = BUpdate.fromJson(data['update']);
+      }
       log('backend config server=${serverUrl.isEmpty ? 'none' : 'set'} '
           'update=${update?.versionCode ?? 0} app=$appVersionCode');
       changes.value++;

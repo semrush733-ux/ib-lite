@@ -232,8 +232,8 @@ class Store {
   static void setStallScore(String host, int v) => _p.setInt('stall_$host', v);
 
   /// Frame rate matching: the TV's screen follows the video (50 Hz for 25/50 fps channels...).
-  static bool get matchFrameRate => _p.getBool('match_fps') ?? true;
-  static void setMatchFrameRate(bool v) => _p.setBool('match_fps', v);
+  static bool get matchFrameRate => _p.getBool('match_fps2') ?? false; // off unless the customer turns it on
+  static void setMatchFrameRate(bool v) => _p.setBool('match_fps2', v);
 
   /// Picture Enhance: "auto" (on when the device is strong enough), "off" or "on".
   static String get enhanceMode {

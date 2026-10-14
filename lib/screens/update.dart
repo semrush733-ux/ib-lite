@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../backend.dart';
 import '../config.dart';
@@ -13,6 +15,9 @@ import '../widgets.dart';
 /// the website and hands it to Android's installer. The new version installs over this one
 /// (same signing key), so the login and favourites stay.
 Future<void> showUpdateDialog(BuildContext context, BUpdate update) {
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    return showDialog<void>(context: context, builder: (_) => _IosUpdateDialog(update: update));
+  }
   return showDialog<void>(
     context: context,
     barrierDismissible: !update.force,
@@ -294,6 +299,49 @@ class _UpdateDialogState extends State<UpdateDialog> with WidgetsBindingObserver
         ),
         ),
       ),
+    );
+  }
+}
+
+/// iPhone / iPad: an IPA cannot install itself. AltStore / SideStore install the new version
+/// (and keep updating it by themselves once the source is added); or download the IPA.
+class _IosUpdateDialog extends StatelessWidget {
+  const _IosUpdateDialog({required this.update});
+  final BUpdate update;
+
+  Future<void> _open(BuildContext context, String url) async {
+    var ok = false;
+    try {
+      ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {}
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('Could not open it. Is AltStore / SideStore installed?')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final source = update.sourceUrl;
+    return AlertDialog(
+      backgroundColor: C.card,
+      title: Text('New version ${update.versionName.isEmpty ? '' : update.versionName}'.trim()),
+      content: Text(
+        '${update.notes.isEmpty ? 'A newer version of the app is ready.' : update.notes}\n\n'
+        'AltStore / SideStore: tap "Update" once. The app is added to its list and from then on '
+        'AltStore updates it by itself whenever there is a new version.\n'
+        'Sideloadly: download the new IPA and install it over this one (your login stays).',
+        style: const TextStyle(height: 1.45),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Later')),
+        TextButton(onPressed: () => _open(context, update.apkUrl), child: const Text('Download IPA')),
+        if (source.isNotEmpty)
+          FilledButton(
+            autofocus: true,
+            onPressed: () => _open(context, 'altstore://source?url=${Uri.encodeComponent(source)}'),
+            child: const Text('Update'),
+          ),
+      ],
     );
   }
 }

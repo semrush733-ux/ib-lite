@@ -34,3 +34,9 @@ const bool kTizen = bool.fromEnvironment('B1G_TIZEN');
 
 /// Which TV the packaged web app runs on ('samsung-tv' or 'lg-tv'), shown in the admin panel.
 const String kTvPlatform = String.fromEnvironment('B1G_TV_PLATFORM', defaultValue: 'samsung-tv');
+
+/// iPhone / iPad build: its build number and where it finds newer builds (set by the iPhone
+/// workflow). The IPA cannot install itself; the app offers AltStore / SideStore (which then keep
+/// it updated by themselves) or the new IPA.
+const int kIosBuild = int.fromEnvironment('B1G_BUILD');
+const String kIosFeed = String.fromEnvironment('B1G_IOS_FEED');

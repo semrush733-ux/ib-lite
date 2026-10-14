@@ -265,7 +265,41 @@ class _BrowseScreenState extends State<BrowseScreen> {
     }
     await Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => PlayerScreen(
-            api: widget.api, entries: _entriesFor(items), index: index, live: true, adopt: handOver)));
+            api: widget.api,
+            entries: _entriesFor(items),
+            index: index,
+            live: true,
+            adopt: handOver,
+            handBack: (engine, i) => _takeBack(engine, i >= 0 && i < items.length ? items[i] : items[index]))));
+  }
+
+  /// Back from full screen: the channel that was playing there goes on in the preview.
+  void _takeBack(PlaybackEngine engine, XItem item) {
+    if (!mounted || _disposed) {
+      engine.dispose().catchError((Object _) {});
+      return;
+    }
+    final old = _pv;
+    _pvRequest++;
+    for (final s in _pvSubs) {
+      s.cancel();
+    }
+    _pvSubs.clear();
+    if (old != null && !identical(old, engine)) old.dispose().catchError((Object _) {});
+    final request = _pvRequest;
+    setState(() {
+      _pv = engine;
+      _pvItem = item;
+      _pvBuffering = false;
+      _pvFallbackTried = true;
+    });
+    _pvSubs.add(engine.buffering.listen((b) {
+      if (mounted && request == _pvRequest && b != _pvBuffering) setState(() => _pvBuffering = b);
+    }));
+    _pvSubs.add(engine.position.listen((_) {
+      if (mounted && request == _pvRequest && _pvBuffering) setState(() => _pvBuffering = false);
+    }));
+    log('preview carries on the full-screen channel (engine=${engine.name})');
   }
 
   /// TV Guide for the channels of this category, starting on the selected one.

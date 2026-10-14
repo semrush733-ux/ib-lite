@@ -67,6 +67,10 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" "$P" || true
           /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes:0 string audio" "$P" || true
           /usr/libexec/PlistBuddy -c "Add :UIRequiresFullScreen bool true" "$P" || true
+          # The update button opens AltStore / SideStore.
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes array" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:0 string altstore" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :LSApplicationQueriesSchemes:1 string sidestore" "$P" || true
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = com.b1g.b1gtv;/PRODUCT_BUNDLE_IDENTIFIER = $APP_ID;/g" ios/Runner.xcodeproj/project.pbxproj
           sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*;/IPHONEOS_DEPLOYMENT_TARGET = 14.0;/g" ios/Runner.xcodeproj/project.pbxproj
           if [ -f ios/Podfile ]; then
@@ -108,6 +112,8 @@ jobs:
             --build-name "1.0.$BUILD_NUMBER" --build-number "$BUILD_NUMBER" \
             --dart-define=B1G_SERVER="$SERVER" --dart-define=B1G_TMDB_KEY="$TMDB_API_KEY" \
             --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_API_BASE="$API_BASE" \
+            --dart-define=B1G_BUILD="$BUILD_NUMBER" \
+            --dart-define=B1G_IOS_FEED="https://github.com/${{ github.repository }}/releases/download/ios-latest/ios-update.json" \
             2>&1 | tee out/build.log
           mkdir -p Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
@@ -121,10 +127,34 @@ jobs:
         run: |
           FILES=""
           [ -f "out/$APK_NAME.ipa" ] && FILES="out/$APK_NAME.ipa"
+          if [ -n "$FILES" ]; then
+            # Update feed for the app, and an AltStore / SideStore source (keeps the app updated).
+            REL="https://github.com/${{ github.repository }}/releases/download/ios-latest"
+            SIZE=$(stat -f%z "out/$APK_NAME.ipa" 2>/dev/null || stat -c%s "out/$APK_NAME.ipa")
+            python3 - "$APP_NAME" "$APP_ID" "$BUILD_NUMBER" "$REL" "$APK_NAME" "$SIZE" "${{ github.repository }}" <<'PY'
+          import json, sys, datetime
+          name, bid, build, rel, apk, size, repo = sys.argv[1:8]
+          ver = f"1.0.{build}"
+          ipa = f"{rel}/{apk}.ipa"
+          now = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+          json.dump({"version_code": int(build), "version_name": ver, "ipa_url": ipa,
+                     "source_url": f"{rel}/altstore.json", "notes": ""}, open('out/ios-update.json', 'w'))
+          icon = f"https://raw.githubusercontent.com/{repo}/main/brand/icon.png"
+          app = {"name": name, "bundleIdentifier": bid, "developerName": name, "subtitle": "IPTV player",
+                 "localizedDescription": f"{name} player for iPhone and iPad.", "iconURL": icon, "tintColor": "E3262F",
+                 "version": ver, "versionDate": now, "downloadURL": ipa, "size": int(size),
+                 "versions": [{"version": ver, "buildVersion": build, "date": now, "downloadURL": ipa, "size": int(size)}]}
+          json.dump({"name": name, "identifier": bid + ".source", "iconURL": icon, "apps": [app], "news": []},
+                    open('out/altstore.json', 'w'), indent=1)
+          PY
+            FILES="$FILES out/ios-update.json out/altstore.json"
+          fi
           TITLE="$APP_NAME iPhone - build #$BUILD_NUMBER"
           [ -z "$FILES" ] && TITLE="$TITLE FAILED"
           {
             echo "iPhone / iPad app (not signed by Apple: install with AltStore / Sideloadly or sign with your developer certificate)."
+            echo ""
+            echo "Automatic updates: add this source in AltStore / SideStore once: https://github.com/${{ github.repository }}/releases/download/ios-latest/altstore.json"
             echo ""
             if [ -z "$FILES" ]; then
               echo "### Errors"
