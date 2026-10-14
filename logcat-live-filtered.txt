@@ -1,0 +1,7 @@
+10-14 10:20:51.305 I/flutter ( 2260): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+10-14 10:20:51.831 I/flutter ( 2260): B1G backend register hwid=yes mac=no
+10-14 10:20:52.349 I/flutter ( 2260): B1G screen=login
+10-14 10:20:52.635 I/flutter ( 2260): B1G backend registered
+10-14 10:20:53.178 I/flutter ( 2260): B1G backend config server=none update=0 app=1
+10-14 10:20:59.103 I/flutter ( 2260): B1G login ok mode=xtream
+10-14 10:20:59.106 I/flutter ( 2260): B1G screen=home
