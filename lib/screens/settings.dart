@@ -381,7 +381,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 8),
         const Text(
           'While you read a film\'s page, the film is already loaded in the background, so "Watch" '
-          'starts straight away. Turn it off if your server allows only one connection and you watch '
+          'starts straight away. It works only on TVs / boxes that are strong enough; weak ones skip '
+          'it by themselves. Turn it off if your server allows only one connection and you watch '
           'live TV on another device at the same time.',
           style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),

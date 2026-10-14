@@ -62,9 +62,10 @@ class ListPrefetch {
     // Let the home screen settle first.
     await Future<void>.delayed(const Duration(seconds: 4));
     for (final kind in const [XKind.live, XKind.vod, XKind.series]) {
-      // Categories for every section (small); the full list only for Live (search and zapping).
-      // Films and series are huge on most servers: they load a category at a time instead.
-      for (final step in kind == XKind.live ? const ['categories', 'items'] : const ['categories']) {
+      // Only the category lists (small). Channel / film lists load a category at a time when
+      // opened; "All" and Search load the full list only when the customer asks for it
+      // (big lists in the background made weak TVs slow, mostly right after a playlist switch).
+      for (final step in const ['categories']) {
         await _waitCalm(run);
         if (run != _run) return;
         final watch = Stopwatch()..start();

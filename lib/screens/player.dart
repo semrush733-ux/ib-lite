@@ -602,6 +602,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   }
 
   void _markReady() {
+    final wasAdopted = _adopting;
     _ready = true;
     _adopting = false;
     _readyAt = DateTime.now();
@@ -624,9 +625,13 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _videoHeight = h;
     log('ready index=$_index format=${formatOfUrl(url)} video=${w}x$h mode=${_direct ? 'direct' : 'gpu'} engine=$_engineName');
     if (widget.live && !kIsWeb) {
-      final ms = DateTime.now().difference(_openedAt).inMilliseconds;
-      Store.noteFormat(Smooth.hostOf(url), formatOfUrl(url), ms);
-      log('start ms=$ms');
+      // How long this format took to show the picture (not counted when the preview handed over
+      // a stream that was already playing).
+      if (!wasAdopted) {
+        final ms = DateTime.now().difference(_openedAt).inMilliseconds;
+        Store.noteFormat(Smooth.hostOf(url), formatOfUrl(url), ms);
+        log('start ms=$ms');
+      }
       // The channels next to this one: their server is ready before the remote gets there.
       _warmNeighbours();
     }

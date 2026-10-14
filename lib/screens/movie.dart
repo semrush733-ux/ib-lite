@@ -63,7 +63,8 @@ class _MovieScreenState extends State<MovieScreen> {
   }
 
   Future<void> _preload() async {
-    if (!mounted || kIsWeb || _pre != null || !Store.vodPreload) return;
+    // Only on TVs / boxes strong enough (a second video decoder is too much for weak ones).
+    if (!mounted || kIsWeb || _pre != null || !Store.vodPreload || Store.enhanceCap <= 0) return;
     final url = widget.api.movieUrlFor(widget.movie);
     if (url.isEmpty) return;
     final saved = Store.resume(_resumeKey);

@@ -569,8 +569,13 @@ class XtreamApi implements Source {
     }));
   }
 
+  /// One connection pool per playlist: switching playlists closes the old one, which stops its
+  /// downloads at once (they used to go on in the background and made the app stutter).
+  static final Map<String, http.Client> _clients = {};
+  http.Client get _client => _clients.putIfAbsent(_prefix, http.Client.new);
+
   Future<Uint8List> _bytes(Map<String, String> extra, Duration timeout) async {
-    final res = await http
+    final res = await _client
         .get(_uri(extra), headers: const {'User-Agent': kUserAgent, 'Accept': 'application/json'}).timeout(timeout);
     if (res.statusCode == 401 || res.statusCode == 403) {
       throw XtreamException('Wrong username or password.');
@@ -610,7 +615,13 @@ class XtreamApi implements Source {
     _active = _prefix;
     _lists.removeWhere((k, _) => !k.startsWith(_prefix));
     _pending.removeWhere((k, _) => !k.startsWith(_prefix));
+    for (final k in _clients.keys.where((k) => k != _prefix).toList()) {
+      _clients.remove(k)?.close();
+    }
   }
+
+  /// This playlist is no longer the one in use (its late work is dropped).
+  bool get _stale => _active.isNotEmpty && _active != _prefix;
 
   void _keep(String key, Object value) {
     if (_active.isEmpty || key.startsWith(_active)) _lists[key] = value;
@@ -666,6 +677,8 @@ class XtreamApi implements Source {
       'action': _actions[kind]![1],
       if (categoryId != null) 'category_id': categoryId,
     }, const Duration(seconds: 60));
+    // Switched to another playlist meanwhile: do not spend time and memory reading this list.
+    if (_stale) throw XtreamException('Another playlist is open.');
     if (bytes.length > 150000) return compute(_parseItems, _ItemsJob(bytes, kind));
     return parseItems(_decodeJson(bytes), kind);
   }
