@@ -299,9 +299,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         Text('Plays: $what', style: const TextStyle(fontSize: 14, color: C.dim)),
         const SizedBox(height: 14),
-        // The two players side by side on a TV (less scrolling), one under the other on a phone.
-        LayoutBuilder(builder: (context, box) {
-          final exoCard = exo ? _option(
+        if (exo)
+          _option(
             selected: current == 'exo',
             icon: Icons.smart_display_rounded,
             iconColor: const Color(0xFF4AA3FF),
@@ -309,114 +308,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
             badge: 'RECOMMENDED',
             text: 'Uses the TV\'s own video chip: smooth picture and quick start. Default.',
             onTap: () => onPick('exo'),
-          ) : null;
-          final mpvCard = _option(
+          ),
+        const SizedBox(height: 10),
+        _option(
           selected: mpvChosen,
           icon: Icons.memory_rounded,
           iconColor: const Color(0xFFB37BFF),
           title: 'MPV Player',
           text: 'Plays almost every format, Dolby (AC3) sound too. Choose it if something will not play well.',
           onTap: () => onPick('mpv'),
-        );
-          if (box.maxWidth < 640 || exoCard == null) {
-            return Column(children: [
-              if (exoCard != null) ...[exoCard, const SizedBox(height: 10)],
-              mpvCard,
-            ]);
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [Expanded(child: exoCard), const SizedBox(width: 12), Expanded(child: mpvCard)],
-          );
-        }),
-        const SizedBox(height: 18),
-        // All switches together near the top (no scrolling to reach them); explanations below.
-        Wrap(
-          spacing: 28,
-          runSpacing: 16,
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'When a video will not start on the chosen player, the app tries the other one by itself. '
+          'A channel whose sound ExoPlayer cannot play moves to MPV by itself, and stays there.',
+          style: TextStyle(fontSize: 13.5, color: C.dim, height: 1.5),
+        ),
+        const SizedBox(height: 24),
+        const Text('PICTURE ENHANCE',
+            style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+        const SizedBox(height: 10),
+        Row(
           children: [
-            _setting(
-              'PICTURE ENHANCE',
-              [
-                for (final m in const [('auto', 'Auto'), ('off', 'Off'), ('on', 'Always on')])
-                  _chip(m.$2, Store.enhanceMode == m.$1, () {
-                    Store.setEnhanceMode(m.$1);
-                    EnhanceLevel.reset();
-                    setState(() {});
-                  }),
-              ],
-              Store.enhanceCap == 0
-                  ? 'Sharper picture. This TV: off (too heavy here).'
-                  : Store.enhanceCap > 0
-                      ? 'Sharper picture. This TV: up to ${EnhanceLevel.label(Store.enhanceCap)}.'
-                      : 'Sharper, crisper picture.',
-            ),
-            _setting(
-              'MATCH FRAME RATE',
-              [
-                _chip('On', Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(true))),
-                _chip('Off', !Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(false))),
-              ],
-              'Smoother movement (football, tickers). Off by default.',
-            ),
-            if (withMode)
-              _setting(
-                'QUICK START FOR FILMS',
-                [
-                  _chip('On', Store.vodPreload, () => setState(() => Store.setVodPreload(true))),
-                  _chip('Off', !Store.vodPreload, () => setState(() => Store.setVodPreload(false))),
-                ],
-                'The film loads while you read its page.',
-              ),
-            if (withMode && mpvChosen)
-              _setting(
-                'MPV PICTURE MODE',
-                [
-                  _chip('Direct (lighter)', Store.videoMode == 'direct', () => setState(() => Store.setVideoMode('direct'))),
-                  _chip('Standard', Store.videoMode == 'gpu', () => setState(() => Store.setVideoMode('gpu'))),
-                ],
-                'Standard if a video plays sound but shows no picture.',
-              ),
+            for (final m in const [('auto', 'Auto'), ('off', 'Off'), ('on', 'Always on')]) ...[
+              _chip(m.$2, Store.enhanceMode == m.$1, () {
+                Store.setEnhanceMode(m.$1);
+                EnhanceLevel.reset();
+                setState(() {});
+              }),
+              const SizedBox(width: 10),
+            ],
           ],
         ),
-        const SizedBox(height: 26),
-        const Text('MORE ABOUT THESE SETTINGS',
-            style: TextStyle(fontSize: 12, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
         const SizedBox(height: 8),
         Text(
-          '• Player: when a video will not start on the chosen player, the app tries the other one by '
-          'itself. A channel whose sound ExoPlayer cannot play moves to MPV by itself, and stays there.\n'
-          '• Picture Enhance: sharper, crisper picture with a little more colour. Auto turns it on when '
-          'this TV is strong enough and switches it off by itself the moment the picture would stutter.\n'
-          '• Match Frame Rate: the TV switches to the frame rate of the channel (50 Hz for UK / European '
-          'channels, 60 Hz for US) so moving pictures glide without judder. Turn it ON if the picture '
-          'looks jerky on fast movement or your TV / box is weaker and you want the best streaming. '
-          'Keep it OFF if the screen goes black for a second when you change channel, or the TV shows '
-          '"no signal" / flickers when a channel starts.'
-          '${withMode ? '\n• Quick Start for Films: while you read a film\'s page the film is already loaded, so "Watch" '
-              'starts straight away. Only on TVs / boxes strong enough; weak ones skip it by themselves. '
-              'Turn it off if your server allows only one connection and live TV plays on another device.' : ''}',
-          style: const TextStyle(fontSize: 13, color: C.dim, height: 1.5),
+          'Sharper, crisper picture with a little more colour. Auto turns it on when this TV is strong '
+          'enough and switches it off by itself the moment the picture would stutter.'
+          '${Store.enhanceCap == 0 ? ' This TV: off (too heavy here).' : Store.enhanceCap > 0 ? ' This TV: up to ${EnhanceLevel.label(Store.enhanceCap)}.' : ''}',
+          style: const TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),
+        const SizedBox(height: 24),
+        const Text('MATCH FRAME RATE',
+            style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _chip('On', Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(true))),
+            const SizedBox(width: 10),
+            _chip('Off', !Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(false))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Off by default. Turn it ON for a smoother picture: the TV switches to the frame rate of the '
+          'channel (50 Hz for UK / European channels, 60 Hz for US) so moving pictures - football, '
+          'news tickers, scrolling text - glide without judder or jerky movement.\n'
+          '• Turn it ON if: the picture looks jerky or stutters on fast movement, or your TV / box is '
+          'weaker and you want the best streaming experience.\n'
+          '• Keep it OFF if: the screen goes black for a second every time you change channel, or your '
+          'TV shows "no signal" / flickers when a channel starts.\n'
+          'Works on Android TV boxes, Firestick and Android TVs that support it.',
+          style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+        ),
+        const SizedBox(height: 24),
+        const Text('QUICK START FOR FILMS',
+            style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _chip('On', Store.vodPreload, () => setState(() => Store.setVodPreload(true))),
+            const SizedBox(width: 10),
+            _chip('Off', !Store.vodPreload, () => setState(() => Store.setVodPreload(false))),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'While you read a film\'s page, the film is already loaded in the background, so "Watch" '
+          'starts straight away. It works only on TVs / boxes that are strong enough; weak ones skip '
+          'it by themselves. Turn it off if your server allows only one connection and you watch '
+          'live TV on another device at the same time.',
+          style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+        ),
+        if (withMode && mpvChosen) ...[
+          const SizedBox(height: 24),
+          const Text('MPV PICTURE MODE',
+              style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _chip('Direct (lighter)', Store.videoMode == 'direct', () => setState(() => Store.setVideoMode('direct'))),
+              const SizedBox(width: 10),
+              _chip('Standard', Store.videoMode == 'gpu', () => setState(() => Store.setVideoMode('gpu'))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text('Use Standard if a video plays sound but shows no picture.',
+              style: TextStyle(fontSize: 13, color: C.dim)),
+        ],
       ],
     );
   }
-
-  /// One switch: title, its buttons, and a one-line hint.
-  Widget _setting(String title, List<Widget> chips, String hint) => ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 10, runSpacing: 8, children: chips),
-            const SizedBox(height: 6),
-            Text(hint, style: const TextStyle(fontSize: 12.5, color: C.dim, height: 1.35)),
-          ],
-        ),
-      );
 
   // ---------------------------------------------------------------- parental
 
@@ -848,12 +839,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Row(
                     children: [
-                      Flexible(
-                        child: Text(title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-                      ),
+                      Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
                       if (badge.isNotEmpty) ...[
                         const SizedBox(width: 10),
                         Container(
