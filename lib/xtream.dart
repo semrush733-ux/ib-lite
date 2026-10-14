@@ -708,7 +708,11 @@ class XtreamApi implements Source {
   @override
   List<String> liveUrlsFor(XItem item, String preferredFormat) {
     // The format that starts faster on this server (learned by the player).
-    preferredFormat = Store.bestFormat(Smooth.hostOf(server), preferredFormat);
+    try {
+      preferredFormat = Store.bestFormat(Smooth.hostOf(server), preferredFormat);
+    } catch (_) {
+      // Settings not loaded (tests): keep the general choice.
+    }
     final other = preferredFormat == 'ts' ? 'm3u8' : 'ts';
     var order = [preferredFormat, other];
     // Do not try a format the provider has switched off for this account.
