@@ -19,6 +19,9 @@ import 'home.dart' show wallpaperAsset;
 
 enum _Section { network, vpn, vod, live, parental, wallpaper, categories, cache, language, info }
 
+/// The Google Play build has no VPN section.
+final _sections = [for (final s in _Section.values) if (!(kPlay && s == _Section.vpn)) s];
+
 const _titles = {
   _Section.network: 'Network',
   _Section.vpn: 'VPN',
@@ -171,7 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             final cols = box.maxWidth < 520 ? 2 : (box.maxWidth < 700 ? 3 : 5);
             const gap = 16.0;
             final w = (box.maxWidth - gap * (cols - 1)) / cols;
-            final rows = (_Section.values.length / cols).ceil();
+            final rows = (_sections.length / cols).ceil();
             // All boxes on one screen when there is room; never smaller than 96 px.
             final tileH = ((box.maxHeight - gap * (rows - 1)) / rows).clamp(96.0, small ? 120.0 : 170.0).toDouble();
             return SingleChildScrollView(
@@ -179,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 spacing: gap,
                 runSpacing: gap,
                 children: [
-                  for (final s in _Section.values)
+                  for (final s in _sections)
                     SizedBox(
                       width: w,
                       height: tileH,

@@ -9,7 +9,7 @@ name: LG TV app (webOS IPK)
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**']
+    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/play.yml']
   workflow_dispatch:
 
 concurrency:

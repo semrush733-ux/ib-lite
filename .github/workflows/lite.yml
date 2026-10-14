@@ -17,7 +17,7 @@ name: Lite Player app
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**']
+    paths-ignore: ['**.md', 'admin_app/**', '.github/workflows/admin.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**', '.github/workflows/play.yml']
   # "Run workflow" button in GitHub Actions: rebuild with the icon set in the website admin.
   workflow_dispatch:
   # Every hour: when the app name or icon was changed in the website admin (App look), a new

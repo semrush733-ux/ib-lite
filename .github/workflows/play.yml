@@ -1,0 +1,164 @@
+name: Google Play (AAB)
+
+# Builds the Android App Bundle (.aab) for Google Play, signed with your key (the same key as the
+# APK; on Play it is the "upload key", Google signs the installed app with its own key).
+# The Play build leaves out what Play does not allow: the app downloading its own updates (Play
+# updates it) and the built-in VPN. Result: release "play-latest" with the .aab, the store pictures
+# and a short guide. Started by hand (Actions -> Google Play (AAB) -> Run workflow) or by a push
+# that changes this file.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/play.yml']
+
+concurrency:
+  group: play-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  aab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      HAS_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          APP_NAME="$(get APP_NAME)"; PACKAGE_ID="$(get PACKAGE_ID)"; WEBSITE="$(get WEBSITE)"
+          WEBSITE="${WEBSITE%/}"
+          API_BASE=""; [ -n "$WEBSITE" ] && API_BASE="$WEBSITE/wp-json/b1g/v1"
+          APK_NAME="$(echo "$APP_NAME" | tr -cd '[:alnum:]')"; [ -n "$APK_NAME" ] || APK_NAME=App
+          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "API_BASE=$API_BASE"; echo "APK_NAME=$APK_NAME"; } >> "$GITHUB_ENV"
+          echo "brand: $APP_NAME ($PACKAGE_ID) website: ${WEBSITE:-(not set)}"
+          python3 -m pip install --quiet pillow || true
+          python3 tools/fetch_brand.py "$WEBSITE"
+          # The name under the icon set on the website wins over brand/brand.txt (the APK's file
+          # name stays the same, so download links keep working).
+          if [ -s brand/site_label.txt ]; then
+            APP_NAME="$(cat brand/site_label.txt)"
+            echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+            echo "app name from the website: $APP_NAME"
+          fi
+          python3 tools/brand_icons.py
+          mkdir -p out && (cd store_assets && zip -qr ../out/store-assets.zip .)
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create the Android project
+        run: |
+          flutter --version
+          echo "FLUTTER_VERSION=$(flutter --version | head -1 | awk '{print $2}')" >> "$GITHUB_ENV"
+          flutter create --no-pub --platforms=android --org com.b1g --project-name b1gtv "$RUNNER_TEMP/scaffold"
+          cp -r "$RUNNER_TEMP/scaffold/android" android
+          cp -r android_overlay/. android/
+          sed -i "s|android:label=\"[^\"]*\"|android:label=\"$APP_NAME\"|" android/app/src/main/AndroidManifest.xml
+          if [ -f android/app/build.gradle.kts ]; then
+            cat android_extra/app-build-extra.gradle.kts >> android/app/build.gradle.kts
+          else
+            cat android_extra/app-build-extra.gradle >> android/app/build.gradle
+          fi
+          mkdir -p out/logs
+
+      - name: Play version of the manifest (no self-update, no VPN service)
+        run: |
+          python3 - <<'PY'
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          if 'xmlns:tools' not in s:
+              s = s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
+                            '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"', 1)
+          s = s.replace('<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />',
+                        '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />', 1)
+          s = s.replace('</application>',
+                        '    <service android:name="com.wireguard.android.backend.GoBackend$VpnService" tools:node="remove" />\n    </application>', 1)
+          open(p, 'w').write(s)
+          PY
+          grep -n "tools:node" android/app/src/main/AndroidManifest.xml
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build the app bundle
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set -o pipefail
+          mkdir -p out
+          # Play needs a higher version code for every upload.
+          CODE=$((1000 + ${{ github.run_number }}))
+          echo "CODE=$CODE" >> "$GITHUB_ENV"
+          SERVER="$(tr -d ' \r\n' < config/server.txt 2>/dev/null || true)"
+          flutter build appbundle --release \
+            --build-name "1.0.$CODE" --build-number "$CODE" \
+            --dart-define=B1G_PLAY=true \
+            --dart-define=B1G_SERVER="$SERVER" --dart-define=B1G_TMDB_KEY="$TMDB_API_KEY" \
+            --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_API_BASE="$API_BASE" \
+            2>&1 | tee out/build.log
+          cp build/app/outputs/bundle/release/app-release.aab "out/$APK_NAME-play.aab"
+
+      - name: Sign with your key
+        if: env.HAS_SIGNING == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          jarsigner -sigalg SHA256withRSA -digestalg SHA-256 -keystore "$RUNNER_TEMP/release.jks" \
+            -storepass:env KEYSTORE_PASSWORD -keypass:env KEY_PASSWORD "out/$APK_NAME-play.aab" "$KEY_ALIAS"
+          jarsigner -verify "out/$APK_NAME-play.aab" | tail -1
+          # The upload key's fingerprint (Play Console shows the same under App integrity).
+          keytool -list -v -keystore "$RUNNER_TEMP/release.jks" -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" | grep -E "SHA256:" | head -1 > out/upload-key-sha256.txt || true
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Store pictures
+        run: |
+          mkdir -p out/play-store-pictures
+          cp store_assets/icon-512.png out/play-store-pictures/app-icon-512.png
+          cp store_assets/play-feature-graphic-1024x500.png out/play-store-pictures/feature-graphic-1024x500.png
+          cp store_assets/fire-tv-banner-1280x720.png out/play-store-pictures/android-tv-banner-1280x720.png
+          (cd out && zip -qr play-store-pictures.zip play-store-pictures)
+
+      - name: Publish to the "play-latest" release
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILES=""
+          [ -f "out/$APK_NAME-play.aab" ] && FILES="out/$APK_NAME-play.aab out/play-store-pictures.zip"
+          TITLE="$APP_NAME Google Play - version 1.0.${CODE:-?}"
+          [ -z "$FILES" ] && TITLE="$TITLE FAILED"
+          {
+            echo "Android App Bundle for Google Play (upload it in Play Console -> Test and release -> Production / Internal testing)."
+            echo ""
+            echo "- Version code: ${CODE:-?}"
+            echo "- Signed with your upload key: $HAS_SIGNING"
+            [ -s out/upload-key-sha256.txt ] && echo "- Upload key $(cat out/upload-key-sha256.txt | sed 's/^ *//')"
+            echo "- Left out for Play: self-update (Play updates the app), built-in VPN."
+            if [ -z "$FILES" ]; then
+              echo ""; echo "### Errors"; echo '```'; tail -60 out/build.log 2>/dev/null | cut -c1-300; echo '```'
+            fi
+          } > out/NOTES.md
+          if gh release view play-latest >/dev/null 2>&1; then
+            [ -n "$FILES" ] && gh release upload play-latest $FILES --clobber
+            gh release edit play-latest --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          else
+            gh release create play-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          fi

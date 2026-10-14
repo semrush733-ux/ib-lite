@@ -40,3 +40,7 @@ const String kTvPlatform = String.fromEnvironment('B1G_TV_PLATFORM', defaultValu
 /// it updated by themselves) or the new IPA.
 const int kIosBuild = int.fromEnvironment('B1G_BUILD');
 const String kIosFeed = String.fromEnvironment('B1G_IOS_FEED');
+
+/// Google Play build: Play installs the updates (the app never downloads its own APK) and the
+/// built-in VPN is left out (Play only allows VPN apps whose main job is the VPN).
+const bool kPlay = bool.fromEnvironment('B1G_PLAY');

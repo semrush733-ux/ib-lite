@@ -452,7 +452,9 @@ class Backend {
       }
       // Logo and start screen set on the website (downloaded in the background).
       if (c is Map) unawaited(RemoteBrand.apply(c['brand']));
-      if (_ios) {
+      if (kPlay) {
+        update = null; // Google Play updates the app itself
+      } else if (_ios) {
         unawaited(_checkIosUpdate());
       } else {
         update = BUpdate.fromJson(data['update']);

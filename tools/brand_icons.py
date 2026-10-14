@@ -149,6 +149,9 @@ b.alpha_composite(fit(SYMBOL, 1920, 1080, 0.5))
 b.convert('RGB').save('store_assets/tv-background-1920x1080.png')
 fit(SYMBOL, 512, 512, 0.86).save('store_assets/tizen-icon-512.png')                   # Samsung Tizen (config.xml <icon>)
 on_bg(512, 423, 0.66).convert('RGB').save('store_assets/tizen-icon-512x423.png')       # Samsung Seller Office TV icon
+b = background(1024, 500)
+b.alpha_composite(fit(SYMBOL, 1024, 500, 0.6))
+b.convert('RGB').save('store_assets/play-feature-graphic-1024x500.png')            # Google Play feature graphic
 print('store pictures written')
 
 # Browser version: favicon and home-screen icons.
