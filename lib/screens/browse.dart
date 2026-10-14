@@ -73,6 +73,8 @@ class _BrowseScreenState extends State<BrowseScreen> {
   List<XCategory>? _cats;
   String? _catsError;
   String _selected = '';
+  // The category the screen opens on (the server's first one); null = "All".
+  String? _firstId;
   String _selectedName = '';
   List<XItem>? _items;
   String? _itemsError;
@@ -297,19 +299,21 @@ class _BrowseScreenState extends State<BrowseScreen> {
     try {
       final cats = await widget.api.categories(widget.kind);
       if (!mounted) return;
+      _firstId = cats
+          .where((c) => !Store.isHidden(widget.kind, c.id) && !Store.isLocked(widget.kind, c.id))
+          .firstOrNull
+          ?.id;
       setState(() => _cats = cats);
       log('browse ${widget.kind.name} categories=${cats.length}');
-      final api = widget.api;
-      final allReady = api is! XtreamApi || api.hasAll(widget.kind);
-      final first = cats.where((c) => !Store.isLocked(widget.kind, c.id)).firstOrNull;
-      if (allReady || first == null) {
-        // Everything is already here: one list with all of it.
+      // Open the server's first category, not "All": the full list is heavy and loads only when
+      // the user picks "All" themselves.
+      final first = cats
+          .where((c) => !Store.isHidden(widget.kind, c.id) && !Store.isLocked(widget.kind, c.id))
+          .firstOrNull;
+      if (first == null) {
         _select(_allId, allTitle(widget.kind));
       } else {
-        // The full list is big: open the first category straight away and let "All" fill in the
-        // background; any other category opens on its own small request.
         _select(first.id, first.name);
-        unawaited(_loadAll().catchError((Object _) => const <XItem>[]));
       }
     } catch (e) {
       if (!mounted) return;
@@ -873,6 +877,18 @@ class _BrowseScreenState extends State<BrowseScreen> {
           );
         }
         if (index == 1) {
+          final total = _all?.length;
+          final title = allTitle(widget.kind);
+          return _CategoryRow(
+            icon: Icons.apps_rounded,
+            name: total == null ? title : '$title  ($total)',
+            selected: _selected == _allId,
+            autofocus: _firstId == null,
+            // "All" is heavy: it opens only on OK, never by moving over it.
+            onTap: () => _select(_allId, title),
+          );
+        }
+        if (index == 2) {
           return _CategoryRow(
             icon: Icons.star_rounded,
             name: t('Favourites'),
@@ -881,7 +897,7 @@ class _BrowseScreenState extends State<BrowseScreen> {
             onFocus: () => _focusCategory(_favId, t('Favourites')),
           );
         }
-        if (index == 2) {
+        if (index == 3) {
           return _CategoryRow(
             icon: Icons.history_rounded,
             name: t('Recent'),
@@ -890,24 +906,14 @@ class _BrowseScreenState extends State<BrowseScreen> {
             onFocus: () => _focusCategory(_recentId, t('Recent')),
           );
         }
-        if (index == 3) {
-          final total = _all?.length;
-          final title = allTitle(widget.kind);
-          return _CategoryRow(
-            icon: Icons.apps_rounded,
-            name: total == null ? title : '$title  ($total)',
-            selected: _selected == _allId,
-            autofocus: true,
-            onTap: () => _select(_allId, title),
-            onFocus: () => _focusCategory(_allId, title),
-          );
-        }
         final cat = cats[index - 4];
         final locked = Store.isLocked(widget.kind, cat.id) && !Store.parentalUnlocked;
         return _CategoryRow(
           icon: locked ? Icons.lock_rounded : null,
           name: cat.name,
           selected: _selected == cat.id,
+          // The remote starts on the category that opens first (the server's first one).
+          autofocus: cat.id == _firstId,
           onTap: () => _select(cat.id, cat.name),
           onFocus: () => _focusCategory(cat.id, cat.name),
         );
