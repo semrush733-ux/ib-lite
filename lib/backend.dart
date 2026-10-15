@@ -35,9 +35,12 @@ String get kSiteBase {
 const Duration kLicenceGrace = Duration(hours: 72);
 
 class BackendException implements Exception {
-  BackendException(this.message, [this.statusCode = 0]);
+  BackendException(this.message, [this.statusCode = 0, this.code = '']);
   final String message;
   final int statusCode;
+
+  /// The website's error code (e.g. b1g_pin_required), when it sent one.
+  final String code;
   @override
   String toString() => message;
 }
@@ -388,7 +391,7 @@ class Backend {
     final message = (data is Map && data['message'] != null)
         ? data['message'].toString()
         : 'Request failed (${r.statusCode}).';
-    throw BackendException(message, r.statusCode);
+    throw BackendException(message, r.statusCode, data is Map ? (data['code'] ?? '').toString() : '');
   }
 
   static Future<dynamic> _get(String path) async {
@@ -609,17 +612,32 @@ class Backend {
     return {'name': (v['name'] ?? 'My VPN').toString(), 'config': config};
   }
 
-  /// Removes one of this device's playlists (a locked one needs its PIN). Returns the message.
+  /// Removes one of this device's playlists. From the TV itself no PIN is needed (it proves it is
+  /// this TV with its hardware id); where there is no hardware id (browser, iPhone, Samsung / LG)
+  /// a locked playlist needs its PIN: then a BackendException with code b1g_pin_required comes.
   static Future<String> deletePlaylist(int id, {String pin = ''}) async {
     if (!registered && !await ensureRegistered()) {
       throw BackendException('No connection to the server.');
     }
-    final data = await _post('/public/playlist-delete', {
+    var hwid = '';
+    try {
+      hwid = registrationIds(await _device.invokeMethod<dynamic>('deviceIds'))['hwid'] ?? '';
+    } catch (_) {}
+    final body = {
       'device_id': deviceId,
       'pairing_code': pairingCode,
       'playlist_id': id,
+      if (hwid.isNotEmpty) 'hwid': hwid,
       if (pin.isNotEmpty) 'current_pin': pin,
-    });
+    };
+    dynamic data;
+    try {
+      data = await _post('/device/playlist-delete', body);
+    } on BackendException catch (e) {
+      // An older website without this address: the website's own delete (PIN for locked ones).
+      if (e.statusCode != 404 || e.code == 'b1g_no_device' || e.code == 'b1g_bad_pair') rethrow;
+      data = await _post('/public/playlist-delete', body);
+    }
     final m = data is Map ? (data['message'] ?? '').toString() : '';
     return m.isEmpty ? 'Playlist removed.' : m;
   }

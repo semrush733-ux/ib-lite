@@ -113,10 +113,6 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
               setBox(() => problem = 'Type DELETE to confirm.');
               return;
             }
-            if (p.locked && !RegExp(r'^\d{4}$').hasMatch(pin.text.trim())) {
-              setBox(() => problem = 'This playlist is locked: enter its 4-digit PIN.');
-              return;
-            }
             Navigator.of(ctx).pop(true);
           }
 
@@ -129,8 +125,8 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('The playlist is removed from this device and from the website. '
-                      'Type DELETE below and press Submit.',
+                  const Text('The playlist is removed from this TV and from the website. '
+                      'To make sure it is not by mistake, type DELETE below and press Submit (or Cancel).',
                       style: TextStyle(color: C.dim, height: 1.45)),
                   const SizedBox(height: 14),
                   TvField(
@@ -138,23 +134,9 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                     label: 'Type DELETE',
                     icon: Icons.delete_forever_rounded,
                     autofocus: true,
-                    action: p.locked ? TextInputAction.next : TextInputAction.done,
-                    onSubmitted: (_) {
-                      if (!p.locked) submit();
-                    },
+                    action: TextInputAction.done,
+                    onSubmitted: (_) => submit(),
                   ),
-                  if (p.locked) ...[
-                    const SizedBox(height: 10),
-                    TvField(
-                      controller: pin,
-                      label: 'Playlist PIN',
-                      icon: Icons.lock_rounded,
-                      obscure: true,
-                      keyboardType: TextInputType.number,
-                      action: TextInputAction.done,
-                      onSubmitted: (_) => submit(),
-                    ),
-                  ],
                   if (problem != null) ...[
                     const SizedBox(height: 10),
                     Text(problem!, style: const TextStyle(color: C.danger, fontWeight: FontWeight.w700)),
@@ -173,12 +155,21 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         },
       ),
     );
-    final code = pin.text.trim();
     word.dispose();
     pin.dispose();
     if (ok != true || !mounted) return;
     try {
-      final msg = await Backend.deletePlaylist(p.id, pin: code);
+      String msg;
+      try {
+        msg = await Backend.deletePlaylist(p.id);
+      } on BackendException catch (e) {
+        // Only where this TV cannot prove itself (browser / iPhone / Samsung / LG) and the
+        // playlist is locked: its PIN is asked.
+        if (e.code != 'b1g_pin_required' || !mounted) rethrow;
+        final code = await _askPin(p);
+        if (code == null || !mounted) return;
+        msg = await Backend.deletePlaylist(p.id, pin: code);
+      }
       log('playlist deleted on the device: ${p.id}');
       if (!mounted) return;
       _deleted = true;
@@ -194,6 +185,34 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
         ..clearSnackBars()
         ..showSnackBar(SnackBar(content: Text(e is BackendException ? e.message : friendlyError(e), textAlign: TextAlign.center)));
     }
+  }
+
+  Future<String?> _askPin(BPlaylist p) {
+    final c = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: C.panel,
+        title: const Text('Playlist PIN'),
+        content: SizedBox(
+          width: 380,
+          child: TvField(
+            controller: c,
+            label: '4-digit PIN of "${p.name}"',
+            icon: Icons.lock_rounded,
+            obscure: true,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            action: TextInputAction.done,
+            onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(c.text.trim()), child: const Text('Delete')),
+        ],
+      ),
+    );
   }
 
   /// A playlist was deleted here: the home screen checks which playlist to use when we go back.
