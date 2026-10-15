@@ -371,8 +371,25 @@ class MpvEngine extends PlaybackEngine {
     ];
   }
 
+  bool _disposed = false;
+
+  /// TVs and browsers: the same <video> element plays the next channel too (tearing it down
+  /// and building a new one on every zap gave a long black screen). Native MPV keeps its
+  /// one-engine-per-stream behaviour, which is what proved reliable on Android boxes.
+  @override
+  bool get reusable => kIsWeb && !_disposed;
+
+  @override
+  Future<void> stop() async {
+    if (!kIsWeb) return;
+    try {
+      await player.stop();
+    } catch (_) {}
+  }
+
   @override
   Future<void> dispose() async {
+    _disposed = true;
     await _logSub?.cancel();
     await _errSub?.cancel();
     await _messages.close();

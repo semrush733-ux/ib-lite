@@ -150,6 +150,37 @@
     if (d && !crashedBefore) d.remove();
   });
 
+
+  // ---- HLS tuned for TV zapping: small start buffer, short timeouts, capped memory.
+  // media_kit's loader creates window.Hls and then "new Hls(config)": the constructor is
+  // wrapped once so every player gets these settings.
+  var hlsTimer = setInterval(function () {
+    var H = window.Hls;
+    if (!H || H.__b1g) return;
+    try {
+      var W = function (cfg) {
+        var merged = Object.assign({}, cfg || {}, {
+          maxBufferLength: 12,
+          maxMaxBufferLength: 30,
+          backBufferLength: 10,
+          manifestLoadingTimeOut: 8000,
+          manifestLoadingMaxRetry: 2,
+          levelLoadingTimeOut: 8000,
+          fragLoadingTimeOut: 12000,
+        });
+        return new H(merged);
+      };
+      W.__b1g = true;
+      Object.setPrototypeOf(W, H);   // statics: isSupported, Events, ...
+      W.prototype = H.prototype;
+      window.Hls = W;
+      clearInterval(hlsTimer);
+    } catch (e) {
+      clearInterval(hlsTimer);
+    }
+  }, 300);
+  setTimeout(function () { clearInterval(hlsTimer); }, 60000);
+
   // ---- remote keys / exit
   window.tizenExit = function () {
     try { if (window.webOS && webOS.platformBack) { webOS.platformBack(); return; } } catch (e) {}

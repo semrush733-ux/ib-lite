@@ -5,6 +5,35 @@
 // - Play / pause / stop keys are passed on as the keys the app already knows.
 (function () {
   function tz() { return (typeof tizen !== 'undefined') ? tizen : null; }
+
+  // ---- HLS tuned for TV zapping: small start buffer, short timeouts, capped memory.
+  var hlsTimer = setInterval(function () {
+    var H = window.Hls;
+    if (!H || H.__b1g) return;
+    try {
+      var W = function (cfg) {
+        var merged = Object.assign({}, cfg || {}, {
+          maxBufferLength: 12,
+          maxMaxBufferLength: 30,
+          backBufferLength: 10,
+          manifestLoadingTimeOut: 8000,
+          manifestLoadingMaxRetry: 2,
+          levelLoadingTimeOut: 8000,
+          fragLoadingTimeOut: 12000,
+        });
+        return new H(merged);
+      };
+      W.__b1g = true;
+      Object.setPrototypeOf(W, H);
+      W.prototype = H.prototype;
+      window.Hls = W;
+      clearInterval(hlsTimer);
+    } catch (e) {
+      clearInterval(hlsTimer);
+    }
+  }, 300);
+  setTimeout(function () { clearInterval(hlsTimer); }, 60000);
+
   window.tizenExit = function () {
     try { tz().application.getCurrentApplication().exit(); } catch (e) {}
   };
