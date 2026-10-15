@@ -1,0 +1,91 @@
+name: Lite Recorder app
+
+# Builds the screen recorder for TVs (recorder/): records the screen or takes screenshots and
+# uploads them to the website (WordPress plugin "Lite Recorder Cloud").
+# Result: release "recorder-latest" with LiteRecorder.apk, signed with the same key secrets as the player.
+
+on:
+  push:
+    branches: [main]
+    paths: ['recorder/**', '.github/workflows/recorder.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: recorder-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      HAS_SIGNING: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Website from the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          WEBSITE="$(get WEBSITE)"; WEBSITE="${WEBSITE%/}"
+          echo "SITE=$WEBSITE" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Build LiteRecorder.apk
+        run: |
+          mkdir -p out
+          set -o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          gradle -p recorder assembleRelease --no-daemon --stacktrace 2>&1 | tee out/build.log
+          cp recorder/app/build/outputs/apk/release/app-release.apk out/LiteRecorder.apk
+
+      - name: Sign with your own key
+        if: env.HAS_SIGNING == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "$RUNNER_TEMP/signed.apk" out/LiteRecorder.apk
+          mv "$RUNNER_TEMP/signed.apk" out/LiteRecorder.apk
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - name: Publish to the "recorder-latest" release
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Lite Recorder - build #${{ github.run_number }}"
+          FILES=""
+          [ -f out/LiteRecorder.apk ] && FILES="out/LiteRecorder.apk"
+          [ -z "$FILES" ] && TITLE="$TITLE FAILED"
+          {
+            echo "Screen recorder for TVs: record / screenshot, Save uploads to the website (plugin Lite Recorder Cloud). Website: ${SITE:-typed in the app}. Signed with own key: $HAS_SIGNING"
+            echo
+            echo '### Errors'
+            echo '```'
+            grep -h -E "^e: |error:|FAILURE|What went wrong" -A3 out/build.log 2>/dev/null | head -60 || true
+            echo '```'
+          } > out/NOTES.md
+          if gh release view recorder-latest >/dev/null 2>&1; then
+            [ -n "$FILES" ] && gh release upload recorder-latest $FILES --clobber
+            gh release edit recorder-latest --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          else
+            gh release create recorder-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md --prerelease
+          fi
