@@ -1639,7 +1639,6 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                     // and shows only when that takes longer than half a second.
                     key: ValueKey('loading-$_index-$_ready'),
                     label: _status == 'Loading…' ? null : _status,
-                    belowPoster: _posterUp,
                   ),
                 if (_dead) Center(child: _DeadMessage(text: _status ?? '', detail: _lastError)),
                 IgnorePointer(

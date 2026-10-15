@@ -9,6 +9,7 @@ import '../engine.dart';
 import '../i18n.dart';
 import '../parental.dart';
 import '../input_mode.dart';
+import '../start_poster.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -725,11 +726,8 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
                     IgnorePointer(child: ExcludeFocus(child: engine.view(fit: BoxFit.contain, subtitlePad: 12)))
                   else
                     _previewIdle(item),
-                  if (engine != null && _pvBuffering)
-                    const Center(
-                      child: SizedBox(
-                          width: 34, height: 34, child: CircularProgressIndicator(color: C.accent, strokeWidth: 3)),
-                    ),
+                  // Same soft pulse as full screen, only when loading takes over half a second.
+                  if (engine != null && _pvBuffering) SoftPulse(key: ValueKey('pv-${playing?.id}'), size: 40),
                   if (engine != null && playing != null)
                     Positioned(
                       left: 0,

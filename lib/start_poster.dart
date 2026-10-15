@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
-import 'widgets.dart' show NetImage;
 
 /// Instant start: the channel logo / film poster is on screen the moment playback is asked for,
 /// so there is never a black screen. When the first picture of the video is ready it fades away
@@ -40,66 +39,69 @@ class StartPoster extends StatelessWidget {
 
   Widget _content(BuildContext context) {
     final h = MediaQuery.sizeOf(context).height;
-    final hasPic = url.startsWith('http');
     // Same decode sizes the lists use, so the picture usually comes straight from memory.
-    final pic = live
-        ? SizedBox(
-            width: h * 0.34,
-            height: h * 0.22,
-            child: NetImage(url, fit: BoxFit.contain, cacheWidth: 240),
+    // A missing or broken picture simply leaves the space empty (no grey box).
+    Widget img(int cw, BoxFit fit) => url.startsWith('http')
+        ? Image.network(
+            url,
+            fit: fit,
+            cacheWidth: cw,
+            gaplessPlayback: true,
+            filterQuality: FilterQuality.medium,
+            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            frameBuilder: (_, child, frame, sync) => AnimatedOpacity(
+              opacity: frame == null && !sync ? 0 : 1,
+              duration: const Duration(milliseconds: 150),
+              child: child,
+            ),
           )
+        : const SizedBox.shrink();
+    final pic = live
+        ? SizedBox(width: h * 0.34, height: h * 0.2, child: img(240, BoxFit.contain))
         : ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            child: SizedBox(
-              height: h * 0.5,
-              child: AspectRatio(
-                aspectRatio: 2 / 3,
-                child: NetImage(url, fit: BoxFit.cover, cacheWidth: 360, fallback: Icons.movie_rounded),
-              ),
-            ),
+            child: SizedBox(height: h * 0.4, child: AspectRatio(aspectRatio: 2 / 3, child: img(360, BoxFit.cover))),
           );
+    // Picture above the middle, the name below it: the middle stays free for the soft pulse.
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: RadialGradient(
-          center: Alignment(0, -0.15),
+          center: Alignment.center,
           radius: 1.1,
           colors: [Color(0xFF241417), Color(0xFF0B0608)],
         ),
       ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (hasPic)
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 28, offset: Offset(0, 10))],
-                ),
-                child: pic,
-              ),
-            SizedBox(height: hasPic ? 22 : 0),
-            Padding(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Align(
+            alignment: Alignment(0, live ? -0.42 : -0.5),
+            child: pic,
+          ),
+          Align(
+            alignment: Alignment(0, live ? 0.34 : 0.5),
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                title,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(subtitle,
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: C.dim, fontSize: 14)),
+                  ],
+                ],
               ),
             ),
-            if (subtitle.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: C.dim, fontSize: 14)),
-            ],
-            // Room for the soft pulse under the title (it only shows on a slow start).
-            SizedBox(height: h * 0.12),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -108,12 +110,12 @@ class StartPoster extends StatelessWidget {
 /// A soft, breathing glow — shown only when a start or a pause to buffer takes longer than
 /// half a second (quick starts never show anything). No numbers, no bars.
 class SoftPulse extends StatefulWidget {
-  const SoftPulse({super.key, this.label, this.belowPoster = false});
+  const SoftPulse({super.key, this.label, this.size});
 
   final String? label;
 
-  /// Sits under the poster's title instead of in the middle of the screen.
-  final bool belowPoster;
+  /// Size of the glow (default: about 7 % of the screen height).
+  final double? size;
 
   @override
   State<SoftPulse> createState() => _SoftPulseState();
@@ -146,7 +148,7 @@ class _SoftPulseState extends State<SoftPulse> with SingleTickerProviderStateMix
     final h = MediaQuery.sizeOf(context).height;
     return IgnorePointer(
       child: Align(
-        alignment: widget.belowPoster ? Alignment(0, 0.62) : Alignment.center,
+        alignment: Alignment.center,
         child: AnimatedOpacity(
           opacity: _show ? 1 : 0,
           duration: const Duration(milliseconds: 220),
@@ -155,8 +157,8 @@ class _SoftPulseState extends State<SoftPulse> with SingleTickerProviderStateMix
             children: [
               RepaintBoundary(
                 child: SizedBox(
-                  width: math.max(44, h * 0.07),
-                  height: math.max(44, h * 0.07),
+                  width: widget.size ?? math.max(44, h * 0.07),
+                  height: widget.size ?? math.max(44, h * 0.07),
                   child: _show ? CustomPaint(painter: _PulsePainter(_c)) : null,
                 ),
               ),
