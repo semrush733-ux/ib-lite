@@ -2,165 +2,137 @@
 // - Back on the remote goes one screen back; on the first screen the app asks "Exit?" itself and
 //   then calls window.tizenExit() (same hook name as the Samsung build), which closes the app here.
 // - Play / pause / stop and channel keys are passed on as the keys the app already knows.
-// - Flight recorder: every start-up step (and every file the engine loads) is written to
-//   localStorage at once, so it survives a crash. When the previous run died before the first
-//   picture, the next start shows that log in a red box and waits for OK before trying again.
+// - Arrows sent with old names ('Left') are resent as 'ArrowLeft' etc.
+// - Silent flight recorder: start-up steps, every request with its HTTP status / error, and any
+//   script error go to localStorage (survives a crash). Nothing is ever shown to viewers.
+//   Developers: press the RED button 5 times quickly to show / hide the log on screen.
 (function () {
   var KEY = 'b1g_bootlog';
+  var PREV = 'b1g_bootlog_prev';
+  var MAX = 160;
   var steps = [];
-  var boxShown = false;
+  var t0 = Date.now();
+
+  // The previous run's log is kept (when it never reached the first picture it is the crash log).
+  try {
+    var last = localStorage.getItem(KEY);
+    if (last) localStorage.setItem(PREV, last);
+  } catch (e) {}
 
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(steps)); } catch (e) {}
   }
 
-  function box() {
-    var d = document.getElementById('b1g-boot');
-    if (!d && document.body) {
-      d = document.createElement('div');
-      d.id = 'b1g-boot';
-      d.style.cssText = 'position:fixed;left:16px;top:16px;right:16px;z-index:99999;color:#fff;' +
-        'font:17px/1.5 monospace;background:rgba(110,0,0,.93);padding:14px 18px;border-radius:10px;' +
-        'white-space:pre-wrap;word-break:break-all;max-height:88%;overflow:hidden';
-      document.body.appendChild(d);
-    }
-    return d;
-  }
-
-  var prev = null;
-  try { prev = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
-  var crashedBefore = prev && prev.length && prev.join(' ').indexOf('app drawing') === -1;
-
-  function render() {
-    var d = box();
-    if (!d) return;
-    var t = '';
-    if (crashedBefore) {
-      t += 'LAST RUN (died at the bottom line):\n' + prev.join('\n') + '\n\n';
-      t += boot.done ? 'THIS RUN:\n' : 'Press OK on the remote to try loading again.\n';
-    }
-    t += steps.join('\n');
-    d.textContent = t;
-  }
-
   function mark(t) {
-    steps.push(t);
+    steps.push('+' + ((Date.now() - t0) / 1000).toFixed(1) + 's ' + t);
+    if (steps.length > MAX) steps.splice(0, steps.length - MAX);
     save();
-    if (boxShown) { try { render(); } catch (e) {} }
+    if (panel) render();
   }
 
-  function showBox() {
-    boxShown = true;
-    try { render(); } catch (e) {}
+  // ---- developer panel (hidden; RED x5 toggles it). Never takes focus or input.
+  var panel = null;
+  function render() {
+    var prev = '';
+    try {
+      var p = JSON.parse(localStorage.getItem(PREV) || 'null');
+      if (p && p.length) prev = 'PREVIOUS RUN:\n' + p.slice(-25).join('\n') + '\n\n';
+    } catch (e) {}
+    panel.textContent = prev + 'THIS RUN:\n' + steps.slice(-45).join('\n');
   }
+  function togglePanel() {
+    if (panel) { panel.remove(); panel = null; return; }
+    panel = document.createElement('div');
+    panel.style.cssText = 'position:fixed;left:12px;top:12px;width:46%;max-height:94%;overflow:hidden;' +
+      'z-index:99999;pointer-events:none;color:#fff;font:13px/1.35 monospace;' +
+      'background:rgba(0,0,0,.82);padding:10px 12px;border-radius:8px;white-space:pre-wrap;word-break:break-all';
+    panel.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(panel);
+    render();
+  }
+  var reds = [];
+  document.addEventListener('keydown', function (e) {
+    if (e.keyCode !== 403) return; // RED colour key
+    var now = Date.now();
+    reds = reds.filter(function (t) { return now - t < 2500; });
+    reds.push(now);
+    if (reds.length >= 5) { reds = []; togglePanel(); }
+  }, true);
 
-  // ---- errors always surface
+  // ---- errors are recorded (not shown)
   window.addEventListener('error', function (e) {
     var m = e.message || 'script error';
     if (e.filename) m += ' @' + String(e.filename).split('/').pop() + ':' + e.lineno;
-    if (e.error && e.error.stack) m += '\n' + String(e.error.stack).split('\n').slice(0, 4).join('\n');
-    mark('ERROR: ' + m);
-    showBox();
+    if (e.error && e.error.stack) m += ' | ' + String(e.error.stack).split('\n').slice(0, 3).join(' | ');
+    if (e.target && e.target !== window && (e.target.src || e.target.href)) {
+      m = 'resource failed: ' + (e.target.src || e.target.href);
+    }
+    mark('ERROR ' + m);
   }, true);
   window.addEventListener('unhandledrejection', function (e) {
     var r = e.reason || {};
-    mark('ERROR(promise): ' + (r.message || r));
-    showBox();
+    mark('ERROR(promise) ' + (r.message || r) + (r.stack ? ' | ' + String(r.stack).split('\n').slice(0, 2).join(' | ') : ''));
   });
 
-  // ---- breadcrumbs: every file the engine asks for (the last line = where it died)
+  // ---- every request with its result (status and time, or the error)
+  function short(u) {
+    try {
+      var s = String((u && u.url) || u).split('?')[0];
+      return s.split('/').slice(-2).join('/');
+    } catch (e) { return '?'; }
+  }
   if (window.fetch) {
     var f0 = window.fetch;
-    window.fetch = function (u, o) {
-      try { mark('fetch ' + String((u && u.url) || u).split('?')[0].split('/').slice(-2).join('/')); } catch (e) {}
-      return f0.apply(this, arguments);
+    window.fetch = function (u) {
+      var name = short(u);
+      var started = Date.now();
+      var p = f0.apply(this, arguments);
+      try {
+        p.then(function (r) {
+          mark('fetch ' + name + ' -> ' + r.status + ' (' + (Date.now() - started) + 'ms)');
+        }, function (err) {
+          mark('fetch ' + name + ' -> FAILED ' + ((err && err.message) || err) + ' (' + (Date.now() - started) + 'ms)');
+        });
+      } catch (e) {}
+      return p;
     };
   }
   var xo = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function (m, u) {
-    try { mark('xhr ' + String(u).split('?')[0].split('/').slice(-2).join('/')); } catch (e) {}
+    var name = short(u);
+    var x = this;
+    var started = Date.now();
+    try {
+      x.addEventListener('loadend', function () {
+        mark('xhr ' + name + ' -> ' + (x.status || 'FAILED') + ' (' + (Date.now() - started) + 'ms)');
+      });
+    } catch (e) {}
     return xo.apply(this, arguments);
   };
-  if (window.WebAssembly && WebAssembly.instantiateStreaming) {
-    var wi = WebAssembly.instantiateStreaming;
-    WebAssembly.instantiateStreaming = function () {
-      mark('wasm instantiate (streaming)');
-      return wi.apply(this, arguments);
-    };
-  }
 
-  // Belt and braces: no code path may touch service workers (they crash LG's WebAppManager).
+  // No code path may touch service workers (registering one crashes LG's WebAppManager).
   try { delete Navigator.prototype.serviceWorker; } catch (e) {}
   try { delete window.caches; } catch (e) {}
 
-  // The app paints at 2/3 scale (1280x720 on a 1080p window) and the TV scales it up:
-  // LG's web engine paints in software and full 1080p stuttered. The window itself stays
-  // 1920x1080 (a 720p appinfo resolution made the first frame crash on webOS 24).
+  // The app paints at 2/3 scale (1280x720 on the 1080p window) and the TV scales it up:
+  // LG's web engine paints in software and full 1080p stuttered. The window stays 1920x1080
+  // (a 720p appinfo resolution made the first frame crash).
   try {
     Object.defineProperty(window, 'devicePixelRatio', { get: function () { return 2 / 3; } });
   } catch (e) {}
 
-  mark('start ' + new Date().toISOString().slice(11, 19) + ' ' + navigator.userAgent.slice(-45));
+  mark('start ' + navigator.userAgent.slice(-45));
 
-  // Every script the engine loader adds, and whether it finished.
-  try {
-    new MutationObserver(function (muts) {
-      muts.forEach(function (m) {
-        Array.prototype.forEach.call(m.addedNodes, function (n) {
-          if (!n || n.tagName !== 'SCRIPT' || !n.src) return;
-          var f = String(n.src).split('?')[0].split('/').pop();
-          mark('script+ ' + f);
-          n.addEventListener('load', function () { mark('script ok ' + f); });
-          n.addEventListener('error', function () { mark('script FAILED ' + f); showBox(); });
-        });
-      });
-    }).observe(document.documentElement, { childList: true, subtree: true });
-  } catch (e) {}
-
-  // Heartbeat: the last t+N before silence = the second it died in.
-  var hb = 0;
-  var hbT = setInterval(function () {
-    hb++;
-    if (hb > 25) { clearInterval(hbT); return; }
-    mark('t+' + hb + 's');
-  }, 1000);
-  window.addEventListener('flutter-first-frame', function () { clearInterval(hbT); });
-
-  // ---- boot gate: after a crash the app waits for OK, so the log can be read
-  var boot = function () {
-    boot.done = true;
-    mark('boot: loading the engine');
-    if (window.__b1gBoot) window.__b1gBoot();
-  };
-  boot.done = false;
-
+  // ---- start the engine at once (index.html leaves the start to this file)
   document.addEventListener('DOMContentLoaded', function () {
-    mark('page ready');
-    if (crashedBefore) {
-      showBox();
-      // Wait for any remote key before loading the heavy part.
-      var go = function (e) {
-        if (boot.done) return;
-        document.removeEventListener('keydown', go, true);
-        boot();
-      };
-      document.addEventListener('keydown', go, true);
-    } else {
-      boot();
-    }
+    mark('page ready, loading the engine');
+    if (window.__b1gBoot) window.__b1gBoot();
   });
-
-  window.addEventListener('flutter-first-frame', function () {
-    mark('app drawing');
-    try { localStorage.removeItem(KEY); } catch (e) {}
-    var d = document.getElementById('b1g-boot');
-    if (d && !crashedBefore) d.remove();
-  });
-
+  window.addEventListener('flutter-first-frame', function () { mark('app drawing'); });
 
   // ---- HLS tuned for TV zapping: small start buffer, short timeouts, capped memory.
-  // media_kit's loader creates window.Hls and then "new Hls(config)": the constructor is
-  // wrapped once so every player gets these settings.
+  // media_kit creates window.Hls and then "new Hls(config)": the constructor is wrapped once
+  // so every player gets these settings.
   var hlsTimer = setInterval(function () {
     var H = window.Hls;
     if (!H || H.__b1g) return;
@@ -181,6 +153,7 @@
       Object.setPrototypeOf(W, H);   // statics: isSupported, Events, ...
       W.prototype = H.prototype;
       window.Hls = W;
+      mark('hls tuned');
       clearInterval(hlsTimer);
     } catch (e) {
       clearInterval(hlsTimer);
@@ -202,8 +175,6 @@
     });
   }
   function stop(e) { e.preventDefault(); e.stopImmediatePropagation(); }
-  // Some LG remotes send the old names ('Left') or no name at all for the arrows; the app
-  // only understands 'ArrowLeft' and friends, so those presses are sent again properly.
   var arrows = { Left: 'ArrowLeft', Right: 'ArrowRight', Up: 'ArrowUp', Down: 'ArrowDown' };
   var byCode = { 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown' };
   document.addEventListener('keydown', function (e) {
