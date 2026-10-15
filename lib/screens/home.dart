@@ -254,6 +254,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _choosePlaylist() async {
     final choice = await Navigator.of(context).push<BPlaylist>(
         MaterialPageRoute(builder: (_) => PlaylistsScreen(current: playlistTitle(widget.api))));
+    // A playlist was deleted there: follow the website now (the one in use may be gone).
+    if (PlaylistsScreen.takeDeleted() && mounted && choice == null) {
+      await _followSite();
+      return;
+    }
     if (choice == null || !mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()

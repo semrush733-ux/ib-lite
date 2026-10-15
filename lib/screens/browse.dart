@@ -388,7 +388,13 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     return all;
   }
 
+  /// When the search box closed: the remote's OK / the keyboard's Search key can arrive once more
+  /// on the list behind it (it used to open "All" and show everything instead of the results).
+  DateTime _searchClosed = DateTime(2000);
+  bool get _justSearched => DateTime.now().difference(_searchClosed) < const Duration(milliseconds: 900);
+
   Future<void> _select(String id, String name) async {
+    if (_justSearched && id != _searchId) return;
     _focusTimer?.cancel();
     if (id == _selected && _items != null && id != _favId && id != _recentId) return;
     final request = ++_request;
@@ -448,8 +454,10 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
   }
 
   Future<void> _search() async {
+    if (_justSearched) return; // the same key press again: no second search box
     _focusTimer?.cancel();
     final q = await _askSearch(context, _query);
+    _searchClosed = DateTime.now();
     if (q == null || q.isEmpty || !mounted) return;
     final request = ++_request;
     setState(() {
@@ -462,15 +470,40 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     try {
       final all = await _loadAll();
       if (!mounted || request != _request) return;
-      final needle = q.toLowerCase();
-      final found =
-          all.where((i) => Store.allowed(i) && i.name.toLowerCase().contains(needle)).take(400).toList();
+      final words = _norm(q).split(' ').where((w) => w.isNotEmpty).toList();
+      final found = all
+          .where((i) => Store.allowed(i) && _matches(_norm(i.name), words))
+          .take(400)
+          .toList();
       setState(() => _items = found);
       log('browse ${widget.kind.name} search=${found.length}');
     } catch (e) {
       if (!mounted || request != _request) return;
       setState(() => _itemsError = friendlyError(e));
     }
+  }
+
+  /// Lower case, letters and digits only (so "Spider-Man" is found with "spider man").
+  static String _norm(String s) {
+    const from = 'àáâãäåèéêëìíîïòóôõöùúûüçñ';
+    const to = 'aaaaaaeeeeiiiiooooouuuucn';
+    final b = StringBuffer();
+    for (final ch in s.toLowerCase().split('')) {
+      final k = from.indexOf(ch);
+      final c = k >= 0 ? to[k] : ch;
+      b.write(RegExp(r'[a-z0-9\u0600-\u06ff\u0900-\u097f]').hasMatch(c) ? c : ' ');
+    }
+    return b.toString().replaceAll(RegExp(r' +'), ' ').trim();
+  }
+
+  /// Every typed word is somewhere in the name.
+  static bool _matches(String name, List<String> words) {
+    if (words.isEmpty) return false;
+    final joined = name.replaceAll(' ', '');
+    for (final w in words) {
+      if (!name.contains(w) && !joined.contains(w)) return false;
+    }
+    return true;
   }
 
   void _retryItems() {

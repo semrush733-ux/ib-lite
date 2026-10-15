@@ -609,6 +609,21 @@ class Backend {
     return {'name': (v['name'] ?? 'My VPN').toString(), 'config': config};
   }
 
+  /// Removes one of this device's playlists (a locked one needs its PIN). Returns the message.
+  static Future<String> deletePlaylist(int id, {String pin = ''}) async {
+    if (!registered && !await ensureRegistered()) {
+      throw BackendException('No connection to the server.');
+    }
+    final data = await _post('/public/playlist-delete', {
+      'device_id': deviceId,
+      'pairing_code': pairingCode,
+      'playlist_id': id,
+      if (pin.isNotEmpty) 'current_pin': pin,
+    });
+    final m = data is Map ? (data['message'] ?? '').toString() : '';
+    return m.isEmpty ? 'Playlist removed.' : m;
+  }
+
   static Future<List<BPlaylist>> playlists() async {
     if (!registered && !await ensureRegistered()) {
       throw BackendException('No connection to the server.');
