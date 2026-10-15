@@ -270,14 +270,13 @@ class ExoEngine(
                 enhance = 0
                 send(id, "enhanceoff", mapOf("message" to (e.message ?: "")))
             }
-            // Live HLS: stay ~4 s behind the newest second (a network hiccup no longer stops the
-            // picture) and let ExoPlayer catch up by playing 1-3 % faster or slower, unnoticed.
+            // Live HLS: the server's own safe distance behind the newest second (a forced 4 s was too
+            // close on servers with long segments and stalled) and let ExoPlayer catch up by playing 1-3 % faster or slower, unnoticed.
             val item = if (live) {
                 MediaItem.Builder()
                     .setUri(url)
                     .setLiveConfiguration(
                         MediaItem.LiveConfiguration.Builder()
-                            .setTargetOffsetMs(4000)
                             .setMinPlaybackSpeed(0.97f)
                             .setMaxPlaybackSpeed(1.03f)
                             .build()

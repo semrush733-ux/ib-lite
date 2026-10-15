@@ -28,14 +28,13 @@ class Smooth {
   static BufferProfile profileFor(String url, {required bool live}) {
     final s = score(url);
     if (live) {
-      // A server that never stops starts with very little in the buffer (picture comes fastest).
-      if (s <= 0) return const BufferProfile(800, 2000, '1');
-      if (s <= 2) return const BufferProfile(1100, 2500, '1');
+      // Same as the builds that played smoothly (0.8 s starts caused stalls on busy servers).
+      if (s <= 0) return const BufferProfile(1000, 2500, '1');
+      if (s <= 2) return const BufferProfile(1500, 3000, '1');
       if (s <= 4) return const BufferProfile(2500, 5000, '2');
       return const BufferProfile(4000, 8000, '3');
     }
-    if (s <= 0) return const BufferProfile(800, 2500, '1');
-    if (s <= 2) return const BufferProfile(1200, 3000, '2');
+    if (s <= 2) return const BufferProfile(1500, 3000, '2');
     if (s <= 4) return const BufferProfile(2500, 5000, '3');
     return const BufferProfile(4000, 8000, '4');
   }
