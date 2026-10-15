@@ -62,7 +62,7 @@ class CaptureService : Service() {
 
     private val main = Handler(Looper.getMainLooper())
     private var projection: MediaProjection? = null
-    private var recorder: ScreenRecorder? = null
+    private var recorder: Rec? = null
     private var file: File? = null
     private var shot = false
     private var bubble: TextView? = null
@@ -188,34 +188,125 @@ class CaptureService : Service() {
 
     // ------------------------------------------------------------------ recording
 
-    private fun startRecording() {
-        val p = projection ?: return finish(null)
-        val (sw, sh, dpi) = screen()
-        val fps = prefs.fps
-        val tries = if (prefs.quality >= 1080) listOf(1080, 720) else listOf(720)
-        val f = File(Box.review(this), "rec_${System.currentTimeMillis()}.mp4.tmp")
-        for (q in tries) {
-            val (w, h) = target(sw, sh, q)
-            // About 0.1 bit per pixel per frame: sharp text and smooth motion, sensible file size.
-            val bitrate = (w.toLong() * h * fps / 10).coerceIn(4_000_000L, 16_000_000L).toInt()
+    private var recDisplay: VirtualDisplay? = null
+    private var sizes: List<Pair<Int, Int>> = emptyList()
+    private var dpi = 320
+    private val diag = ArrayList<String>()
+
+    private fun trace(s: String) {
+        Log.i("LiteRecorder", s)
+        diag += s
+        try {
+            val f = File(getExternalFilesDir(null) ?: filesDir, "recorder-log.txt")
+            if (f.length() > 100_000) f.delete()
+            f.appendText(java.text.SimpleDateFormat("MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date()) + "  " + s + "\n")
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun details() = diag.takeLast(3).joinToString("\n")
+
+    private fun bitrateFor(w: Int, h: Int) =
+        // About 0.1 bit per pixel per frame: sharp text and smooth motion, sensible file size.
+        (w.toLong() * h * prefs.fps / 10).coerceIn(4_000_000L, 16_000_000L).toInt()
+
+    private fun tryMediaRec(f: File): Rec? {
+        for ((w, h) in sizes) {
             try {
                 f.delete()
-                val r = ScreenRecorder(p, w, h, dpi, fps, bitrate, prefs.sound && hasAudioPermission(), f)
-                r.start()
-                recorder = r
-                file = f
-                break
+                val m = MediaRec(this, w, h, prefs.fps, bitrateFor(w, h), f)
+                trace("android recorder ready ${w}x$h")
+                return m
             } catch (e: Exception) {
-                Log.w("LiteRecorder", "encoder $q: $e")
-                lastError = "This TV's video encoder refused ${q}p."
+                trace("android recorder ${w}x$h: ${e.javaClass.simpleName} ${e.message ?: ""}")
             }
         }
-        if (recorder == null) return finish(null)
+        return null
+    }
+
+    private fun startRecording() {
+        val p = projection ?: return finish(null)
+        val (sw, sh, d) = screen()
+        dpi = d
+        sizes = Sizes.candidates(sw, sh, prefs.quality)
+        trace("screen ${sw}x$sh dpi $d, Android ${Build.VERSION.SDK_INT}, ${Build.MANUFACTURER} ${Build.MODEL}; sizes $sizes")
+        val sound = prefs.sound && hasAudioPermission()
+        val f = File(Box.review(this), "rec_${System.currentTimeMillis()}.mp4.tmp")
+        var rec: Rec? = null
+        loop@ for (basic in listOf(false, true)) {
+            for ((w, h) in sizes) {
+                try {
+                    f.delete()
+                    val r = ScreenRecorder(p, w, h, prefs.fps, bitrateFor(w, h), sound, f, basic)
+                    r.prepare()
+                    trace("encoder ready ${w}x$h basic=$basic sound=${r.withSound}")
+                    rec = r
+                    break@loop
+                } catch (e: Exception) {
+                    trace("encoder ${w}x$h basic=$basic: ${e.javaClass.simpleName} ${e.message ?: ""}")
+                }
+            }
+        }
+        if (rec == null) rec = tryMediaRec(f)
+        if (rec == null) {
+            lastError = "Recording could not start on this TV.\n${details()}"
+            return finish(null)
+        }
+        try {
+            recDisplay = p.createVirtualDisplay(
+                "LiteRecorder", rec.width, rec.height, dpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, rec.surface, null, null,
+            )
+            rec.begin()
+        } catch (e: Exception) {
+            trace("start: ${e.javaClass.simpleName} ${e.message ?: ""}")
+            rec.abandon()
+            lastError = "Recording could not start on this TV.\n${details()}"
+            return finish(null)
+        }
+        recorder = rec
+        file = f
         lastError = ""
         state = "recording"
         startedAt = System.currentTimeMillis()
         if (prefs.bubble) showBubble("● REC 0:00") else hideBubble()
         recTick()
+        if (rec.frames() >= 0) main.postDelayed({ checkPictures() }, 4000)
+    }
+
+    /** The encoder gave no picture: carry on with Android's own recorder (same screen, no gap in the session). */
+    private fun checkPictures() {
+        if (state != "recording") return
+        val r = recorder ?: return
+        val n = r.frames()
+        if (n != 0) {
+            trace("${r.name}: $n pictures in 4 s")
+            return
+        }
+        trace("${r.name}: no picture in 4 s, switching to the android recorder")
+        val f2 = File(Box.review(this), "rec_${System.currentTimeMillis()}.mp4.tmp")
+        val m = tryMediaRec(f2)
+        val d = recDisplay
+        if (m == null || d == null) {
+            lastError = "This TV's video encoder gives no picture.\n${details()}"
+            stopRecording()
+            return
+        }
+        try {
+            d.resize(m.width, m.height, dpi)
+            d.surface = m.surface
+            m.begin()
+        } catch (e: Exception) {
+            trace("switch: ${e.javaClass.simpleName} ${e.message ?: ""}")
+            m.abandon()
+            lastError = "This TV's video encoder gives no picture.\n${details()}"
+            stopRecording()
+            return
+        }
+        recorder = m
+        file = f2
+        startedAt = System.currentTimeMillis()
+        Thread { r.abandon() }.start()
     }
 
     private fun hasAudioPermission() =
@@ -251,8 +342,12 @@ class CaptureService : Service() {
             val ok = try {
                 r.stop()
             } catch (e: Exception) {
+                trace("stop: ${e.javaClass.simpleName} ${e.message ?: ""}")
                 false
             }
+            trace("${r.name} stopped ok=$ok pictures=${r.frames()} size=${file?.length() ?: 0}")
+            try { recDisplay?.release() } catch (_: Exception) {}
+            recDisplay = null
             val tmp = file
             var done: File? = null
             if (ok && tmp != null && tmp.length() > 0) {
@@ -268,7 +363,7 @@ class CaptureService : Service() {
                 })
             } else {
                 tmp?.delete()
-                if (lastError.isEmpty()) lastError = "The recording could not be saved."
+                if (lastError.isEmpty()) lastError = "The recording could not be saved.\n${details()}"
             }
             main.post { finish(done) }
         }.start()
@@ -342,6 +437,8 @@ class CaptureService : Service() {
         state = ""
         shotDisplay?.release()
         shotDisplay = null
+        try { recDisplay?.release() } catch (_: Exception) {}
+        recDisplay = null
         reader?.close()
         reader = null
         try {

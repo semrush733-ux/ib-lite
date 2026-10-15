@@ -25,19 +25,23 @@ import java.nio.ByteBuffer
  */
 class ScreenRecorder(
     private val projection: MediaProjection,
-    val width: Int,
-    val height: Int,
-    private val dpi: Int,
+    override val width: Int,
+    override val height: Int,
     private val fps: Int,
     private val bitrate: Int,
     wantAudio: Boolean,
     private val out: File,
-) {
+    /** Plain encoder settings only (some TV encoders refuse the extra ones). */
+    private val basic: Boolean = false,
+) : Rec {
     private val tag = "LiteRecorder"
 
     private lateinit var video: MediaCodec
     private var input: Surface? = null
-    private var display: VirtualDisplay? = null
+    private val frameCount = java.util.concurrent.atomic.AtomicInteger(0)
+    override val surface: Surface get() = input!!
+    override fun frames() = frameCount.get()
+    override val name get() = if (basic) "encoder (basic)" else "encoder"
     private var audio: MediaCodec? = null
     private var mic: AudioRecord? = null
     private val muxer = MediaMuxer(out.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
@@ -58,19 +62,22 @@ class ScreenRecorder(
     private var aThread: Thread? = null
 
     /** True when this recording has the apps' sound. */
-    val withSound get() = hasAudio
+    override val withSound get() = hasAudio
 
+    /** Sets up the encoders; the screen is then sent to [surface]. */
     @SuppressLint("MissingPermission")
-    fun start() {
+    fun prepare() {
         startNs = System.nanoTime()
         val f = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-            // A still screen keeps sending frames, so the video timeline stays even.
-            setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps)
-            if (Build.VERSION.SDK_INT >= 23) setInteger(MediaFormat.KEY_PRIORITY, 0)
+            if (!basic) {
+                // A still screen keeps sending frames, so the video timeline stays even.
+                setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps)
+                if (Build.VERSION.SDK_INT >= 23) setInteger(MediaFormat.KEY_PRIORITY, 0)
+            }
         }
         video = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         video.configure(f, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
@@ -87,10 +94,10 @@ class ScreenRecorder(
             }
         }
 
-        display = projection.createVirtualDisplay(
-            "LiteRecorder", width, height, dpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, null,
-        )
+    }
+
+    override fun begin() {
+        startNs = System.nanoTime()
         vThread = Thread({ drainVideo() }, "rec-video").apply { start() }
         if (hasAudio) aThread = Thread({ pumpAudio() }, "rec-audio").apply { start() }
     }
@@ -177,8 +184,8 @@ class ScreenRecorder(
             if (orig.size <= 0) return
             val info = MediaCodec.BufferInfo().apply { set(orig.offset, orig.size, rel(isVideo, orig.presentationTimeUs), orig.flags) }
             if (!started) {
-                // Sound did not start within 3 s: the video goes on without it.
-                if (isVideo && hasAudio && aTrack < 0 && videoFormatAt > 0 && System.nanoTime() - videoFormatAt > 3_000_000_000L) {
+                // Sound did not start within 2 s: the video goes on without it.
+                if (isVideo && hasAudio && aTrack < 0 && videoFormatAt > 0 && System.nanoTime() - videoFormatAt > 2_000_000_000L) {
                     maybeStart(force = true)
                 } else {
                     if (waiting.size < 600) {
@@ -226,7 +233,10 @@ class ScreenRecorder(
                     idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> addTrack(true, video.outputFormat)
                     idx >= 0 -> {
                         val buf = video.getOutputBuffer(idx)
-                        if (buf != null && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) write(true, buf, info)
+                        if (buf != null && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && info.size > 0) {
+                            frameCount.incrementAndGet()
+                            write(true, buf, info)
+                        }
                         video.releaseOutputBuffer(idx, false)
                         if (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) break
                     }
@@ -287,7 +297,7 @@ class ScreenRecorder(
         (if (firstUs < 0) System.nanoTime() / 1000 else firstUs) + bytes * 1_000_000L / bytesPerSec
 
     /** Ends the file. Returns true when it holds video. */
-    fun stop(): Boolean {
+    override fun stop(): Boolean {
         stopping = true
         try {
             video.signalEndOfInputStream()
@@ -295,8 +305,6 @@ class ScreenRecorder(
         }
         vThread?.join(6000)
         aThread?.join(4000)
-        display?.release()
-        display = null
         val ok: Boolean
         synchronized(lock) {
             if (!started && vTrack >= 0) maybeStart(force = true)
@@ -336,6 +344,9 @@ class ScreenRecorder(
         audio = null
     }
 
-    /** Length recorded so far, in seconds. */
-    fun seconds(): Long = maxOf(0, lastV / 1_000_000L)
+    /** Gives up (no picture came): closes everything, no file. */
+    override fun abandon() {
+        try { stop() } catch (_: Exception) {}
+        out.delete()
+    }
 }
