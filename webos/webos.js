@@ -2,62 +2,127 @@
 // - Back on the remote goes one screen back; on the first screen the app asks "Exit?" itself and
 //   then calls window.tizenExit() (same hook name as the Samsung build), which closes the app here.
 // - Play / pause / stop and channel keys are passed on as the keys the app already knows.
+// - Flight recorder: every start-up step (and every file the engine loads) is written to
+//   localStorage at once, so it survives a crash. When the previous run died before the first
+//   picture, the next start shows that log in a red box and waits for OK before trying again.
 (function () {
-  // ---- Start-up watch: shows on screen how far the app got, and any error, so a TV
-  // that closes the app at once can tell us why (remove once LG TVs run fine).
+  var KEY = 'b1g_bootlog';
+  var steps = [];
+  var boxShown = false;
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(steps)); } catch (e) {}
+  }
+
   function box() {
     var d = document.getElementById('b1g-boot');
     if (!d && document.body) {
       d = document.createElement('div');
       d.id = 'b1g-boot';
       d.style.cssText = 'position:fixed;left:16px;top:16px;right:16px;z-index:99999;color:#fff;' +
-        'font:16px/1.45 monospace;background:rgba(120,0,0,.92);padding:14px 18px;border-radius:10px;' +
-        'white-space:pre-wrap;word-break:break-all;display:none;max-height:85%;overflow:hidden';
+        'font:17px/1.5 monospace;background:rgba(110,0,0,.93);padding:14px 18px;border-radius:10px;' +
+        'white-space:pre-wrap;word-break:break-all;max-height:88%;overflow:hidden';
       document.body.appendChild(d);
     }
     return d;
   }
-  var steps = [];
-  function mark(t, show) {
-    steps.push(t);
-    try {
-      var d = box();
-      if (d && (show || d.style.display === 'block')) {
-        d.style.display = 'block';
-        d.textContent = 'Lite Player start log\n' + steps.join('\n');
-      }
-    } catch (e) {}
+
+  var prev = null;
+  try { prev = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  var crashedBefore = prev && prev.length && prev.join(' ').indexOf('app drawing') === -1;
+
+  function render() {
+    var d = box();
+    if (!d) return;
+    var t = '';
+    if (crashedBefore) {
+      t += 'LAST RUN (died at the bottom line):\n' + prev.join('\n') + '\n\n';
+      t += boot.done ? 'THIS RUN:\n' : 'Press OK on the remote to try loading again.\n';
+    }
+    t += steps.join('\n');
+    d.textContent = t;
   }
+
+  function mark(t) {
+    steps.push(t);
+    save();
+    if (boxShown) { try { render(); } catch (e) {} }
+  }
+
+  function showBox() {
+    boxShown = true;
+    try { render(); } catch (e) {}
+  }
+
+  // ---- errors always surface
   window.addEventListener('error', function (e) {
     var m = e.message || 'script error';
-    if (e.filename) m += '\n  at ' + e.filename.split('/').pop() + ':' + e.lineno;
+    if (e.filename) m += ' @' + String(e.filename).split('/').pop() + ':' + e.lineno;
     if (e.error && e.error.stack) m += '\n' + String(e.error.stack).split('\n').slice(0, 4).join('\n');
-    mark('ERROR: ' + m, true);
+    mark('ERROR: ' + m);
+    showBox();
   }, true);
   window.addEventListener('unhandledrejection', function (e) {
     var r = e.reason || {};
-    mark('ERROR (promise): ' + (r.message || r) + (r.stack ? '\n' + String(r.stack).split('\n').slice(0, 4).join('\n') : ''), true);
+    mark('ERROR(promise): ' + (r.message || r));
+    showBox();
   });
-  mark('webos.js loaded  ua=' + navigator.userAgent.slice(-60));
-  document.addEventListener('DOMContentLoaded', function () { mark('page loaded'); });
+
+  // ---- breadcrumbs: every file the engine asks for (the last line = where it died)
+  if (window.fetch) {
+    var f0 = window.fetch;
+    window.fetch = function (u, o) {
+      try { mark('fetch ' + String((u && u.url) || u).split('?')[0].split('/').slice(-2).join('/')); } catch (e) {}
+      return f0.apply(this, arguments);
+    };
+  }
+  var xo = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (m, u) {
+    try { mark('xhr ' + String(u).split('?')[0].split('/').slice(-2).join('/')); } catch (e) {}
+    return xo.apply(this, arguments);
+  };
+  if (window.WebAssembly && WebAssembly.instantiateStreaming) {
+    var wi = WebAssembly.instantiateStreaming;
+    WebAssembly.instantiateStreaming = function () {
+      mark('wasm instantiate (streaming)');
+      return wi.apply(this, arguments);
+    };
+  }
+
+  mark('start ' + new Date().toISOString().slice(11, 19) + ' ' + navigator.userAgent.slice(-45));
+
+  // ---- boot gate: after a crash the app waits for OK, so the log can be read
+  var boot = function () {
+    boot.done = true;
+    mark('boot: loading the engine');
+    if (window.__b1gBoot) window.__b1gBoot();
+  };
+  boot.done = false;
+
+  document.addEventListener('DOMContentLoaded', function () {
+    mark('page ready');
+    if (crashedBefore) {
+      showBox();
+      // Wait for any remote key before loading the heavy part.
+      var go = function (e) {
+        if (boot.done) return;
+        document.removeEventListener('keydown', go, true);
+        boot();
+      };
+      document.addEventListener('keydown', go, true);
+    } else {
+      boot();
+    }
+  });
+
   window.addEventListener('flutter-first-frame', function () {
     mark('app drawing');
+    try { localStorage.removeItem(KEY); } catch (e) {}
     var d = document.getElementById('b1g-boot');
-    // All fine: never show the log.
-    if (d && d.textContent.indexOf('ERROR') === -1) d.remove();
+    if (d && !crashedBefore) d.remove();
   });
-  var waited = 0;
-  var t = setInterval(function () {
-    waited += 2;
-    if (window._flutter) mark('engine script present (' + waited + 's)');
-    if (waited >= 8) {
-      clearInterval(t);
-      // Still no picture after 8 s: show the log so the reason can be read / photographed.
-      var d = box();
-      if (d) { d.style.display = 'block'; d.textContent = 'Lite Player start log\n' + steps.join('\n'); }
-    }
-  }, 2000);
 
+  // ---- remote keys / exit
   window.tizenExit = function () {
     try { if (window.webOS && webOS.platformBack) { webOS.platformBack(); return; } } catch (e) {}
     try { window.close(); } catch (e) {}

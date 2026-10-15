@@ -70,6 +70,9 @@ jobs:
           test -f build/web/index.html
           # The package opens index.html from its own folder.
           sed -i 's|<base href="/">|<base href="./">|' build/web/index.html
+          # The engine loads only when webos.js says so (after a crash it waits for OK first).
+          grep -q '<script src="flutter_bootstrap.js" async></script>' build/web/index.html
+          sed -i 's|<script src="flutter_bootstrap.js" async></script>|<script>window.__b1gBoot=function(){if(window.__b1gBooted)return;window.__b1gBooted=true;var s=document.createElement("script");s.src="flutter_bootstrap.js";document.body.appendChild(s);};</script>|' build/web/index.html
           # webOS package description and icons.
           APPID="$(echo "$APP_ID" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9.-')"; [ -n "$APPID" ] || APPID=com.liteplayer.tv
           VENDOR="$(printf '%s' "${WEBSITE#*://}" | cut -d/ -f1)"; [ -n "$VENDOR" ] || VENDOR="$APP_NAME"
