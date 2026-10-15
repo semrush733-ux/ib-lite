@@ -15,6 +15,7 @@ import '../lang.dart';
 import '../prefetch.dart';
 import '../quality.dart';
 import '../smooth.dart';
+import '../start_poster.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -1572,6 +1573,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
 
   // ---------------------------------------------------------------------- UI
 
+  /// The start poster is up: nothing playing yet and no kept picture to show instead.
+  bool get _posterUp => !_ready && !_adopting && !_dead && !_holdPicture;
+
   @override
   Widget build(BuildContext context) {
     final busy = _status != null || (_buffering && !_userPaused);
@@ -1618,13 +1622,24 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                   )
                 else
                   const SizedBox.expand(),
+                // Instant start: the logo / poster is there at once (never a black screen) and
+                // fades into the video when its first picture is ready. Not over a stream the
+                // preview handed over, nor over the last picture kept during a reconnect.
+                StartPoster(
+                  key: ValueKey('poster-${_zapTarget ?? _index}'),
+                  visible: _posterUp,
+                  url: shown.logo,
+                  title: shown.title,
+                  subtitle: shown.subtitle,
+                  live: widget.live,
+                ),
                 if (busy && !_dead)
-                  Loading(
-                    // One count per stream: it carries on through a reconnect and starts again
-                    // for the next channel or a pause to buffer.
+                  SoftPulse(
+                    // One per stream: it starts again for the next channel or a pause to buffer,
+                    // and shows only when that takes longer than half a second.
                     key: ValueKey('loading-$_index-$_ready'),
-                    label: _status,
-                    expected: Duration(milliseconds: widget.live ? 3000 : 4000),
+                    label: _status == 'Loading…' ? null : _status,
+                    belowPoster: _posterUp,
                   ),
                 if (_dead) Center(child: _DeadMessage(text: _status ?? '', detail: _lastError)),
                 IgnorePointer(
