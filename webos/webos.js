@@ -91,6 +91,30 @@
 
   mark('start ' + new Date().toISOString().slice(11, 19) + ' ' + navigator.userAgent.slice(-45));
 
+  // Every script the engine loader adds, and whether it finished.
+  try {
+    new MutationObserver(function (muts) {
+      muts.forEach(function (m) {
+        Array.prototype.forEach.call(m.addedNodes, function (n) {
+          if (!n || n.tagName !== 'SCRIPT' || !n.src) return;
+          var f = String(n.src).split('?')[0].split('/').pop();
+          mark('script+ ' + f);
+          n.addEventListener('load', function () { mark('script ok ' + f); });
+          n.addEventListener('error', function () { mark('script FAILED ' + f); showBox(); });
+        });
+      });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  } catch (e) {}
+
+  // Heartbeat: the last t+N before silence = the second it died in.
+  var hb = 0;
+  var hbT = setInterval(function () {
+    hb++;
+    if (hb > 25) { clearInterval(hbT); return; }
+    mark('t+' + hb + 's');
+  }, 1000);
+  window.addEventListener('flutter-first-frame', function () { clearInterval(hbT); });
+
   // ---- boot gate: after a crash the app waits for OK, so the log can be read
   var boot = function () {
     boot.done = true;

@@ -9,6 +9,7 @@
   "largeIcon": "largeIcon.png",
   "bgColor": "#14080B",
   "resolution": "1920x1080",
+  "requiredMemory": 400,
   "disableBackHistoryAPI": true,
   "handlesRelaunch": false
 }
