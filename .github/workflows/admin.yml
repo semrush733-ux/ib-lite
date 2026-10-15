@@ -57,17 +57,13 @@ jobs:
           python3 -m pip install --quiet pillow || true
           python3 - <<'PY'
           from PIL import Image, ImageDraw
-          sym = Image.open('../brand/icon.png').convert('RGBA')
-          bb = sym.getbbox()
-          if bb: sym = sym.crop(bb)
+          # Admin icon: brand symbol + gold admin shield + ADMIN tag (brand/admin-icon.png).
+          src = Image.open('../brand/admin-icon.png').convert('RGBA')
           for name, k in {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}.items():
               s = round(48 * k)
               img = Image.new('RGBA', (s, s), (0, 0, 0, 0))
               m = Image.new('L', (s, s), 0); ImageDraw.Draw(m).rounded_rectangle([0, 0, s - 1, s - 1], radius=round(s * .22), fill=255)
-              img.paste(Image.new('RGBA', (s, s), (20, 10, 13, 255)), (0, 0), m)
-              f = 0.66 * s / max(sym.size)
-              sm = sym.resize((max(1, round(sym.width * f)), max(1, round(sym.height * f))), Image.LANCZOS)
-              img.alpha_composite(sm, ((s - sm.width) // 2, (s - sm.height) // 2))
+              img.paste(src.resize((s, s), Image.LANCZOS), (0, 0), m)
               img.save('android/app/src/main/res/mipmap-%s/ic_launcher.png' % name)
           PY
 

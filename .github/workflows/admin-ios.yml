@@ -66,18 +66,12 @@ jobs:
           import os
           from PIL import Image
           d = 'ios/Runner/Assets.xcassets/AppIcon.appiconset'
-          sym = Image.open('../brand/icon.png').convert('RGBA')
-          bb = sym.getbbox()
-          if bb: sym = sym.crop(bb)
+          src = Image.open('../brand/admin-icon.png').convert('RGB')
           for f in os.listdir(d):
               if not f.endswith('.png'): continue
               p = os.path.join(d, f)
               s = Image.open(p).size[0]
-              img = Image.new('RGB', (s, s), (20, 10, 13))
-              k = 0.62 * s / max(sym.size)
-              sm = sym.resize((max(1, round(sym.width * k)), max(1, round(sym.height * k))), Image.LANCZOS)
-              img.paste(sm, ((s - sm.width) // 2, (s - sm.height) // 2), sm)
-              img.save(p)
+              src.resize((s, s), Image.LANCZOS).save(p)
           PY
           rm -rf test
 
