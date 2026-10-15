@@ -164,6 +164,14 @@
     });
   }
   function stop(e) { e.preventDefault(); e.stopImmediatePropagation(); }
+  // Some LG remotes send the old names ('Left') or no name at all for the arrows; the app
+  // only understands 'ArrowLeft' and friends, so those presses are sent again properly.
+  var arrows = { Left: 'ArrowLeft', Right: 'ArrowRight', Up: 'ArrowUp', Down: 'ArrowDown' };
+  var byCode = { 37: 'ArrowLeft', 38: 'ArrowUp', 39: 'ArrowRight', 40: 'ArrowDown' };
+  document.addEventListener('keydown', function (e) {
+    var fix = arrows[e.key] || (byCode[e.keyCode] && (!e.key || e.key.indexOf('Arrow') !== 0) ? byCode[e.keyCode] : null);
+    if (fix) { stop(e); send(fix, fix, e.keyCode); }
+  }, true);
   document.addEventListener('keydown', function (e) {
     switch (e.keyCode) {
       case 461: stop(e); history.back(); break;                                  // Back

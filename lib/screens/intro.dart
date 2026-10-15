@@ -27,7 +27,8 @@ class IntroGate extends StatefulWidget {
 }
 
 class _IntroGateState extends State<IntroGate> with SingleTickerProviderStateMixin {
-  static const _length = Duration(milliseconds: 4100);
+  // TVs (Samsung / LG web build) draw without a GPU video path: the intro is shorter there.
+  static const _length = Duration(milliseconds: kTizen ? 3200 : 4100);
 
   late final AnimationController _c = AnimationController(vsync: this, duration: _length);
   bool _done = IntroGate._shown;
@@ -225,7 +226,7 @@ class _LiteIntro extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final out = _seg(t, 3.55, 4.1); // final fade
+    final out = kTizen ? _seg(t, 2.7, 3.2) : _seg(t, 3.55, 4.1); // final fade
     final enter = _seg(t, 0.35, 1.55);
     final e = _outBack(enter);
     final name = RemoteBrand.introName.isNotEmpty ? RemoteBrand.introName : kAppName;
@@ -233,10 +234,10 @@ class _LiteIntro extends StatelessWidget {
     final underline = _outCubic(_seg(t, 2.55, 3.15));
     return LayoutBuilder(builder: (context, box) {
       final icon = box.maxHeight * 0.34;
-      final m = Matrix4.identity()
-        ..setEntry(3, 2, 0.0014)
-        ..rotateY((1 - e) * math.pi * 1.1)
-        ..scaleByDouble(0.25 + 0.75 * e, 0.25 + 0.75 * e, 1, 1);
+      // TVs: a plain scale (the 3D turn re-rasterises the picture every frame and stutters).
+      final m = Matrix4.identity()..setEntry(3, 2, kTizen ? 0.0 : 0.0014);
+      if (!kTizen) m.rotateY((1 - e) * math.pi * 1.1);
+      m.scaleByDouble(0.25 + 0.75 * e, 0.25 + 0.75 * e, 1, 1);
       return Opacity(
         opacity: 1 - out,
         child: Stack(
@@ -284,7 +285,8 @@ class _LiteIntro extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                         letterSpacing: box.maxHeight * 0.006,
                         color: Colors.white,
-                        shadows: const [Shadow(color: Color(0xAAE3262F), blurRadius: 24)],
+                        // Blurred shadows are what TVs render slowest: none there.
+                        shadows: kTizen ? null : const [Shadow(color: Color(0xAAE3262F), blurRadius: 24)],
                       ),
                     ),
                   ),
@@ -294,7 +296,7 @@ class _LiteIntro extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: _red,
                       borderRadius: BorderRadius.circular(3),
-                      boxShadow: const [BoxShadow(color: Color(0xCCE3262F), blurRadius: 14)],
+                      boxShadow: kTizen ? null : const [BoxShadow(color: Color(0xCCE3262F), blurRadius: 14)],
                     ),
                   ),
                 ],
@@ -330,8 +332,8 @@ class _GlowPainter extends CustomPainter {
             .createShader(Rect.fromCircle(center: c, radius: size.height * 0.75 * glow * pulse + 1)),
     );
 
-    // Diagonal light streaks sweeping across.
-    for (var i = 0; i < 5; i++) {
+    // Diagonal light streaks sweeping across (fewer on TVs).
+    for (var i = 0; i < (kTizen ? 2 : 5); i++) {
       final p = _seg(t, 0.05 + i * 0.14, 1.05 + i * 0.14);
       if (p <= 0 || p >= 1) continue;
       final x = -size.width * 0.3 + p * size.width * 1.6;
@@ -373,7 +375,7 @@ class _GlowPainter extends CustomPainter {
     final rnd = math.Random(7);
     final sp = _seg(t, 1.5, 4.1);
     if (sp > 0) {
-      for (var i = 0; i < 26; i++) {
+      for (var i = 0; i < (kTizen ? 10 : 26); i++) {
         final sx = rnd.nextDouble() * size.width;
         final sy = size.height * (0.9 - rnd.nextDouble() * 0.3) - sp * size.height * (0.3 + rnd.nextDouble() * 0.5);
         final a = (math.sin(sp * math.pi) * (0.3 + rnd.nextDouble() * 0.6)).clamp(0.0, 1.0);
