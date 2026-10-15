@@ -93,6 +93,13 @@
   try { delete Navigator.prototype.serviceWorker; } catch (e) {}
   try { delete window.caches; } catch (e) {}
 
+  // The app paints at 2/3 scale (1280x720 on a 1080p window) and the TV scales it up:
+  // LG's web engine paints in software and full 1080p stuttered. The window itself stays
+  // 1920x1080 (a 720p appinfo resolution made the first frame crash on webOS 24).
+  try {
+    Object.defineProperty(window, 'devicePixelRatio', { get: function () { return 2 / 3; } });
+  } catch (e) {}
+
   mark('start ' + new Date().toISOString().slice(11, 19) + ' ' + navigator.userAgent.slice(-45));
 
   // Every script the engine loader adds, and whether it finished.
