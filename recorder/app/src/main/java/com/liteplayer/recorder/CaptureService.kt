@@ -233,7 +233,9 @@ class CaptureService : Service() {
         val sound = prefs.sound && hasAudioPermission()
         val f = File(Box.review(this), "rec_${System.currentTimeMillis()}.mp4.tmp")
         var rec: Rec? = null
-        loop@ for (basic in listOf(false, true)) {
+        // This TV's encoder path could not write a file before: straight to Android's recorder.
+        if (prefs.useAndroidRecorder) rec = tryMediaRec(f)
+        if (rec == null) loop@ for (basic in listOf(false, true)) {
             for ((w, h) in sizes) {
                 try {
                     f.delete()
@@ -279,11 +281,13 @@ class CaptureService : Service() {
         if (state != "recording") return
         val r = recorder ?: return
         val n = r.frames()
-        if (n != 0) {
-            trace("${r.name}: $n pictures in 4 s")
+        val w = r.written()
+        if (n != 0 && w != 0) {
+            trace("${r.name}: $n pictures in 4 s, $w stored")
             return
         }
-        trace("${r.name}: no picture in 4 s, switching to the android recorder")
+        trace("${r.name}: $n pictures, $w stored in 4 s (${r.report()}), switching to the android recorder")
+        if (n > 0) prefs.useAndroidRecorder = true
         val f2 = File(Box.review(this), "rec_${System.currentTimeMillis()}.mp4.tmp")
         val m = tryMediaRec(f2)
         val d = recDisplay
@@ -345,12 +349,13 @@ class CaptureService : Service() {
                 trace("stop: ${e.javaClass.simpleName} ${e.message ?: ""}")
                 false
             }
-            trace("${r.name} stopped ok=$ok pictures=${r.frames()} size=${file?.length() ?: 0}")
+            val size = file?.length() ?: 0
+            trace("${r.name} stopped ok=$ok pictures=${r.frames()} size=$size ${r.report()}")
             try { recDisplay?.release() } catch (_: Exception) {}
             recDisplay = null
             val tmp = file
             var done: File? = null
-            if (ok && tmp != null && tmp.length() > 0) {
+            if (ok && tmp != null && size > 0) {
                 done = File(tmp.path.removeSuffix(".tmp"))
                 tmp.renameTo(done)
                 Box.writeMeta(done, JSONObject().apply {

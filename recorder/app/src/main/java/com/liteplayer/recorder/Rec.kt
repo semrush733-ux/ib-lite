@@ -17,6 +17,10 @@ interface Rec {
     val name: String
     /** Pictures written so far (-1 = cannot tell). */
     fun frames(): Int
+    /** Pictures stored in the file so far (-1 = cannot tell). */
+    fun written(): Int = -1
+    /** What happened inside (for the on-screen reason). */
+    fun report(): String = ""
     fun begin()
     fun stop(): Boolean
     fun abandon()

@@ -157,7 +157,12 @@ class ScreenRecorder(
         if (started || vTrack < 0) return
         if (hasAudio && aTrack < 0 && !force) return
         if (hasAudio && aTrack < 0) hasAudio = false
-        muxer.start()
+        try {
+            muxer.start()
+        } catch (e: Exception) {
+            if (firstErr.isEmpty()) firstErr = "muxer start: ${e.javaClass.simpleName} ${e.message ?: ""}"
+            throw e
+        }
         started = true
         for ((v, data, info) in waiting) put(v, ByteBuffer.wrap(data), info)
         waiting.clear()
@@ -217,10 +222,21 @@ class ScreenRecorder(
         buf.limit(info.offset + info.size)
         try {
             muxer.writeSampleData(if (isVideo) vTrack else aTrack, buf, i)
+            if (isVideo) writesOk.incrementAndGet()
         } catch (e: Exception) {
+            writesFail.incrementAndGet()
+            if (firstErr.isEmpty()) firstErr = "write: ${e.javaClass.simpleName} ${e.message ?: ""}"
             Log.w(tag, "write: $e")
         }
     }
+
+    private val writesOk = java.util.concurrent.atomic.AtomicInteger(0)
+    private val writesFail = java.util.concurrent.atomic.AtomicInteger(0)
+    @Volatile private var firstErr = ""
+
+    override fun written() = writesOk.get()
+    override fun report() = "started=$started track=$vTrack written=${writesOk.get()} failed=${writesFail.get()} waiting=${waiting.size}" +
+        (if (firstErr.isNotEmpty()) " first error: $firstErr" else "")
 
     // ------------------------------------------------------------------ threads
 
@@ -230,7 +246,11 @@ class ScreenRecorder(
             while (true) {
                 val idx = video.dequeueOutputBuffer(info, 10_000)
                 when {
-                    idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> addTrack(true, video.outputFormat)
+                    idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> try {
+                        addTrack(true, video.outputFormat)
+                    } catch (e: Exception) {
+                        if (firstErr.isEmpty()) firstErr = "add track: ${e.javaClass.simpleName} ${e.message ?: ""}"
+                    }
                     idx >= 0 -> {
                         val buf = video.getOutputBuffer(idx)
                         if (buf != null && info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0 && info.size > 0) {
@@ -312,6 +332,7 @@ class ScreenRecorder(
             try {
                 if (started) muxer.stop()
             } catch (e: Exception) {
+                if (firstErr.isEmpty()) firstErr = "muxer stop: ${e.javaClass.simpleName} ${e.message ?: ""}"
                 Log.w(tag, "muxer stop: $e")
             }
             try {

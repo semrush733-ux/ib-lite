@@ -44,6 +44,11 @@ class Prefs(ctx: Context) {
         get() = p.getBoolean("bubble", false)
         set(v) = p.edit().putBoolean("bubble", v).apply()
 
+    /** Set when the encoder path cannot write a file on this TV (then Android's recorder is used). */
+    var useAndroidRecorder: Boolean
+        get() = p.getBoolean("useAndroidRecorder", false)
+        set(v) = p.edit().putBoolean("useAndroidRecorder", v).apply()
+
     var uploadedCount: Int
         get() = p.getInt("uploaded", 0)
         set(v) = p.edit().putInt("uploaded", v).apply()
@@ -95,8 +100,10 @@ object Box {
 
     /** Partly written captures left by a crash or power cut. */
     fun clean(ctx: Context) {
+        // Never while a recording is being written (its file is a .tmp until it stops).
+        if (CaptureService.state.isNotEmpty()) return
         (review(ctx).listFiles() ?: emptyArray()).forEach {
-            if (it.name.endsWith(".tmp")) it.delete()
+            if (it.name.endsWith(".tmp") && System.currentTimeMillis() - it.lastModified() > 60_000) it.delete()
             if (it.name.endsWith(".json") && !File(it.path.removeSuffix(".json")).exists()) it.delete()
         }
     }
