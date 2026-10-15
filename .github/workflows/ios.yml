@@ -11,7 +11,7 @@ name: iPhone app (IPA)
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'recorder/**', '.github/workflows/recorder.yml', 'admin_app/**', 'brand/admin-icon.png', 'brand/make-admin-icon.py', '.github/workflows/admin-ios.yml', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**', '.github/workflows/play.yml']
+    paths-ignore: ['**.md', 'recorder/**', '.github/workflows/recorder.yml', 'admin_app/**', 'brand/admin-icon.png', 'brand/make-admin-icon.py', '.github/workflows/admin-ios.yml', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**', '.github/workflows/play.yml', 'tvlite/**', 'tools/build_tvlite.py']
   workflow_dispatch:
 
 concurrency:
