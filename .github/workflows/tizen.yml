@@ -72,6 +72,16 @@ jobs:
           test -f build/web/index.html
           # The package opens index.html from its own folder.
           sed -i 's|<base href="/">|<base href="./">|' build/web/index.html
+          # No service worker inside a packaged TV app (it crashes LG's WebAppManager and is
+          # useless on Samsung too: every file is already in the package).
+          python3 - <<'PY'
+          import re
+          p = 'build/web/flutter_bootstrap.js'
+          s = open(p).read()
+          s2 = re.sub(r'serviceWorkerSettings\s*:\s*\{[^{}]*\}\s*,?', '', s)
+          open(p, 'w').write(s2)
+          print('serviceWorkerSettings removed:', s != s2)
+          PY
           # Tizen package description and icon.
           PKG="$(python3 -c "import hashlib,sys;h=hashlib.md5(sys.argv[1].encode()).hexdigest();a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';print(''.join(a[int(h[i:i+2],16)%62] for i in range(0,20,2)))" "$APP_ID")"
           APPN="$(echo "$APK_NAME" | cut -c1-40)"
