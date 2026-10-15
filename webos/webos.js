@@ -89,6 +89,10 @@
     };
   }
 
+  // Belt and braces: no code path may touch service workers (they crash LG's WebAppManager).
+  try { delete Navigator.prototype.serviceWorker; } catch (e) {}
+  try { delete window.caches; } catch (e) {}
+
   mark('start ' + new Date().toISOString().slice(11, 19) + ' ' + navigator.userAgent.slice(-45));
 
   // Every script the engine loader adds, and whether it finished.
