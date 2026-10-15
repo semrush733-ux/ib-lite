@@ -102,6 +102,17 @@ jobs:
           mv "$RUNNER_TEMP/signed.apk" out/AdminPanel.apk
           rm -f "$RUNNER_TEMP/release.jks"
 
+      - name: Check the APK (signature, Android versions)
+        if: always()
+        run: |
+          [ -f out/AdminPanel.apk ] || exit 0
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          {
+            "$BT/apksigner" verify --verbose out/AdminPanel.apk 2>&1 | head -12
+            "$BT/aapt2" dump badging out/AdminPanel.apk 2>&1 | grep -E "^package|sdkVersion|targetSdk|native-code" | head -6
+            "$BT/zipalign" -c -P 16 4 out/AdminPanel.apk >/dev/null 2>&1 && echo "zipalign: OK" || echo "zipalign: NOT aligned"
+          } | tee out/CHECK.txt
+
       - name: Publish to the "admin-latest" release
         if: always()
         env:
@@ -114,6 +125,10 @@ jobs:
           {
             echo "Admin Panel app for resellers/providers. Website: ${SITE:-typed on sign-in}. Signed with own key: $HAS_SIGNING"
             echo
+            echo '### APK check'
+            echo '```'
+            cat out/CHECK.txt 2>/dev/null || true
+            echo '```'
             echo '### Errors'
             echo '```'
             grep -h -E "error •|Error:|error:" out/analyze.log out/build.log 2>/dev/null | head -40 || true
