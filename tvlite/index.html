@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, height=1080, initial-scale=1">
+<title>Lite Player</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="stage">
+  <div id="vlayer"><video id="vid" class="hide" preload="none"></video></div>
+  <div id="screens"></div>
+  <div id="dlg"></div>
+  <div id="toast"></div>
+  <!-- Start screen: the brand from the website (sharp, drawn by the page) and the soft pulse. -->
+  <div id="intro">
+    <div class="glowbg"></div>
+    <div class="brand"><span class="sym"><img id="introSym" src="img/symbol.png" alt=""></span><span class="name" id="introName"></span></div>
+    <div class="pulse"><i class="ring"></i><i class="glow"></i><i class="dot"></i></div>
+  </div>
+</div>
+<script src="js/config.js"></script>
+<script>
+  // Before the first picture: the name and symbol saved from the website last time.
+  (function () {
+    var name = '', icon = '';
+    try {
+      var b = JSON.parse(localStorage.getItem('lt_brand') || 'null');
+      if (b) { name = b.logoName || b.name || ''; icon = b.iconData || ''; }
+    } catch (e) {}
+    if (!name) name = (window.CONFIG && CONFIG.appName) || 'Lite Player';
+    var i = name.indexOf(' ');
+    var el = document.getElementById('introName');
+    var w = document.createElement('span'); w.className = 'w'; w.textContent = i > 0 ? name.substring(0, i) : name;
+    el.appendChild(w);
+    if (i > 0) { var r = document.createElement('span'); r.className = 'r'; r.textContent = name.substring(i); el.appendChild(r); }
+    if (icon) document.getElementById('introSym').src = icon;
+    document.title = (window.CONFIG && CONFIG.appName) || name;
+    // Pages wider or narrower than 1920 (browser tests, old TVs) are scaled as a whole.
+    var s = (window.innerWidth || 1920) / 1920;
+    if (Math.abs(s - 1) > 0.01) {
+      var st = document.getElementById('stage');
+      st.style.webkitTransform = 'scale(' + s + ')';
+      st.style.transform = 'scale(' + s + ')';
+    }
+  })();
+</script>
+<script src="js/core.js"></script>
+<script src="js/qr.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/backend.js"></script>
+<script src="js/sources.js"></script>
+<script src="js/player.js"></script>
+<script src="js/screens.js"></script>
+<script src="js/browse.js"></script>
+<script src="js/details.js"></script>
+<script src="js/playerui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

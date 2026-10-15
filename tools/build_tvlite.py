@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""Builds the light LG TV app (folder tvlite/) into an installable webOS package (.ipk).
+
+The app is plain HTML / CSS / JavaScript with the TV's own video player: no engine to load,
+so it opens at once and stays smooth on every LG TV.
+
+Usage (from the repository root):
+  python3 tools/build_tvlite.py --out out --name "IBO Lite Player" --site https://ibolite.pro \
+      --id com.liteplayer.tv --version 2.0.1 [--build 1] [--file IBOLitePlayer.ipk]
+The brand symbol comes from brand/icon.png (the build workflow first takes it from the website).
+"""
+import argparse
+import io
+import json
+import os
+import shutil
+import tarfile
+import time
+
+from PIL import Image, ImageDraw, ImageFilter
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC = os.path.join(ROOT, 'tvlite')
+BG = (20, 10, 13)
+GLOW = (227, 38, 47)
+
+
+def symbol():
+    img = Image.open(os.path.join(ROOT, 'brand', 'icon.png')).convert('RGBA')
+    box = img.getbbox()
+    if box:
+        img = img.crop(box)
+    return img
+
+
+def fit(img, w, h, scale):
+    out = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+    k = min(w * scale / img.width, h * scale / img.height)
+    s = img.resize((max(1, round(img.width * k)), max(1, round(img.height * k))), Image.LANCZOS)
+    out.alpha_composite(s, ((w - s.width) // 2, (h - s.height) // 2))
+    return out
+
+
+def launcher_icon(sym, size):
+    """Symbol on the dark brand colour with a soft red light behind it (the LG launcher tile)."""
+    big = size * 4
+    bg = Image.new('RGBA', (big, big), BG + (255,))
+    g = Image.new('RGBA', (big, big), (0, 0, 0, 0))
+    r = big * 0.42
+    ImageDraw.Draw(g).ellipse([big / 2 - r, big / 2 - r, big / 2 + r, big / 2 + r], fill=GLOW + (60,))
+    bg.alpha_composite(g.filter(ImageFilter.GaussianBlur(big * 0.18)))
+    bg.alpha_composite(fit(sym, big, big, 0.72))
+    return bg.resize((size, size), Image.LANCZOS).convert('RGB')
+
+
+def tar_bytes(entries):
+    """entries: list of (name, bytes or None for a folder). Owner root, as webOS expects."""
+    buf = io.BytesIO()
+    now = int(time.time())
+    with tarfile.open(fileobj=buf, mode='w:gz', format=tarfile.GNU_FORMAT) as t:
+        for name, data in entries:
+            info = tarfile.TarInfo(name)
+            info.uid = info.gid = 0
+            info.uname = info.gname = 'root'
+            info.mtime = now
+            if data is None:
+                info.type = tarfile.DIRTYPE
+                info.mode = 0o755
+                t.addfile(info)
+            else:
+                info.mode = 0o644
+                info.size = len(data)
+                t.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+def ar_member(name, data, mtime):
+    head = '%-16s%-12d%-6d%-6d%-8s%-10d`\n' % (name, mtime, 0, 0, '100644', len(data))
+    out = head.encode('ascii') + data
+    if len(data) % 2:
+        out += b'\n'
+    return out
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('--out', default='out')
+    p.add_argument('--name', default='Lite Player')
+    p.add_argument('--site', default='')
+    p.add_argument('--api', default='')
+    p.add_argument('--id', default='com.liteplayer.tv')
+    p.add_argument('--version', default='2.0.0')
+    p.add_argument('--build', type=int, default=0)
+    p.add_argument('--vendor', default='')
+    p.add_argument('--file', default='')
+    p.add_argument('--folder', default='', help='also leave the unpacked app here (for browser tests)')
+    a = p.parse_args()
+
+    site = a.site.rstrip('/')
+    api = a.api or (site + '/wp-json/b1g/v1' if site else '')
+    vendor = a.vendor or (site.split('://')[-1].split('/')[0] if site else a.name)
+    app_id = ''.join(c for c in a.id.lower() if c.isalnum() or c in '.-') or 'com.liteplayer.tv'
+
+    files = {}
+    for base, _dirs, names in os.walk(SRC):
+        for n in names:
+            full = os.path.join(base, n)
+            rel = os.path.relpath(full, SRC).replace(os.sep, '/')
+            if rel in ('js/config.js',) or rel.startswith('test/') or n.startswith('.'):
+                continue
+            with open(full, 'rb') as f:
+                files[rel] = f.read()
+
+    config = {
+        'appName': a.name, 'apiBase': api, 'platform': 'lg-tv', 'version': a.version, 'build': a.build,
+        'appId': app_id,
+    }
+    files['js/config.js'] = ('/* Written by tools/build_tvlite.py */\nvar CONFIG = %s;\n' % json.dumps(config, indent=2)).encode('utf-8')
+    files['index.html'] = files['index.html'].replace(b'<title>Lite Player</title>', ('<title>%s</title>' % a.name).encode('utf-8'))
+
+    sym = symbol()
+    b = io.BytesIO()
+    fit(sym, 512, 512, 1.0).save(b, 'PNG', optimize=True)
+    files['img/symbol.png'] = b.getvalue()
+    for name, size in (('icon.png', 80), ('largeIcon.png', 130)):
+        b = io.BytesIO()
+        launcher_icon(sym, size).save(b, 'PNG', optimize=True)
+        files[name] = b.getvalue()
+
+    appinfo = {
+        'id': app_id, 'version': a.version, 'vendor': vendor, 'type': 'web', 'main': 'index.html', 'title': a.name,
+        'icon': 'icon.png', 'largeIcon': 'largeIcon.png', 'bgColor': '#0B0708',
+        'resolution': '1920x1080', 'disableBackHistoryAPI': True, 'handlesRelaunch': False,
+    }
+    files['appinfo.json'] = json.dumps(appinfo, indent=2).encode('utf-8')
+
+    if a.folder:
+        if os.path.isdir(a.folder):
+            shutil.rmtree(a.folder)
+        for rel, data in files.items():
+            dest = os.path.join(a.folder, rel)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, 'wb') as f:
+                f.write(data)
+
+    app_dir = 'usr/palm/applications/%s/' % app_id
+    pkg_dir = 'usr/palm/packages/%s/' % app_id
+    entries = [('usr/', None), ('usr/palm/', None), ('usr/palm/applications/', None), ('usr/palm/packages/', None),
+               (app_dir, None), (pkg_dir, None)]
+    dirs = set()
+    for rel in sorted(files):
+        parts = rel.split('/')[:-1]
+        for i in range(1, len(parts) + 1):
+            d = app_dir + '/'.join(parts[:i]) + '/'
+            if d not in dirs:
+                dirs.add(d)
+                entries.append((d, None))
+        entries.append((app_dir + rel, files[rel]))
+    packageinfo = {'app': app_id, 'id': app_id, 'loc_name': a.name, 'package_format_version': 2, 'vendor': vendor, 'version': a.version}
+    entries.append((pkg_dir + 'packageinfo.json', json.dumps(packageinfo, indent=2).encode('utf-8')))
+    data_tgz = tar_bytes(entries)
+    size = sum(len(d) for _n, d in entries if d)
+    control = ('Package: %s\nVersion: %s\nSection: misc\nPriority: optional\nArchitecture: all\nInstalled-Size: %d\n'
+               'Maintainer: N/A <nobody@example.com>\nDescription: This is a webOS application.\n'
+               'webOS-Package-Format-Version: 2\nwebOS-Packager-Version: x.y.x\n') % (app_id, a.version, size)
+    control_tgz = tar_bytes([('control', control.encode('utf-8'))])
+    now = int(time.time())
+    ipk = b'!<arch>\n' + ar_member('debian-binary', b'2.0\n', now) + ar_member('control.tar.gz', control_tgz, now) + \
+        ar_member('data.tar.gz', data_tgz, now)
+    os.makedirs(a.out, exist_ok=True)
+    name = a.file or (''.join(c for c in a.name if c.isalnum()) or 'App') + '.ipk'
+    path = os.path.join(a.out, name)
+    with open(path, 'wb') as f:
+        f.write(ipk)
+    print('%s  %s %s  (%d files, %.0f KB)' % (path, app_id, a.version, len(files), len(ipk) / 1024))
+
+
+if __name__ == '__main__':
+    main()
