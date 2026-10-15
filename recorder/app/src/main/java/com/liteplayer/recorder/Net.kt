@@ -17,6 +17,8 @@ class Net(private val site: String, private val token: String = "") {
     private fun url(route: String, query: Map<String, String> = emptyMap()): URL {
         val q = StringBuilder("rest_route=").append(enc("/lrc/v1/$route"))
         query.forEach { (k, v) -> q.append('&').append(enc(k)).append('=').append(enc(v)) }
+        // Also in the address: some hosting proxies drop custom headers.
+        if (token.isNotEmpty()) q.append("&token=").append(enc(token))
         val base = site.trimEnd('/')
         return URL("$base/?$q")
     }

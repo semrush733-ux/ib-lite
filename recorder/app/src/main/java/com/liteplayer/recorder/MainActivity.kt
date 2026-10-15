@@ -193,7 +193,9 @@ class MainActivity : Activity() {
         val out = Box.list(Box.outbox(this)).size
         btnUploads.visibility = if (out > 0 || UploadService.running) View.VISIBLE else View.GONE
         btnUploads.text = when {
-            UploadService.running -> "↑  Uploading ${UploadService.percent}%  ($out left)"
+            UploadService.running -> "↑  Uploading ${UploadService.percent}%   ${fmtSize(UploadService.sent)} / ${fmtSize(UploadService.total)}" +
+                (if (UploadService.speed > 0) "   ${fmtSize(UploadService.speed)}/s" else "") +
+                "   ($out left)\n   ${UploadService.step}"
             !prefs.paired -> "↑  $out saved — pair with the website below to upload"
             else -> "↑  $out waiting to upload — try again" + (if (prefs.lastError.isNotEmpty()) "\n   ${prefs.lastError}" else "")
         }

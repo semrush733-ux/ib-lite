@@ -24,6 +24,10 @@ class UploadService : Service() {
         @Volatile var running = false
         @Volatile var current: String = ""
         @Volatile var percent: Int = 0
+        @Volatile var sent: Long = 0
+        @Volatile var total: Long = 0
+        @Volatile var speed: Long = 0          // bytes a second
+        @Volatile var step: String = ""        // what it is doing now (shown on the main screen)
         private const val NOTE_ID = 21
 
         fun kick(ctx: Context) {
@@ -124,6 +128,7 @@ class UploadService : Service() {
             running = false
             current = ""
             percent = 0
+            step = ""
             try {
                 wake?.release()
             } catch (_: Exception) {
@@ -139,6 +144,10 @@ class UploadService : Service() {
         val size = f.length()
         current = f.name
         percent = 0
+        sent = 0
+        total = size
+        speed = 0
+        step = "Connecting to the website…"
         show("Uploading ${f.name}", 0)
         val start = net.post("upload/start", mapOf(
             "name" to f.name,
@@ -152,6 +161,8 @@ class UploadService : Service() {
         if (start.optBoolean("done")) return
         val id = start.getString("id")
         var offset = start.optLong("received", 0)
+        sent = offset
+        step = "Sending…"
         val piece = start.optInt("chunk", 2 * 1024 * 1024).coerceIn(256 * 1024, 8 * 1024 * 1024)
         val buf = ByteArray(piece)
         RandomAccessFile(f, "r").use { raf ->
@@ -161,15 +172,21 @@ class UploadService : Service() {
                 val n = raf.read(buf, 0, minOf(piece.toLong(), size - offset).toInt())
                 if (n <= 0) break
                 try {
+                    val t0 = System.currentTimeMillis()
                     offset = net.chunk(id, offset, buf, n).getLong("received")
+                    val ms = maxOf(1L, System.currentTimeMillis() - t0)
+                    speed = if (speed == 0L) n * 1000L / ms else (speed * 2 + n * 1000L / ms) / 3
                     tries = 0
+                    step = "Sending…"
                 } catch (e: ApiError) {
+                    step = "Retrying: ${e.message}"
                     if (e.status == 409 && e.body.has("received")) {
                         offset = e.body.getLong("received")   // out of step: go on from what the site has
                     } else if (e.status >= 500 && ++tries < 5) {
                         Thread.sleep(3000L * tries)
                     } else throw e
                 } catch (e: java.io.IOException) {
+                    step = "Connection problem, retrying (${e.javaClass.simpleName})"
                     if (++tries >= 5) throw e
                     Thread.sleep(3000L * tries)
                     // Ask the website how much arrived before the cut.
@@ -178,10 +195,12 @@ class UploadService : Service() {
                     } catch (_: Exception) {
                     }
                 }
+                sent = offset
                 percent = (offset * 100 / size).toInt()
-                show("Uploading ${f.name} — $percent%", percent.coerceAtLeast(1))
+                show("Uploading ${fmtSize(offset)} / ${fmtSize(size)}", percent.coerceAtLeast(1))
             }
         }
+        step = "Finishing on the website…"
         net.post("upload/finish", mapOf("id" to id))
         show("Uploaded ${f.name}", 100)
     }
