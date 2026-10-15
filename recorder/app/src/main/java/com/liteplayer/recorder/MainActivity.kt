@@ -86,8 +86,16 @@ class MainActivity : Activity() {
         col.addView(btnUploads)
 
         col.addView(Ui.section(c, "OPTIONS"))
-        btnQuality = Ui.button(c, "") { prefs.quality = if (prefs.quality >= 1080) 720 else 1080; refresh() }
-        btnFps = Ui.button(c, "") { prefs.fps = if (prefs.fps >= 60) 30 else 60; refresh() }
+        btnQuality = Ui.button(c, "") {
+            prefs.quality = when {
+                prefs.quality >= 2160 -> 1080
+                prefs.quality >= 1080 -> 720
+                else -> 2160
+            }
+            best = ""
+            refresh()
+        }
+        btnFps = Ui.button(c, "") { prefs.fps = if (prefs.fps >= 60) 30 else 60; best = ""; refresh() }
         btnSound = Ui.button(c, "") { prefs.sound = !prefs.sound; refresh() }
         btnCount = Ui.button(c, "") { prefs.countdown = next(listOf(3, 5, 10, 15), prefs.countdown); refresh() }
         btnLimit = Ui.button(c, "") { prefs.limit = next(listOf(0, 1, 2, 5, 10, 30), prefs.limit); refresh() }
@@ -135,6 +143,23 @@ class MainActivity : Activity() {
             addView(col)
         })
         btnRecord.requestFocus()
+    }
+
+    private var best = ""
+
+    /** What a recording with the current options will really be on this TV. */
+    private fun bestPlan(): String = try {
+        val wm = getSystemService(WINDOW_SERVICE) as android.view.WindowManager
+        val m = android.util.DisplayMetrics()
+        @Suppress("DEPRECATION")
+        val d = wm.defaultDisplay
+        @Suppress("DEPRECATION")
+        d.getRealMetrics(m)
+        val (pw, ph) = if (Build.VERSION.SDK_INT >= 23) d.mode.physicalWidth to d.mode.physicalHeight else m.widthPixels to m.heightPixels
+        val pl = Sizes.plans(m.widthPixels, m.heightPixels, pw, ph, prefs.quality, prefs.fps).first()
+        "${pl.label} (${pl.w}x${pl.h})" + if (minOf(pw, ph) < 2160 && prefs.quality >= 2160) " — the TV outputs ${pw}x$ph now" else ""
+    } catch (_: Exception) {
+        "?"
     }
 
     private fun next(list: List<Int>, cur: Int): Int = list[(list.indexOf(cur) + 1).mod(list.size)]
@@ -200,8 +225,13 @@ class MainActivity : Activity() {
             else -> "↑  $out waiting to upload — try again" + (if (prefs.lastError.isNotEmpty()) "\n   ${prefs.lastError}" else "")
         }
 
-        btnQuality.text = "Quality:  " + if (prefs.quality >= 1080) "1080p (sharpest)" else "720p (smaller files, weak boxes)"
-        btnFps.text = "Smoothness:  " + if (prefs.fps >= 60) "60 fps (very smooth, bigger files)" else "30 fps (smooth)"
+        if (best.isEmpty()) best = bestPlan()
+        btnQuality.text = "Quality:  " + when {
+            prefs.quality >= 2160 -> "4K / highest this TV can"
+            prefs.quality >= 1080 -> "1080p (Full HD)"
+            else -> "720p (smaller files, weak boxes)"
+        } + "\n   This TV will record: $best"
+        btnFps.text = "Smoothness:  " + if (prefs.fps >= 60) "60 fps (as smooth as the screen)" else "30 fps (smaller files)"
         btnSound.text = "Sound:  " + when {
             Build.VERSION.SDK_INT < 29 -> "not possible on this TV (Android 10+ needed)"
             prefs.sound -> "On (the sound of the apps, not the microphone)"

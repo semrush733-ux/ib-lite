@@ -178,6 +178,20 @@ class CaptureService : Service() {
         return Triple(m.widthPixels, m.heightPixels, m.densityDpi)
     }
 
+    /** The panel's own size (a 4K TV can show video at 4K while drawing apps at 1080p). */
+    private fun panel(): Pair<Int, Int> = try {
+        if (Build.VERSION.SDK_INT >= 23) {
+            val wm = getSystemService(WINDOW_SERVICE) as WindowManager
+            @Suppress("DEPRECATION")
+            val d = wm.defaultDisplay
+            // What the TV sends to the screen now (4K only when the box really outputs 4K).
+            val m = d.mode
+            m.physicalWidth to m.physicalHeight
+        } else screen().let { it.first to it.second }
+    } catch (_: Exception) {
+        screen().let { it.first to it.second }
+    }
+
     /** Recording size: the screen scaled to the chosen height (even numbers, never bigger than the screen). */
     private fun target(w: Int, h: Int, want: Int): Pair<Int, Int> {
         val shortSide = minOf(w, h)
@@ -189,7 +203,8 @@ class CaptureService : Service() {
     // ------------------------------------------------------------------ recording
 
     private var recDisplay: VirtualDisplay? = null
-    private var sizes: List<Pair<Int, Int>> = emptyList()
+    private var plans: List<Plan> = emptyList()
+    private var plan: Plan? = null
     private var dpi = 320
     private val diag = ArrayList<String>()
 
@@ -206,16 +221,18 @@ class CaptureService : Service() {
 
     private fun details() = diag.takeLast(3).joinToString("\n")
 
-    private fun bitrateFor(w: Int, h: Int) =
-        // About 0.1 bit per pixel per frame: sharp text and smooth motion, sensible file size.
-        (w.toLong() * h * prefs.fps / 10).coerceIn(4_000_000L, 16_000_000L).toInt()
+    /** Generous bit rate (sharp text, clean motion): about 0.14 bit per pixel per picture, less for H.265. */
+    private fun bitrateFor(pl: Plan) =
+        (pl.w.toLong() * pl.h * pl.fps * (if (pl.hevc) 9 else 14) / 100).coerceIn(6_000_000L, 80_000_000L).toInt()
 
     private fun tryMediaRec(f: File): Rec? {
-        for ((w, h) in sizes) {
+        for (pl in plans.filter { !it.hevc }) {
+            val (w, h) = pl.w to pl.h
             try {
                 f.delete()
-                val m = MediaRec(this, w, h, prefs.fps, bitrateFor(w, h), f)
-                trace("android recorder ready ${w}x$h")
+                val m = MediaRec(this, w, h, pl.fps, bitrateFor(pl), f)
+                trace("android recorder ready ${pl.label} ${w}x$h")
+                plan = pl
                 return m
             } catch (e: Exception) {
                 trace("android recorder ${w}x$h: ${e.javaClass.simpleName} ${e.message ?: ""}")
@@ -228,24 +245,27 @@ class CaptureService : Service() {
         val p = projection ?: return finish(null)
         val (sw, sh, d) = screen()
         dpi = d
-        sizes = Sizes.candidates(sw, sh, prefs.quality)
-        trace("screen ${sw}x$sh dpi $d, Android ${Build.VERSION.SDK_INT}, ${Build.MANUFACTURER} ${Build.MODEL}; sizes $sizes")
+        val (pw, ph) = panel()
+        plans = Sizes.plans(sw, sh, pw, ph, prefs.quality, prefs.fps)
+        trace("screen ${sw}x$sh panel ${pw}x$ph dpi $d, Android ${Build.VERSION.SDK_INT}, ${Build.MANUFACTURER} ${Build.MODEL}; plans ${plans.joinToString { it.label + " " + it.w + "x" + it.h }}")
         val sound = prefs.sound && hasAudioPermission()
         val f = File(Box.review(this), "rec_${System.currentTimeMillis()}.mp4.tmp")
         var rec: Rec? = null
         // This TV's encoder path could not write a file before: straight to Android's recorder.
         if (prefs.useAndroidRecorder) rec = tryMediaRec(f)
         if (rec == null) loop@ for (basic in listOf(false, true)) {
-            for ((w, h) in sizes) {
+            for (pl in plans) {
+                val (w, h) = pl.w to pl.h
                 try {
                     f.delete()
-                    val r = ScreenRecorder(p, w, h, prefs.fps, bitrateFor(w, h), sound, f, basic)
+                    val r = ScreenRecorder(p, w, h, pl.fps, bitrateFor(pl), sound, f, basic, pl.mime)
                     r.prepare()
-                    trace("encoder ready ${w}x$h basic=$basic sound=${r.withSound}")
+                    trace("encoder ready ${pl.label} ${w}x$h ${bitrateFor(pl) / 1_000_000} Mbps basic=$basic sound=${r.withSound}")
                     rec = r
+                    plan = pl
                     break@loop
                 } catch (e: Exception) {
-                    trace("encoder ${w}x$h basic=$basic: ${e.javaClass.simpleName} ${e.message ?: ""}")
+                    trace("encoder ${pl.label} ${w}x$h basic=$basic: ${e.javaClass.simpleName} ${e.message ?: ""}")
                 }
             }
         }
@@ -364,6 +384,9 @@ class CaptureService : Service() {
                     put("width", r.width)
                     put("height", r.height)
                     put("sound", r.withSound)
+                    plan?.let { put("codec", if (it.hevc) "H.265" else "H.264") }
+                    // Pictures a second actually stored (shows how smooth the recording is).
+                    if (r.frames() > 0 && secs > 0) put("fps", Math.round(r.frames() * 10.0 / secs) / 10.0)
                     put("taken", startedAt)
                 })
             } else {

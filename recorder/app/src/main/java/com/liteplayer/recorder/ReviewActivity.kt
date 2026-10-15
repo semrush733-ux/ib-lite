@@ -101,6 +101,8 @@ class ReviewActivity : Activity() {
         if (isVideo) parts += fmtTime(m.optLong("duration", 0))
         parts += fmtSize(f.length())
         if (m.optInt("width") > 0) parts += "${m.optInt("width")} x ${m.optInt("height")}"
+        if (isVideo && m.optDouble("fps", 0.0) > 0) parts += "${m.optDouble("fps")} fps"
+        if (isVideo && m.optString("codec").isNotEmpty()) parts += m.optString("codec")
         if (isVideo) parts += if (m.optBoolean("sound")) "with sound" else "no sound"
         val waiting = Box.list(Box.review(this)).size
         if (waiting > 1) parts += "$waiting waiting"

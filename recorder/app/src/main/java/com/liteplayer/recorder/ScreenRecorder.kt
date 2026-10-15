@@ -33,6 +33,7 @@ class ScreenRecorder(
     private val out: File,
     /** Plain encoder settings only (some TV encoders refuse the extra ones). */
     private val basic: Boolean = false,
+    private val mime: String = MediaFormat.MIMETYPE_VIDEO_AVC,
 ) : Rec {
     private val tag = "LiteRecorder"
 
@@ -41,7 +42,7 @@ class ScreenRecorder(
     private val frameCount = java.util.concurrent.atomic.AtomicInteger(0)
     override val surface: Surface get() = input!!
     override fun frames() = frameCount.get()
-    override val name get() = if (basic) "encoder (basic)" else "encoder"
+    override val name get() = (if (mime == MediaFormat.MIMETYPE_VIDEO_HEVC) "H.265 " else "H.264 ") + if (basic) "encoder (basic)" else "encoder"
     private var audio: MediaCodec? = null
     private var mic: AudioRecord? = null
     private val muxer = MediaMuxer(out.path, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
@@ -68,18 +69,36 @@ class ScreenRecorder(
     @SuppressLint("MissingPermission")
     fun prepare() {
         startNs = System.nanoTime()
-        val f = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
+        video = MediaCodec.createEncoderByType(mime)
+        val f = MediaFormat.createVideoFormat(mime, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, fps)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
             if (!basic) {
-                // A still screen keeps sending frames, so the video timeline stays even.
-                setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps)
-                if (Build.VERSION.SDK_INT >= 23) setInteger(MediaFormat.KEY_PRIORITY, 0)
+                // Only a screen that stands still gets repeated pictures (after 0.1 s). Repeating
+                // after one frame time put double pictures between real ones: the stutter.
+                setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 100_000L)
+                if (Build.VERSION.SDK_INT >= 23) {
+                    setInteger(MediaFormat.KEY_PRIORITY, 0)          // real time
+                    setInteger(MediaFormat.KEY_OPERATING_RATE, fps)  // keep up with every picture
+                }
+                setInteger(MediaFormat.KEY_BITRATE_MODE, MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR)
+                // H.264 High profile: sharper picture for the same file size, where the encoder has it.
+                if (mime == MediaFormat.MIMETYPE_VIDEO_AVC) {
+                    try {
+                        val high = video.codecInfo.getCapabilitiesForType(mime).profileLevels
+                            .filter { it.profile == MediaCodecInfo.CodecProfileLevel.AVCProfileHigh }
+                            .maxByOrNull { it.level }
+                        if (high != null) {
+                            setInteger(MediaFormat.KEY_PROFILE, high.profile)
+                            setInteger(MediaFormat.KEY_LEVEL, high.level)
+                        }
+                    } catch (_: Exception) {
+                    }
+                }
             }
         }
-        video = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
         video.configure(f, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
         input = video.createInputSurface()
         video.start()

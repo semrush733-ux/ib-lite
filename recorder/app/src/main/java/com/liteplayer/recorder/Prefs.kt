@@ -23,10 +23,10 @@ class Prefs(ctx: Context) {
 
     /** Picture height: 1080 or 720. */
     var quality: Int
-        get() = p.getInt("quality", 1080)
+        get() = p.getInt("quality", 2160)
         set(v) = p.edit().putInt("quality", v).apply()
     var fps: Int
-        get() = p.getInt("fps", 30)
+        get() = p.getInt("fps", 60)
         set(v) = p.edit().putInt("fps", v).apply()
     var sound: Boolean
         get() = p.getBoolean("sound", true)
