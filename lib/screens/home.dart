@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../backend.dart';
+import '../downloads.dart';
 import '../i18n.dart';
 import '../m3u.dart';
 import '../prefetch.dart';
@@ -17,6 +18,7 @@ import 'browse.dart';
 import 'catchup.dart';
 import 'connect.dart';
 import 'device.dart';
+import 'downloads.dart';
 import 'playlists.dart';
 import 'settings.dart';
 import 'update_web.dart' if (dart.library.io) 'update.dart';
@@ -448,6 +450,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 14),
                         _PillButton(icon: Icons.settings_rounded, label: t('Settings'), onTap: _openSettings),
+                        if (Downloads.available) ...[
+                          const SizedBox(width: 14),
+                          _PillButton(
+                            icon: Icons.download_rounded,
+                            label: t('Downloads'),
+                            onTap: () => Navigator.of(context)
+                                .push(MaterialPageRoute<void>(builder: (_) => DownloadsScreen(api: widget.api))),
+                          ),
+                        ],
                         if (Backend.updateAvailable) ...[
                           const SizedBox(width: 14),
                           _PillButton(icon: Icons.system_update_rounded, label: t('Update'), onTap: _showUpdate),

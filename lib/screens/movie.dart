@@ -5,6 +5,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../download_ui.dart';
+import '../downloads.dart';
 import '../engine.dart';
 import '../input_mode.dart';
 import '../smooth.dart';
@@ -41,6 +43,11 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
 
   String get _resumeKey => '${widget.movie.kind.name}:${widget.movie.id}';
 
+  /// Key of this film in the downloads.
+  String get _dlId => 'vod:${widget.movie.id}';
+  final FocusNode _dlFocus = FocusNode(debugLabel: 'download');
+  final FocusNode _dlFocus2 = FocusNode(debugLabel: 'download-2');
+
   // The film is opened (paused) while this page is read, so "Watch" starts at once.
   PlaybackEngine? _pre;
   Duration _preAt = Duration.zero;
@@ -64,6 +71,7 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    Downloads.i.addListener(_onDownloads);
     _load();
     _preTimer = Timer(const Duration(milliseconds: 900), _preload);
   }
@@ -72,12 +80,17 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _dropPreload();
+    Downloads.i.removeListener(_onDownloads);
+    _dlFocus.dispose();
+    _dlFocus2.dispose();
     super.dispose();
   }
 
   Future<void> _preload() async {
     // Only on TVs / boxes strong enough (a second video decoder is too much for weak ones).
     if (!mounted || _started || kIsWeb || _pre != null || !Store.vodPreload || Store.enhanceCap <= 0) return;
+    // A download holds the account's connection, and a downloaded film needs no head start.
+    if (Downloads.i.busy || Downloads.i.localUrl(_dlId) != null) return;
     final url = widget.api.movieUrlFor(widget.movie);
     if (url.isEmpty) return;
     final saved = Store.resume(_resumeKey);
@@ -140,7 +153,8 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
       PlayEntry(
         title: movie.name,
         subtitle: [year, genre].where((s) => s.isNotEmpty).join('  ·  '),
-        urls: [widget.api.movieUrlFor(movie)],
+        // Downloaded: plays from the TV (no internet needed).
+        urls: [Downloads.i.localUrl(_dlId) ?? widget.api.movieUrlFor(movie)],
         resumeKey: _resumeKey,
         logo: _info.cover.isNotEmpty ? _info.cover : movie.icon,
         item: movie,
@@ -149,8 +163,12 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
     _preTimer?.cancel();
     _started = true;
     // The preloaded film is handed to the player (no new connection, no waiting).
-    final pre = _pre;
+    var pre = _pre;
     _pre = null;
+    if (pre != null && Downloads.i.localUrl(_dlId) != null) {
+      pre.dispose().catchError((Object _) {});
+      pre = null;
+    }
     if (pre != null && fromStart && _preAt > Duration.zero) await pre.seek(Duration.zero).catchError((Object _) {});
     if (!mounted) {
       pre?.dispose().catchError((Object _) {});
@@ -345,8 +363,14 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
                             ),
                             if (_trailerId.isNotEmpty)
                               _action(icon: Icons.smart_display_rounded, label: 'Trailer', onTap: _trailer),
+                            if (Downloads.available) ..._downloadButtons(),
                           ],
                         ),
+                        if (Downloads.available && Downloads.i.byId(_dlId) != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: DownloadProgress(id: _dlId),
+                          ),
                         if (info.director.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 14),
@@ -449,7 +473,80 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
   Widget _meta(String text) =>
       Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFFE6E9EF)));
 
+  /// Download / Pause / Resume / Cancel / Delete — the first button keeps one focus node, so
+  /// the remote stays on it when it changes (Download → Pause).
+  List<Widget> _downloadButtons() {
+    final d = Downloads.i.byId(_dlId);
+    if (d == null) {
+      return [_action(icon: Icons.download_rounded, label: 'Download', node: _dlFocus, onTap: _download)];
+    }
+    switch (d.state) {
+      case DlState.done:
+        return [
+          _action(icon: Icons.download_done_rounded, label: 'Downloaded', highlight: true, node: _dlFocus, onTap: _watch),
+          _action(icon: Icons.delete_outline_rounded, label: 'Delete download', node: _dlFocus2, onTap: () => _dlDo(() => Downloads.i.remove(_dlId))),
+        ];
+      case DlState.running:
+      case DlState.queued:
+      case DlState.waiting:
+        return [
+          _action(icon: Icons.pause_rounded, label: 'Pause', node: _dlFocus, onTap: () => _dlDo(() => Downloads.i.pause(_dlId))),
+          _action(icon: Icons.close_rounded, label: 'Cancel', node: _dlFocus2, onTap: () => _dlDo(() => Downloads.i.remove(_dlId))),
+        ];
+      case DlState.paused:
+      case DlState.failed:
+        return [
+          _action(
+              icon: Icons.play_for_work_rounded,
+              label: d.state == DlState.failed ? 'Try again' : 'Resume download',
+              node: _dlFocus,
+              onTap: () => _dlDo(() => Downloads.i.resume(_dlId))),
+          _action(icon: Icons.close_rounded, label: 'Cancel', node: _dlFocus2, onTap: () => _dlDo(() => Downloads.i.remove(_dlId))),
+        ];
+    }
+  }
+
+  DlState? _dlSeen;
+
+  /// The buttons change only when the download's state changes (not 4 times a second).
+  void _onDownloads() {
+    final st = Downloads.i.byId(_dlId)?.state;
+    if (st == _dlSeen || !mounted) return;
+    _dlSeen = st;
+    setState(() {});
+  }
+
+  void _dlDo(VoidCallback f) {
+    f();
+    setState(() {});
+    // The button under the remote may have gone (Cancel / Delete): back to the first one.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_dlFocus.hasFocus && !_dlFocus2.hasFocus && FocusManager.instance.primaryFocus?.context == null) {
+        _dlFocus.requestFocus();
+      }
+    });
+  }
+
+  Future<void> _download() async {
+    final movie = widget.movie;
+    final url = widget.api.movieUrlFor(movie);
+    if (url.isEmpty) return;
+    // The head start held a connection: let it go for the download.
+    _dropPreload();
+    final year = _info.year.isNotEmpty ? _info.year : (_tmdb?.year ?? '');
+    await Downloads.i.add(
+      id: _dlId,
+      title: movie.name,
+      url: url,
+      subtitle: year,
+      cover: _info.cover.isNotEmpty ? _info.cover : movie.icon,
+    );
+    log('download start ${movie.name}');
+    if (mounted) setState(() {});
+  }
+
   Widget _action({
+    FocusNode? node,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
@@ -459,6 +556,7 @@ class _MovieScreenState extends State<MovieScreen> with WidgetsBindingObserver {
   }) {
     final Color foreground = primary ? C.onAccent : (highlight ? C.accent : C.text);
     return TvFocus(
+      focusNode: node,
       autofocus: autofocus,
       radius: 24,
       color: primary ? C.accent : const Color(0xCC1A1E28),

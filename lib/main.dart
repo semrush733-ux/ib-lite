@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'backend.dart';
+import 'downloads.dart';
 import 'config.dart';
 import 'input_mode.dart';
 import 'remote_brand.dart';
@@ -19,6 +20,8 @@ Future<void> main() async {
   await Store.init();
   await RemoteBrand.init();
   await Backend.init();
+  // Unfinished downloads carry on by themselves (they wait while a video plays).
+  Downloads.i.init();
   // Keep memory low on TV sticks with 1 GB of RAM.
   PaintingBinding.instance.imageCache.maximumSize = 300;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 48 << 20;

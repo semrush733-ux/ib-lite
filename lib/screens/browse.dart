@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../backend.dart';
+import '../downloads.dart';
 import '../engine.dart';
 import '../i18n.dart';
 import '../parental.dart';
@@ -123,6 +124,8 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
   @override
   void initState() {
     super.initState();
+    // Downloads hold back while the preview plays (one connection per account).
+    Downloads.watchers.add(_pvActive);
     WidgetsBinding.instance.addObserver(this);
     _guideFocus.addListener(() {
       if (mounted) setState(() {});
@@ -140,6 +143,7 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
 
   @override
   void dispose() {
+    Downloads.watchers.remove(_pvActive);
     _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _focusTimer?.cancel();
@@ -150,6 +154,8 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     _stopPreview();
     super.dispose();
   }
+
+  bool _pvActive() => !_disposed && _pv != null;
 
   Future<void> _stopPreview() async {
     _pvRequest++;
