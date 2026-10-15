@@ -166,6 +166,19 @@ class DashboardPageState extends State<DashboardPage> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           if (Api.impersonating) const _AsBanner(),
+          if (((_d?['servers_bad'] as num?)?.toInt() ?? 0) > 0)
+            Card(
+              color: const Color(0x33FF4D4D),
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFFF4D4D))),
+              child: ListTile(
+                leading: const Icon(Icons.dns_rounded, color: Color(0xFFFF4D4D)),
+                title: Text('${_d?['servers_bad']} server(s) have a DNS / connection problem',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: const Text('Tap to see which', style: TextStyle(color: _muted)),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HealthPage())),
+              ),
+            ),
           Text('Hello ${p?.name ?? ''}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           Text(p?.isSuper == true ? 'Every TV on your website' : 'Your clients and your team\'s',
               style: const TextStyle(color: _muted)),
@@ -868,7 +881,7 @@ class MorePage extends StatelessWidget {
         tile(Icons.campaign_rounded, 'Send a message', 'To one TV, chosen TVs or all of them', () => go(const NotifyPage())),
         tile(Icons.tv_rounded, 'All TVs', 'Search by MAC, name or login; block, reload, renew', () => go(const DevicesPage(title: 'All TVs'))),
         tile(Icons.notification_important_rounded, 'Ending soon', 'Renew or remind before they stop', () => go(const DevicesPage(filter: 'expiring', title: 'Ending in 7 days')), color: _amber),
-        tile(Icons.monitor_heart_rounded, 'Server health', 'Which IPTV servers answer, and how fast', () => go(const HealthPage()), color: _green),
+        tile(Icons.monitor_heart_rounded, 'Server health (DNS)', 'Every server, DNS check, alerts to your phone', () => go(const HealthPage()), color: _green),
         tile(Icons.download_rounded, 'Backup to Excel (CSV)', 'Every TV with status, plan and playlists', () => exportCsv(context)),
         if (superAdmin) ...[
           tile(Icons.system_update_rounded, 'App updates', 'Send a new build to all TVs or to test TVs first', () => go(const UpdatesPage()), color: const Color(0xFF1E88FF)),
@@ -906,101 +919,267 @@ class HealthPage extends StatefulWidget {
   State<HealthPage> createState() => _HealthPageState();
 }
 
+/// Every IPTV server (DNS) the playlists use, as the website sees it (it checks them every
+/// 10 minutes, also when this app is closed, and sends alerts to the phone). "Check now" asks
+/// the website to look again; "From this phone" tests from where the phone is.
 class _HealthPageState extends State<HealthPage> {
-  List<(String, int)> _servers = const [];
-  final Map<String, (bool, int, String)> _result = {}; // up, ms, note
+  List<Map<String, dynamic>> _servers = const [];
+  List<Map<String, dynamic>> _alerts = const [];
+  Map<String, dynamic>? _notify;
+  int _now = 0;
   String? _error;
-  Timer? _again;
-  bool _checking = false;
+  bool _busy = false;
+  final Map<String, String> _phone = {}; // server -> result from this phone
 
   @override
   void initState() {
     super.initState();
     _load();
-    // Looked at again every 5 minutes while this screen is open.
-    _again = Timer.periodic(const Duration(minutes: 5), (_) => _checkAll());
   }
 
-  @override
-  void dispose() {
-    _again?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
+  Future<void> _load({bool check = false}) async {
+    setState(() => _busy = true);
     try {
-      final j = await Api.call('/panel/servers');
-      final l = [for (final s in (j['servers'] as List? ?? const [])) ('${(s as Map)['server']}', (s['playlists'] as num?)?.toInt() ?? 0)];
+      final j = check
+          ? await Api.call('/panel/server-health', body: {'check': '1'})
+          : await Api.call('/panel/server-health');
       if (!mounted) return;
-      setState(() => _servers = l);
-      _checkAll();
+      setState(() {
+        _servers = [for (final s in (j['servers'] as List? ?? const [])) Map<String, dynamic>.from(s as Map)];
+        _alerts = [for (final a in (j['alerts'] as List? ?? const [])) Map<String, dynamic>.from(a as Map)];
+        _notify = j['notify'] is Map ? Map<String, dynamic>.from(j['notify'] as Map) : null;
+        _now = (j['now'] as num?)?.toInt() ?? 0;
+        _error = null;
+      });
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }
+    if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _checkAll() async {
-    if (_checking) return;
-    setState(() => _checking = true);
-    await Future.wait(_servers.map((s) => _check(s.$1)));
-    if (mounted) setState(() => _checking = false);
-  }
-
-  /// Any answer from the server (even "wrong login") means it is up.
-  Future<void> _check(String server) async {
+  Future<void> _fromPhone(String server) async {
+    setState(() => _phone[server] = 'checking…');
     final sw = Stopwatch()..start();
+    String r;
     try {
-      final r = await http.get(Uri.parse('$server/player_api.php')).timeout(const Duration(seconds: 8));
-      sw.stop();
-      if (mounted) setState(() => _result[server] = (true, sw.elapsedMilliseconds, 'answer ${r.statusCode}'));
+      final res = await http.get(Uri.parse('$server/player_api.php')).timeout(const Duration(seconds: 8));
+      r = 'answers from this phone in ${sw.elapsedMilliseconds} ms (${res.statusCode})';
     } on TimeoutException {
-      if (mounted) setState(() => _result[server] = (false, 0, 'no answer in 8 s'));
+      r = 'no answer from this phone in 8 s';
+    } catch (_) {
+      r = 'this phone cannot reach it (DNS or connection)';
+    }
+    if (mounted) setState(() => _phone[server] = r);
+  }
+
+  String _ago(int t) {
+    if (t <= 0 || _now <= 0) return 'not checked yet';
+    final m = ((_now - t) / 60).floor();
+    if (m < 1) return 'just now';
+    if (m < 60) return '$m min ago';
+    return '${(m / 60).floor()} h ago';
+  }
+
+  (Color, String) _look(String status) => switch (status) {
+        'up' => (_green, 'OK'),
+        'dns' => (const Color(0xFFFF4D4D), 'DNS NOT FOUND'),
+        'down' => (const Color(0xFFFF8A3D), 'NOT ANSWERING'),
+        _ => (_muted, 'WAITING'),
+      };
+
+  Future<void> _notifySheet() async {
+    final n = _notify ?? const {};
+    final token = TextEditingController();
+    final chat = TextEditingController(text: '${n['telegram_chat'] ?? ''}');
+    final topic = TextEditingController(text: '${n['ntfy_topic'] ?? ''}');
+    var on = (n['on'] ?? 1) == 1;
+    final save = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _card,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setBox) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + MediaQuery.of(ctx).viewInsets.bottom),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Alerts to my phone', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 4),
+                const Text('When a server stays bad for two checks (about 20 minutes) a message comes, and again when it works.',
+                    style: TextStyle(color: _muted)),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: on,
+                  onChanged: (v) => setBox(() => on = v),
+                  title: const Text('Send alerts'),
+                ),
+                TextField(
+                  controller: token,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                      labelText: 'Telegram bot token',
+                      helperText: n['telegram_set'] == true ? 'Saved. Empty = keep it.' : 'Telegram → @BotFather → /newbot'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: chat,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                      labelText: 'Telegram chat ID', helperText: 'Message your bot once, then @userinfobot shows your ID'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: topic,
+                  decoration: const InputDecoration(
+                      labelText: 'ntfy topic (optional)', helperText: 'Free "ntfy" app: subscribe to the same name'),
+                ),
+                const SizedBox(height: 14),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (save != true) return;
+    try {
+      final j = await Api.call('/panel/server-health', body: {
+        'save_notify': '1',
+        'on': on ? '1' : '',
+        if (token.text.trim().isNotEmpty) 'telegram_token': token.text.trim(),
+        'telegram_chat': chat.text.trim(),
+        'ntfy_topic': topic.text.trim(),
+      });
+      if (mounted) toast(context, '${j['message']}');
+      await _load();
     } catch (e) {
-      if (mounted) setState(() => _result[server] = (false, 0, 'cannot connect'));
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _test() async {
+    try {
+      final j = await Api.call('/panel/server-health', body: {'test': '1'});
+      if (mounted) toast(context, '${j['message']}');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final down = _servers.where((s) => _result[s.$1]?.$1 == false).length;
+    final bad = _servers.where((s) => s['status'] == 'dns' || s['status'] == 'down').toList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Server health'),
-        actions: [IconButton(onPressed: _checking ? null : _checkAll, icon: const Icon(Icons.refresh))],
+        actions: [
+          if (_notify != null)
+            IconButton(tooltip: 'Alerts to my phone', onPressed: _notifySheet, icon: const Icon(Icons.notifications_active_rounded)),
+          IconButton(tooltip: 'Check now', onPressed: _busy ? null : () => _load(check: true), icon: const Icon(Icons.refresh)),
+        ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        children: [
-          if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFFF8A90))),
-          if (down > 0)
-            Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(color: const Color(0x33FF4D4D), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFFF4D4D))),
-              child: Text('$down server(s) not answering from this phone. More → Settings → "Replace server" moves the clients to a new address.',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          const Text('Checked from this phone, again every 5 minutes while this screen is open.', style: TextStyle(color: _muted, fontSize: 12.5)),
-          const SizedBox(height: 10),
-          if (_servers.isEmpty && _error == null) const Center(child: Padding(padding: EdgeInsets.all(30), child: CircularProgressIndicator())),
-          for (final s in _servers)
-            Card(
-              color: _card,
-              margin: const EdgeInsets.only(bottom: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _line)),
-              child: ListTile(
-                leading: Icon(
-                  _result[s.$1] == null ? Icons.more_horiz : (_result[s.$1]!.$1 ? Icons.check_circle : Icons.error),
-                  color: _result[s.$1] == null ? _muted : (_result[s.$1]!.$1 ? (_result[s.$1]!.$2 > 1500 ? _amber : _green) : const Color(0xFFFF4D4D)),
-                ),
-                title: Text(s.$1, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(
-                  '${s.$2} playlist(s)${_result[s.$1] == null ? '' : _result[s.$1]!.$1 ? ' · ${_result[s.$1]!.$2} ms${_result[s.$1]!.$2 > 1500 ? ' (slow)' : ''}' : ' · ${_result[s.$1]!.$3}'}',
-                  style: const TextStyle(color: _muted),
+      body: RefreshIndicator(
+        onRefresh: () => _load(),
+        color: _red,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          children: [
+            if (_error != null) Text(_error!, style: const TextStyle(color: Color(0xFFFF8A90))),
+            if (_busy && _servers.isEmpty) const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator())),
+            if (bad.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                    color: const Color(0x33FF4D4D),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFF4D4D))),
+                child: Text('${bad.length} server(s) have a problem: ${bad.map((s) => s['host']).join(', ')}',
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+            if (_notify != null && _notify!['telegram_set'] != true && '${_notify!['ntfy_topic'] ?? ''}'.isEmpty)
+              Card(
+                color: _card,
+                child: ListTile(
+                  leading: const Icon(Icons.phonelink_ring_rounded, color: _amber),
+                  title: const Text('Get alerts on your phone'),
+                  subtitle: const Text('Set up Telegram or ntfy once: tap here', style: TextStyle(color: _muted)),
+                  onTap: _notifySheet,
                 ),
               ),
-            ),
-        ],
+            if (_notify != null && (_notify!['telegram_set'] == true || '${_notify!['ntfy_topic'] ?? ''}'.isNotEmpty))
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(onPressed: _test, icon: const Icon(Icons.send_rounded), label: const Text('Send a test alert')),
+              ),
+            Text('${_servers.length} servers (DNS) · checked by the website every 10 minutes',
+                style: const TextStyle(color: _muted, fontSize: 12.5)),
+            const SizedBox(height: 8),
+            for (final s in _servers)
+              Builder(builder: (context) {
+                final look = _look('${s['status']}');
+                final server = '${s['server']}';
+                return Card(
+                  color: _card,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14), side: BorderSide(color: look.$1.withValues(alpha: 0.5))),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 8, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Icon(Icons.dns_rounded, color: look.$1, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SelectableText('${s['host']}',
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15.5)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(color: look.$1.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(8)),
+                            child: Text(look.$2, style: TextStyle(color: look.$1, fontWeight: FontWeight.w900, fontSize: 11.5)),
+                          ),
+                        ]),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$server${'${s['ip']}'.isNotEmpty ? '  ·  IP ${s['ip']}' : ''}'
+                          '${(s['ms'] as num? ?? 0) > 0 ? '  ·  ${s['ms']} ms' : ''}\n'
+                          '${s['note']}  ·  ${s['playlists']} playlists  ·  ${_ago((s['checked'] as num?)?.toInt() ?? 0)}',
+                          style: const TextStyle(color: _muted, fontSize: 12.5, height: 1.4),
+                        ),
+                        if (_phone[server] != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text('Phone: ${_phone[server]}', style: const TextStyle(fontSize: 12.5)),
+                          ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(onPressed: () => _fromPhone(server), child: const Text('Test from this phone')),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            if (_alerts.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Text('Alerts', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 6),
+              for (final a in _alerts)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(a['kind'] == 'ok' ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                      color: a['kind'] == 'ok' ? _green : const Color(0xFFFF4D4D)),
+                  title: Text('${a['text']}', style: const TextStyle(fontSize: 13.5)),
+                  subtitle: Text(_ago((a['at'] as num?)?.toInt() ?? 0), style: const TextStyle(color: _muted, fontSize: 12)),
+                ),
+            ],
+          ],
+        ),
       ),
     );
   }
