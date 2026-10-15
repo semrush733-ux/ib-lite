@@ -109,7 +109,9 @@ jobs:
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           {
             "$BT/apksigner" verify --verbose out/AdminPanel.apk 2>&1 | head -12
-            "$BT/aapt2" dump badging out/AdminPanel.apk 2>&1 | grep -E "^package|sdkVersion|targetSdk|native-code" | head -6
+            "$BT/aapt2" dump badging out/AdminPanel.apk 2>&1 | grep -E "^package|dkVersion|native-code|^application:|launchable" | head -8
+            echo "--- manifest"
+            "$BT/aapt2" dump xmltree --file AndroidManifest.xml out/AdminPanel.apk 2>&1 | grep -E "E: |A: .*(name|exported|minSdk|targetSdk|icon|Cleartext|extractNative|debuggable|testOnly)" | head -80
             "$BT/zipalign" -c -P 16 4 out/AdminPanel.apk >/dev/null 2>&1 && echo "zipalign: OK" || echo "zipalign: NOT aligned"
           } | tee out/CHECK.txt
 
