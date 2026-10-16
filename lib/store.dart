@@ -304,6 +304,23 @@ class Store {
   static bool allowed(XItem item) =>
       !isHidden(item.kind, item.categoryId) && (parentalUnlocked || !isLocked(item.kind, item.categoryId));
 
+  /// Streaming service boxes on the home screen (Settings › Streaming Boxes), off until switched on.
+  static bool streamingOn(String id) => _p.getBool('stream_box_$id') ?? false;
+  static void setStreamingOn(String id, bool on) => _p.setBool('stream_box_$id', on);
+
+  /// The customer's own order of categories (hold OK on a category and move it).
+  static List<String> categoryOrder(XKind kind) => _p.getStringList('cat_order|${kind.name}|$_accountKey') ?? const <String>[];
+  static void setCategoryOrder(XKind kind, List<String> ids) => _p.setStringList('cat_order|${kind.name}|$_accountKey', ids);
+
+  /// Categories in the customer's order: the moved ones where they were put, new ones after them.
+  static List<XCategory> sortCategories(XKind kind, List<XCategory> cats) {
+    final order = categoryOrder(kind);
+    if (order.isEmpty) return cats;
+    final rank = <String, int>{for (var i = 0; i < order.length; i++) order[i]: i};
+    final known = cats.where((c) => rank.containsKey(c.id)).toList()..sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
+    return [...known, ...cats.where((c) => !rank.containsKey(c.id))];
+  }
+
   /// Subtitle language picked last time; empty = subtitles off.
   static String get subtitleLanguage => _p.getString('sub_lang') ?? '';
   static void setSubtitleLanguage(String code) => _p.setString('sub_lang', code);

@@ -12,12 +12,13 @@ import '../speedtest.dart';
 import '../vpn.dart';
 import '../parental.dart';
 import '../store.dart';
+import '../streaming.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
 import 'home.dart' show wallpaperAsset;
 
-enum _Section { network, vpn, vod, live, parental, wallpaper, categories, cache, language, info }
+enum _Section { network, vpn, vod, live, parental, wallpaper, categories, streaming, cache, language, info }
 
 /// The Google Play build has no VPN section.
 final _sections = [for (final s in _Section.values) if (!(kPlay && s == _Section.vpn)) s];
@@ -30,6 +31,7 @@ const _titles = {
   _Section.parental: 'Parental Control',
   _Section.wallpaper: 'Main Wallpaper',
   _Section.categories: 'Manage Categories',
+  _Section.streaming: 'Streaming Boxes',
   _Section.cache: 'Clear Cache',
   _Section.language: 'Language',
   _Section.info: 'Application Info',
@@ -44,6 +46,7 @@ const _icons = {
   _Section.wallpaper: Icons.photo_library_rounded,
   _Section.language: Icons.translate_rounded,
   _Section.categories: Icons.dashboard_customize_rounded,
+  _Section.streaming: Icons.subscriptions_rounded,
   _Section.cache: Icons.cleaning_services_rounded,
   _Section.info: Icons.info_rounded,
 };
@@ -58,6 +61,7 @@ const _colors = {
   _Section.wallpaper: Color(0xFFD946EF),
   _Section.language: Color(0xFF06B6D4),
   _Section.categories: Color(0xFF6366F1),
+  _Section.streaming: Color(0xFFEF4444),
   _Section.cache: Color(0xFF8B5CF6),
   _Section.info: Color(0xFFF5B400),
 };
@@ -90,7 +94,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadCats(XKind kind) async {
     if (_cats.containsKey(kind)) return;
     try {
-      final list = await widget.api.categories(kind);
+      final list = Store.sortCategories(kind, await widget.api.categories(kind));
       if (!mounted) return;
       setState(() => _cats[kind] = list);
     } catch (e) {
@@ -276,6 +280,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return _wallpapers();
       case _Section.categories:
         return _categories();
+      case _Section.streaming:
+        return _streaming();
       case _Section.language:
         return _languages();
       case _Section.cache:
@@ -487,10 +493,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Untick a category to hide it everywhere in the app. Tick it again to bring it back.',
+        const Text('Untick a category to hide it everywhere in the app. Tick it again to bring it back. '
+            'To move a category, hold OK on it in Live TV, Movies or Series.',
             style: TextStyle(fontSize: 13.5, color: C.dim)),
         const SizedBox(height: 14),
-        _kindTabs(),
+        Row(
+          children: [
+            Expanded(child: _kindTabs()),
+            if (Store.categoryOrder(_kind).isNotEmpty)
+              _chip('Original order', false, () async {
+                Store.setCategoryOrder(_kind, const []);
+                final list = _cats[_kind];
+                if (list != null) {
+                  _cats.remove(_kind);
+                  await _loadCats(_kind);
+                }
+                setState(() {});
+              }),
+          ],
+        ),
         const SizedBox(height: 12),
         Expanded(
           child: _catList(
@@ -503,6 +524,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
               setState(() {});
             },
           ),
+        ),
+      ],
+    );
+  }
+
+  // ----------------------------------------------------------- streaming boxes
+
+  Widget _streaming() {
+    return ListView(
+      children: [
+        const Text(
+          'Switch on a service and its box appears on the home screen. The box shows the movies and series of that '
+          'service from your own playlist: its categories named after the service, and — when the website has the film '
+          'database (TMDB) set up — the service\'s titles found in your playlist.',
+          style: TextStyle(fontSize: 13.5, color: C.dim, height: 1.45),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final s in kStreamingServices)
+              SizedBox(
+                width: 260,
+                height: 54,
+                child: TvFocus(
+                  radius: 10,
+                  color: C.panel,
+                  selected: Store.streamingOn(s.id),
+                  onTap: () {
+                    Store.setStreamingOn(s.id, !Store.streamingOn(s.id));
+                    StreamingFinder.clear();
+                    setState(() {});
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        Icon(Store.streamingOn(s.id) ? Icons.toggle_on_rounded : Icons.toggle_off_rounded,
+                            size: 34, color: Store.streamingOn(s.id) ? C.accent : C.dim),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(s.name,
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );

@@ -86,6 +86,10 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
   int _request = 0;
   Timer? _focusTimer;
 
+  // Moving a category: hold OK (or the finger) on it, then Up / Down (or drag) and OK to place it.
+  String? _moving;
+  int _dragFrom = 0;
+
   // Live: the small preview on the right. OK on a channel starts it here,
   // OK on the same channel again goes full screen (like the big IPTV apps).
   PlaybackEngine? _pv;
@@ -364,7 +368,7 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
       _catsError = null;
     });
     try {
-      final cats = await widget.api.categories(widget.kind);
+      final cats = Store.sortCategories(widget.kind, await widget.api.categories(widget.kind));
       if (!mounted) return;
       _firstId = cats
           .where((c) => !Store.isHidden(widget.kind, c.id) && !Store.isLocked(widget.kind, c.id))
@@ -955,15 +959,114 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     );
   }
 
+  // ---------------------------------------------------------------- moving a category
+  List<XCategory> get _visibleCats => (_cats ?? const <XCategory>[]).where((c) => !Store.isHidden(widget.kind, c.id)).toList();
+
+  void _startMove(XCategory cat) {
+    if (_moving != null) return;
+    _focusTimer?.cancel();
+    setState(() {
+      _moving = cat.id;
+      _dragFrom = _visibleCats.indexWhere((c) => c.id == cat.id);
+    });
+    log('category move start');
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        width: 380,
+        content: Text(
+            InputMode.remote ? 'Move it with Up / Down, then press OK to place it.' : 'Drag it up or down, then let go.',
+            textAlign: TextAlign.center),
+      ));
+  }
+
+  /// Puts the moving category at position [to] among the shown ones (hidden ones keep their place).
+  void _moveTo(int to) {
+    final id = _moving;
+    final all = _cats;
+    if (id == null || all == null) return;
+    final shown = _visibleCats;
+    final from = shown.indexWhere((c) => c.id == id);
+    if (from < 0) return;
+    to = to.clamp(0, shown.length - 1);
+    if (to == from) return;
+    final cat = shown[from];
+    final next = List<XCategory>.of(all)..removeWhere((c) => c.id == id);
+    final anchor = shown[to];
+    var at = next.indexWhere((c) => c.id == anchor.id);
+    if (to > from) at += 1; // below the category it passed
+    next.insert(at, cat);
+    setState(() => _cats = next);
+    // The moved row keeps the focus (its key moves with it); keep it on screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = FocusManager.instance.primaryFocus?.context;
+      if (ctx != null && ctx.mounted) Scrollable.ensureVisible(ctx, alignment: 0.5, duration: const Duration(milliseconds: 120));
+    });
+  }
+
+  void _moveBy(int step) {
+    final from = _visibleCats.indexWhere((c) => c.id == _moving);
+    if (from >= 0) _moveTo(from + step);
+  }
+
+  void _finishMove() {
+    final id = _moving;
+    final all = _cats;
+    if (id == null || all == null) return;
+    Store.setCategoryOrder(widget.kind, all.map((c) => c.id).toList());
+    setState(() => _moving = null);
+    log('category moved');
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(
+        duration: Duration(milliseconds: 1400),
+        behavior: SnackBarBehavior.floating,
+        width: 320,
+        content: Text('Category order saved', textAlign: TextAlign.center),
+      ));
+  }
+
+  KeyEventResult _moveKeys(FocusNode node, KeyEvent event) {
+    if (_moving == null || event is KeyUpEvent) return KeyEventResult.ignored;
+    final k = event.logicalKey;
+    if (k == LogicalKeyboardKey.arrowUp) {
+      _moveBy(-1);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowDown) {
+      _moveBy(1);
+      return KeyEventResult.handled;
+    }
+    // Stays on the list until the category is placed.
+    if (k == LogicalKeyboardKey.arrowLeft || k == LogicalKeyboardKey.arrowRight) return KeyEventResult.handled;
+    if (k == LogicalKeyboardKey.escape || k == LogicalKeyboardKey.goBack || k == LogicalKeyboardKey.browserBack) {
+      _finishMove();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   Widget _categories() {
     if (_catsError != null) return ErrorBox(message: _catsError!, onRetry: _loadCategories, autofocus: true);
     final all = _cats;
     if (all == null) return const Loading();
     final cats = all.where((c) => !Store.isHidden(widget.kind, c.id)).toList();
-    return ListView.builder(
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: _moveKeys,
+      child: ListView.builder(
       padding: const EdgeInsets.only(bottom: 16),
       itemCount: cats.length + 4,
       itemExtent: 42,
+      // A moved category keeps its row (and the focus) while it changes place.
+      findChildIndexCallback: (key) {
+        if (key is! ValueKey<String>) return null;
+        final i = cats.indexWhere((c) => 'cat:${c.id}' == key.value);
+        return i < 0 ? null : i + 4;
+      },
       itemBuilder: (context, index) {
         if (index == 0) {
           return _CategoryRow(
@@ -1005,16 +1108,25 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
         }
         final cat = cats[index - 4];
         final locked = Store.isLocked(widget.kind, cat.id) && !Store.parentalUnlocked;
+        final moving = _moving == cat.id;
         return _CategoryRow(
-          icon: locked ? Icons.lock_rounded : null,
+          key: ValueKey<String>('cat:${cat.id}'),
+          icon: moving ? Icons.swap_vert_rounded : (locked ? Icons.lock_rounded : null),
           name: cat.name,
-          selected: _selected == cat.id,
+          selected: _selected == cat.id || moving,
+          moving: moving,
           // The remote starts on the category that opens first (the server's first one).
           autofocus: cat.id == _firstId,
-          onTap: () => _select(cat.id, cat.name),
-          onFocus: () => _focusCategory(cat.id, cat.name),
+          onTap: moving ? _finishMove : () => _select(cat.id, cat.name),
+          onFocus: _moving != null ? null : () => _focusCategory(cat.id, cat.name),
+          // Hold OK / the finger: the category can be moved. While it moves, its row keeps handling
+          // OK itself (a no-op hold), so the still-held OK cannot place it at once.
+          onLongPress: _moving == null ? () => _startMove(cat) : (moving ? () {} : null),
+          onLongPressMove: InputMode.remote ? null : (dy) => _moveTo(_dragFrom + (dy / 42).round()),
+          onLongPressEnd: InputMode.remote ? null : _finishMove,
         );
       },
+    ),
     );
   }
 
@@ -1079,10 +1191,15 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
 
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
+    super.key,
     required this.name,
     required this.selected,
     required this.onTap,
     this.onFocus,
+    this.onLongPress,
+    this.onLongPressMove,
+    this.onLongPressEnd,
+    this.moving = false,
     this.icon,
     this.autofocus = false,
   });
@@ -1091,6 +1208,10 @@ class _CategoryRow extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback? onFocus;
+  final VoidCallback? onLongPress;
+  final ValueChanged<double>? onLongPressMove;
+  final VoidCallback? onLongPressEnd;
+  final bool moving;
   final IconData? icon;
   final bool autofocus;
 
@@ -1101,10 +1222,14 @@ class _CategoryRow extends StatelessWidget {
       child: TvFocus(
         autofocus: autofocus,
         selected: selected,
-        color: C.panel,
+        color: moving ? Color.alphaBlend(C.accent.withValues(alpha: 0.30), C.panel) : C.panel,
+        focusBorder: moving ? Colors.white : C.accent,
         radius: 8,
         onTap: onTap,
         onFocus: onFocus,
+        onLongPress: onLongPress,
+        onLongPressMove: onLongPressMove,
+        onLongPressEnd: onLongPressEnd,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(

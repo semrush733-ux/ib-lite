@@ -225,6 +225,24 @@ html, body {
 .tile.on .bgc, .tile.on .hi { -webkit-transform: scale(1.045); transform: scale(1.045); }
 .tile.on .hi { opacity: 1; }
 .tile.on .bar { -webkit-transform: scaleX(1); transform: scaleX(1); }
+/* streaming boxes under the tiles (the tiles get shorter to make room) */
+.screen.svc .hm-tiles, .screen.svc .tile { height: 470px; }
+.screen.svc .tile .ti { top: 108px; }
+.screen.svc .tile .tt { top: 290px; }
+.hm-svc { position: absolute; left: 77px; right: 77px; top: 712px; height: 112px; white-space: nowrap; font-size: 0; }
+.svcbox { display: inline-block; vertical-align: top; position: relative; width: 330px; height: 112px; margin-right: 24px; border-radius: 28px;
+  background: rgba(26,13,16,0.9); border: 3px solid rgba(255,255,255,0.22); padding: 20px 20px 0 96px; box-sizing: border-box;
+  -webkit-transition: -webkit-transform 140ms ease-out; transition: transform 140ms ease-out; }
+.svcbox:last-child { margin-right: 0; }
+.svcbox .ic { position: absolute; left: 26px; top: 26px; font-size: 54px; color: #E3262F; }
+.svcbox .nm { display: block; font-size: 33px; font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.svcbox .sb { display: block; font-size: 22px; color: #9BA3B2; margin-top: 3px; white-space: nowrap; }
+.svcbox.on { background: #5B1D22; border-color: #fff; -webkit-transform: scale(1.05); transform: scale(1.05); }
+.svcbox.on .ic { color: #fff; }
+.hm-svc.compact .svcbox { padding: 22px 14px 0 18px; }
+.hm-svc.compact .svcbox .ic { display: none; }
+.hm-svc.compact .svcbox .nm { font-size: 25px; }
+.hm-svc.compact .svcbox .sb { font-size: 19px; overflow: hidden; text-overflow: ellipsis; }
 .hm-bottom { position: absolute; left: 77px; right: 77px; bottom: 43px; display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
 .infobox { position: relative; padding: 22px 36px; border-radius: 36px; background: rgba(11,6,7,0.85);
@@ -254,6 +272,9 @@ html, body {
 .crow .cnt { color: #8B93A3; font-weight: 600; margin-left: 8px; }
 .crow.sel { background: #2A1719; border-color: rgba(227,38,47,0.45); color: #F2F4F8; font-weight: 700; }
 .crow.on { background: #5B1D22; border-color: #E3262F; color: #fff; }
+/* a category being moved (hold OK, then Up / Down) */
+.crow.mv { background: #7A1F27; border-color: #fff; color: #fff; font-weight: 800; }
+.crow.mv .ic { color: #fff; }
 .br-main { position: absolute; left: 448px; right: 36px; top: 36px; bottom: 0; }
 .br-main.wide { left: 508px; top: 24px; }
 .br-main .content { position: absolute; left: 0; right: 0; top: 64px; bottom: 0; }

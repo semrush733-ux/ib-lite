@@ -250,6 +250,16 @@ var Backend = {}, Store = {};
     });
   };
 
+  /** The website's daily lists of the streaming services' titles ({} when it has none). */
+  Backend.streamingLists = function () {
+    return call('GET', '/app/streaming').then(function (d) {
+      return d && d.services && typeof d.services === 'object' ? d.services : {};
+    }, function (e) {
+      if (e.status === 404) return {};
+      throw e;
+    });
+  };
+
   Backend.activate = function (code) {
     return Backend.ensureRegistered().then(function (ok) {
       if (!ok) return 'No connection to the activation server. Please check the internet and try again.';
@@ -318,7 +328,7 @@ var Backend = {}, Store = {};
 
   function switchAccount(identity) {
     if (S.get('identity', '') === identity) return;
-    ['live', 'vod', 'series'].forEach(function (k) { S.del('fav_' + k); S.del('recent_' + k); });
+    ['live', 'vod', 'series'].forEach(function (k) { S.del('fav_' + k); S.del('recent_' + k); S.del('catorder_' + k); });
     S.del('resume');
     favCache = {};
     recentCache = {};
@@ -394,6 +404,20 @@ var Backend = {}, Store = {};
     while (keys.length > 300) delete m[keys.shift()];
     S.set(resumeCache.k, m);
   };
+  /** The customer's own order of categories (hold OK on a category and move it), per kind. */
+  Store.catOrder = function (kind) { return S.get(ns() + 'catorder_' + kind, []) || []; };
+  Store.setCatOrder = function (kind, ids) { S.set(ns() + 'catorder_' + kind, ids); };
+  /** Categories in that order: the moved ones where they were put, new ones after them. */
+  Store.sortCats = function (kind, list) {
+    var order = Store.catOrder(kind);
+    if (!order.length) return list;
+    var rank = {};
+    order.forEach(function (id, i) { rank[id] = i; });
+    var known = list.filter(function (c) { return rank.hasOwnProperty(c.id); });
+    known.sort(function (a, b) { return rank[a.id] - rank[b.id]; });
+    return known.concat(list.filter(function (c) { return !rank.hasOwnProperty(c.id); }));
+  };
+
   /** Live stream format: 'auto' (TV's own HLS first, MPEG-TS as fallback), 'm3u8' or 'ts'. */
   Store.liveFormat = function () { return S.get('live_format', 'auto'); };
   Store.setLiveFormat = function (v) { S.set('live_format', v); };

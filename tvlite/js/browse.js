@@ -33,21 +33,62 @@
     var catBox = el.querySelector('.cats');
     catBox.style.height = (11 * 84) + 'px';
     var cats = [], selected = '', selectedName = '', req = 0, focusTimer = null, allCount = null, query = '';
+    var firstReal = 0, moving = null;
     var catList = new UI.VList(catBox, {
       rowH: 84, rows: 11, cls: 'crow', margin: 2,
       make: function (r) { r.innerHTML = ''; },
       render: function (r, c) {
         var cnt = c.id === ALL && allCount != null ? '<span class="cnt">(' + allCount + ')</span>' : '';
-        r.innerHTML = (c.icon ? U.icon(c.icon) : '') + U.esc(c.name) + cnt;
+        r.innerHTML = (c.id === moving ? U.icon('drag') : (c.icon ? U.icon(c.icon) : '')) + U.esc(c.name) + cnt;
+        r.classList.toggle('mv', c.id === moving);
       },
-      ok: function (i) { var c = cats[i]; if (c.id === SEARCH) search(); else select(c.id, c.name); },
+      ok: function (i) {
+        if (moving) { finishMove(); return; }
+        var c = cats[i];
+        if (c.id === SEARCH) search(); else select(c.id, c.name);
+      },
+      // Hold OK on a category: it can be moved (Up / Down, then OK).
+      long: function (i) { if (!moving && i >= firstReal && cats[i]) startMove(i); },
+      keyHook: function (k) { return moving ? moveKey(k) : false; },
       focus: function (i) {
         clearTimeout(focusTimer);
+        if (moving) return;
         var c = cats[i];
         if (!c || c.id === selected || c.id === ALL || c.id === SEARCH) return;
         focusTimer = setTimeout(function () { select(c.id, c.name); }, 500);
       }
     });
+
+    // ---------------------------------------------------------------- moving a category
+    function startMove(i) {
+      clearTimeout(focusTimer);
+      moving = cats[i].id;
+      catList.refresh();
+      App.log('category move start');
+      UI.toast('Up / Down to move it, then OK to place it', 3000);
+    }
+    function moveTo(to) {
+      var from = catList.idx;
+      to = Math.max(firstReal, Math.min(cats.length - 1, to));
+      if (to === from || !cats[from] || cats[from].id !== moving) return;
+      var c = cats.splice(from, 1)[0];
+      cats.splice(to, 0, c);
+      catList.render();
+      catList.focus(to);
+      catList.setSel(cats.map(function (x) { return x.id; }).indexOf(selected));
+    }
+    function moveKey(k) {
+      if (k === 'up' || k === 'down') { moveTo(catList.idx + (k === 'up' ? -1 : 1)); return true; }
+      return k === 'left' || k === 'right' || k === 'chup' || k === 'chdown' || k === 'ff' || k === 'rw';
+    }
+    function finishMove() {
+      if (!moving) return;
+      moving = null;
+      Store.setCatOrder(kind, cats.slice(firstReal).map(function (c) { return c.id; }));
+      catList.refresh();
+      App.log('category moved');
+      UI.toast('Category order saved', 1500);
+    }
 
     function setTitle(name, n) {
       titleT.textContent = name;
@@ -58,6 +99,7 @@
       content.innerHTML = '';
       content.appendChild(UI.pulse('loading'));
       src.categories(kind).then(function (list) {
+        list = Store.sortCats(kind, list);
         cats = [];
         if (!catchup) cats.push({ id: SEARCH, name: 'Search', icon: 'search' });
         cats.push({ id: ALL, name: catchup ? 'All with Catch Up' : ALL_TITLES[kind], icon: 'apps' });
@@ -65,7 +107,7 @@
           cats.push({ id: FAV, name: 'Favourites', icon: 'star' });
           cats.push({ id: RECENT, name: 'Recent', icon: 'history' });
         }
-        var firstReal = cats.length;
+        firstReal = cats.length;
         list.forEach(function (c) { cats.push({ id: c.id, name: c.name }); });
         var start = list.length ? firstReal : (catchup ? 0 : 1);
         catList.set(cats, start);
@@ -514,6 +556,11 @@
       stopPreview();
     };
     this.onKey = function (k) {
+      // A category is being moved: Back places it; other keys wait (OK places it on the row itself).
+      if (moving) {
+        if (k === 'back') { finishMove(); return true; }
+        return k !== 'ok';
+      }
       if (k === 'back') stopPreview();
       return false;
     };

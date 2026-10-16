@@ -642,6 +642,20 @@ class Backend {
     return m.isEmpty ? 'Playlist removed.' : m;
   }
 
+  /// The website's daily lists of the streaming services' titles (for the Netflix / Prime / HBO…
+  /// boxes): {service id: {movie: [[title, year], …], tv: […]}}. Empty when the website has none
+  /// (no TMDB key set there, or an older plugin).
+  static Future<Map<String, dynamic>> streamingLists() async {
+    try {
+      final data = await _get('/app/streaming');
+      final s = data is Map ? data['services'] : null;
+      return s is Map<String, dynamic> ? s : <String, dynamic>{};
+    } on BackendException catch (e) {
+      if (e.statusCode == 404) return <String, dynamic>{};
+      rethrow;
+    }
+  }
+
   static Future<List<BPlaylist>> playlists() async {
     if (!registered && !await ensureRegistered()) {
       throw BackendException('No connection to the server.');

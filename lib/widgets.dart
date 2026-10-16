@@ -22,6 +22,8 @@ class TvFocus extends StatefulWidget {
     required this.child,
     required this.onTap,
     this.onLongPress,
+    this.onLongPressMove,
+    this.onLongPressEnd,
     this.onFocus,
     this.autofocus = false,
     this.focusNode,
@@ -34,6 +36,11 @@ class TvFocus extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+
+  /// Touch: after a long press the finger keeps moving (dy = distance from where it started),
+  /// e.g. to drag a category up or down. [onLongPressEnd] when the finger lifts.
+  final ValueChanged<double>? onLongPressMove;
+  final VoidCallback? onLongPressEnd;
   final VoidCallback? onFocus;
   final bool autofocus;
   final FocusNode? focusNode;
@@ -86,13 +93,18 @@ class _TvFocusState extends State<TvFocus> {
         : widget.selected
             ? [Color.alphaBlend(C.accent.withValues(alpha: 0.12), base), Color.alphaBlend(C.accent.withValues(alpha: 0.05), base)]
             : [base, base];
+    final drag = widget.onLongPressMove != null;
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: _onKey,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
+        child: GestureDetector(
+          onLongPressStart: drag ? (_) => widget.onLongPress?.call() : null,
+          onLongPressMoveUpdate: drag ? (d) => widget.onLongPressMove!(d.offsetFromOrigin.dy) : null,
+          onLongPressEnd: drag ? (_) => widget.onLongPressEnd?.call() : null,
+          child: InkWell(
           focusNode: widget.focusNode,
           autofocus: widget.autofocus,
           borderRadius: radius,
@@ -101,7 +113,7 @@ class _TvFocusState extends State<TvFocus> {
           highlightColor: Colors.transparent,
           splashColor: Colors.transparent,
           onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
+          onLongPress: drag ? null : widget.onLongPress,
           onFocusChange: (value) {
             if (_focused != value) setState(() => _focused = value);
             if (!value) {
@@ -140,6 +152,7 @@ class _TvFocusState extends State<TvFocus> {
               ],
             ),
           ),
+        ),
         ),
       ),
     );

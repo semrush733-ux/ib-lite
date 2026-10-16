@@ -357,6 +357,29 @@ var Screens = {};
       Nav.push(new Screens.Browse(src, 'live', 'catchup'));
     });
 
+    // Streaming boxes (Settings → Streaming boxes) between the tiles and the information.
+    var svcRow = U.el('div', 'hm-svc');
+    el.appendChild(svcRow);
+    var svcShown = '';
+    function drawSvc() {
+      var list = Streaming.enabled();
+      var sig = list.map(function (s) { return s.id; }).join(',');
+      if (sig === svcShown) return;
+      svcShown = sig;
+      var had = F.cur && svcRow.contains(F.cur);
+      svcRow.innerHTML = '';
+      el.classList.toggle('svc', list.length > 0);
+      var n = list.length, w = n ? Math.floor((1766 - (n - 1) * 24) / n) : 0;
+      svcRow.classList.toggle('compact', n > 5);
+      list.forEach(function (s) {
+        var b = U.el('div', 'svcbox f', U.icon('video') + '<span class="nm">' + U.esc(s.name) + '</span><span class="sb">Movies &amp; Series</span>');
+        b.style.width = Math.min(330, w) + 'px';
+        b._ok = function () { Nav.push(new Screens.Streaming(src, s)); };
+        svcRow.appendChild(b);
+      });
+      if (had) F.set(liveTile);
+    }
+
     function appExpiry() {
       if (Backend.lic.type === 'lifetime') return 'Lifetime';
       var e = Backend.expiry();
@@ -477,6 +500,7 @@ var Screens = {};
     this.show = function (first) {
       drawInfo();
       drawClock();
+      drawSvc();
       if (first) {
         F.set(liveTile);
         if (!acc) refreshAccount();
@@ -524,6 +548,10 @@ var Screens = {};
     });
     row('tv', 'My device', U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
     row('person', 'Account', U.icon('chevR'), function () { App.accountDialog(App.account, false); });
+    function svcCount() { var n = Streaming.enabled().length; return (n ? n + ' on' : 'Off') + U.icon('chevR'); }
+    var svcRow = row('video', 'Streaming boxes', svcCount(), function () {
+      Streaming.dialog(function () { svcRow.querySelector('.vl2').innerHTML = svcCount(); });
+    });
     row('history', 'Clear watch history', '', function () {
       UI.confirm('Clear watch history?', 'Recently watched and the places where films were stopped are removed.', 'Clear', 'Cancel', function () {
         Store.clearHistory();

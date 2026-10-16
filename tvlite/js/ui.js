@@ -286,6 +286,8 @@ var UI = {}, Brand = {};
   };
   VList.prototype.refresh = function () { this.render(); };
   VList.prototype.key = function (k) {
+    // A screen can take the keys first (a category being moved).
+    if (this.o.keyHook && this.o.keyHook(k)) return true;
     var n = this.items.length;
     if (!n) return false;
     var step;

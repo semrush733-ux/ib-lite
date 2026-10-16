@@ -10,6 +10,7 @@ import '../prefetch.dart';
 import '../puppy.dart';
 import '../speedtest.dart';
 import '../store.dart';
+import '../streaming.dart';
 import '../theme.dart';
 import '../weather.dart';
 import '../widgets.dart';
@@ -21,6 +22,7 @@ import 'device.dart';
 import 'downloads.dart';
 import 'playlists.dart';
 import 'settings.dart';
+import 'streaming.dart';
 import 'update_web.dart' if (dart.library.io) 'update.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -510,6 +512,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+            // ---- streaming service boxes (Settings › Streaming Boxes) ----
+            if (enabledStreaming().isNotEmpty) ...[
+              SizedBox(height: box.maxHeight * 0.03),
+              SizedBox(
+                height: box.maxHeight * 0.12,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  clipBehavior: Clip.none,
+                  itemCount: enabledStreaming().length,
+                  separatorBuilder: (_, __) => SizedBox(width: gap),
+                  itemBuilder: (context, i) {
+                    final s = enabledStreaming()[i];
+                    return SizedBox(
+                      width: (w - 2 * pad - 4 * gap) / 5,
+                      child: _StreamBox(
+                        name: s.name,
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(builder: (_) => StreamingScreen(api: widget.api, service: s))),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             SizedBox(height: box.maxHeight * 0.045),
             // ---- information along the bottom ----
             Row(
@@ -547,6 +573,42 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     });
+  }
+}
+
+/// A streaming service on the home screen: its name only (never the company's logo).
+class _StreamBox extends StatelessWidget {
+  const _StreamBox({required this.name, required this.onTap});
+  final String name;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return TvFocus(
+      radius: 14,
+      color: const Color(0xD91A0D10),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Row(
+          children: [
+            const Icon(Icons.play_circle_fill_rounded, color: C.accent, size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(t('Movies & Series'), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: C.dim)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
