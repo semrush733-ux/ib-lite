@@ -82,21 +82,133 @@ class _LoginScreenState extends State<LoginScreen> {
   // The website is fixed in the app; the field only appears in a build without one.
   final bool _showSite = kDefaultSite.isEmpty;
   String? _error;
+  // Security question (times table) from the website; null = none asked.
+  final _answer = TextEditingController();
+  Captcha? _cap;
+  bool _capAsked = false, _capLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_showSite) {
+      _capLoading = true;
+      _loadCaptcha();
+    }
+  }
+
+  Future<void> _loadCaptcha() async {
+    if (!_capLoading) setState(() => _capLoading = true);
+    try {
+      final c = await Api.captcha(_site.text);
+      if (!mounted) return;
+      setState(() {
+        _cap = c;
+        _capAsked = true;
+        _answer.clear();
+      });
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _capLoading = false);
+    }
+  }
 
   Future<void> _go() async {
+    // A website typed by hand: ask it for its question first.
+    if (!_capAsked) {
+      await _loadCaptcha();
+      if (_cap != null || !_capAsked) return;
+    }
+    if (_cap != null && _answer.text.trim().isEmpty) {
+      setState(() => _error = 'Please answer the security question.');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await Api.signIn(_site.text, _user.text, _pass.text);
+      await Api.signIn(_site.text, _user.text, _pass.text, captchaToken: _cap?.token ?? '', captcha: _answer.text);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => const HomeShell()));
     } catch (e) {
       setState(() => _error = '$e');
+      // Every question can be answered once: a new one for the next try.
+      if (_cap != null) _loadCaptcha();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Widget _num(int n) => Container(
+        width: 46,
+        height: 52,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFF0424B), Color(0xFFB3141C)]),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [BoxShadow(color: Color(0x55E3262F), blurRadius: 10, offset: Offset(0, 3))],
+        ),
+        child: Text('$n', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white)),
+      );
+
+  Widget _sign(String s) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        child: Text(s, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: _muted)),
+      );
+
+  Widget _question() {
+    final c = _cap!;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF2A1215), Color(0xFF170D0F)]),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_rounded, size: 16, color: _red),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text('Security question', style: TextStyle(color: _muted, fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
+              IconButton(
+                tooltip: 'New question',
+                visualDensity: VisualDensity.compact,
+                onPressed: _busy || _capLoading ? null : _loadCaptcha,
+                icon: const Icon(Icons.refresh_rounded, size: 20),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              _num(c.a),
+              _sign('×'),
+              _num(c.b),
+              _sign('='),
+              Expanded(
+                child: TextField(
+                  controller: _answer,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  maxLength: 2,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2),
+                  onSubmitted: (_) => _go(),
+                  decoration: const InputDecoration(counterText: '', hintText: '?', contentPadding: EdgeInsets.symmetric(vertical: 12)),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -138,6 +250,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     onSubmitted: (_) => _go(),
                     decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock)),
                   ),
+                  if (_cap != null) ...[
+                    const SizedBox(height: 14),
+                    _question(),
+                  ] else if (_capLoading) ...[
+                    const SizedBox(height: 14),
+                    const Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 14),
                     Text(_error!, style: const TextStyle(color: Color(0xFFFF8A90))),

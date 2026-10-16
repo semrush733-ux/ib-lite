@@ -14,6 +14,18 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// The security question on the sign-in screen: a times table sum from 2 x 2 to 9 x 9.
+class Captcha {
+  Captcha(Map<String, dynamic> j)
+      : required = j['required'] != false,
+        token = '${j['token'] ?? ''}',
+        a = (j['a'] as num?)?.toInt() ?? 0,
+        b = (j['b'] as num?)?.toInt() ?? 0;
+  final bool required;
+  final String token;
+  final int a, b;
+}
+
 class Profile {
   Profile(Map<String, dynamic> j)
       : name = '${j['name'] ?? ''}',
@@ -203,10 +215,29 @@ class Api {
     await me();
   }
 
-  static Future<void> signIn(String siteInput, String user, String pass) async {
+  /// A new security question for signing in, or null when the website does not ask one
+  /// (turned off, or an older website plugin).
+  static Future<Captcha?> captcha(String siteInput) async {
     site = kDefaultSite.isNotEmpty ? kDefaultSite : siteInput.trim();
     token = '';
-    final j = await _call('/panel/login', body: {'username': user.trim(), 'password': pass});
+    try {
+      final c = Captcha(await _call('/panel/captcha'));
+      return c.required && c.token.isNotEmpty ? c : null;
+    } on ApiException catch (e) {
+      if (e.status == 404) return null;
+      rethrow;
+    }
+  }
+
+  static Future<void> signIn(String siteInput, String user, String pass, {String captchaToken = '', String captcha = ''}) async {
+    site = kDefaultSite.isNotEmpty ? kDefaultSite : siteInput.trim();
+    token = '';
+    final j = await _call('/panel/login', body: {
+      'username': user.trim(),
+      'password': pass,
+      if (captchaToken.isNotEmpty) 'captcha_token': captchaToken,
+      if (captchaToken.isNotEmpty) 'captcha': captcha.trim(),
+    });
     token = '${j['token']}';
     profile = Profile(j['profile'] as Map<String, dynamic>);
     await _p?.setString('site', site);
