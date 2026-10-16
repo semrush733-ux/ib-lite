@@ -74,7 +74,7 @@
 
     function watch(start) {
       Nav.push(new Screens.Player({
-        src: src, kind: 'vod', urls: [src.vodUrl(it)], title: it.n, sub: [info.year, info.genre].filter(function (s) { return s; }).join('  ·  '),
+        src: src, kind: 'vod', urls: src.vodUrls ? src.vodUrls(it) : [src.vodUrl(it)], title: it.n, sub: [info.year, info.genre].filter(function (s) { return s; }).join('  ·  '),
         poster: info.cover || it.i, resumeKey: key, start: start
       }));
     }

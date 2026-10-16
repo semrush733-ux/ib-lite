@@ -23,7 +23,7 @@
       '<div class="poster2"><div class="pic"></div><div class="tl"><div class="t1"></div><div class="st"></div></div></div>' +
       '<div class="dead hide">' + U.icon('error') + '<div class="t1"></div><div class="t2"></div></div>' +
       '<div class="osd">' +
-      '<div class="top"><div class="tt"></div><div class="sub"></div><div class="right"><span class="plname">' + U.icon('playlist') + '<span></span></span><span class="clk num"></span></div></div>' +
+      '<div class="top"><div class="tt"></div><div class="sub"></div><div class="right"><span class="qb hide"></span><span class="plname">' + U.icon('playlist') + '<span></span></span><span class="clk num"></span></div></div>' +
       '<div class="bot"><div class="lg"><img alt=""></div><div class="info"><div class="now"></div><div class="next"></div>' +
       '<div class="tl2 hide"><span class="pos num"></span><span class="bar"><i></i><b></b></span><span class="tot num"></span></div>' +
       '<div class="ctrls"><div class="lbl"></div><div class="btns"></div></div></div></div></div>' +
@@ -108,6 +108,14 @@
       lg.className = 'lg' + (live ? '' : ' vod');
       UI.setImg(lg.querySelector('img'), pic());
       lg.querySelector('img').classList.add('ok');
+      drawQuality();
+    }
+    /** The picture size the stream really delivers (4K shows as 4K only when it is). */
+    function drawQuality() {
+      var w = Player.v.videoWidth || 0, h = Player.v.videoHeight || 0, q = el.querySelector('.qb');
+      var label = !w || !h || Player.state() === 'error' ? '' : w >= 3200 || h >= 2000 ? '4K UHD' : w >= 1800 || h >= 1000 ? 'FULL HD' : w >= 1200 || h >= 700 ? 'HD' : 'SD';
+      q.classList.toggle('hide', !label);
+      if (label) q.innerHTML = '<b>' + label + '</b>' + w + ' × ' + h;
     }
     function drawGuide() {
       var now = el.querySelector('.bot .now'), next = el.querySelector('.bot .next');
@@ -257,7 +265,7 @@
       if (!quietPoster) showPoster();
       Player.v.muted = false;
       pulse(true);
-      Player.open(src.liveUrls(it), { live: true });
+      Player.open(src.liveUrls(it), { live: true, loop: !!(src.loops && src.loops(it)) });
       loadEpg();
       if (osdOn) { drawTop(); drawGuide(); }
       if (buttons.length) drawButtons();
@@ -324,7 +332,7 @@
       showPoster();
       pulse(true);
       var urls = o.urls;
-      if (episodes) urls = [src.episodeUrl(epNow())];
+      if (episodes) urls = src.episodeUrls ? src.episodeUrls(epNow()) : [src.episodeUrl(epNow())];
       var s = start != null ? start : Store.resume(resumeKey());
       Player.open(urls, { live: false, start: s > 30 ? s : 0 });
       if (osdOn) drawTop();
@@ -402,6 +410,7 @@
     // ---------------------------------------------------------------- player events
     function onPlayer(ev, d) {
       if (Nav.top() !== self) return;
+      if ((ev === 'first' || ev === 'meta') && osdOn) drawQuality();
       if (ev === 'first') { hidePoster(); pulse(false); return; }
       if (ev !== 'state') return;
       if (d.state === 'playing') { pulse(false); hidePoster(); setDead(false); }
@@ -493,6 +502,7 @@
       tick = setInterval(function () {
         if (!osdOn) return;
         el.querySelector('.clk').textContent = U.hm(new Date());
+        drawQuality();
         if (live) drawGuide(); else drawTime();
       }, live ? 15000 : 500);
     };

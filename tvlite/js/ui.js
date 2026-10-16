@@ -432,7 +432,7 @@ var UI = {}, Brand = {};
     if (img._url === url) return;
     img._url = url;
     img.classList.remove('ok');
-    if (!url || url.indexOf('http') !== 0) {
+    if (!url || (url.indexOf('http') !== 0 && url.indexOf('img/') !== 0)) {
       img.removeAttribute('src');
       img.style.visibility = 'hidden';
       return;

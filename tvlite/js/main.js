@@ -90,7 +90,7 @@
   function onVisibility() {
     if (hidden()) {
       if (Player.active() && Player.state() !== 'error') {
-        parked = { urls: Player.urls(), live: Player.live(), start: Player.pos() };
+        parked = { urls: Player.urls(), live: Player.live(), start: Player.pos(), loop: Player.loops() };
         App.log('app in the background: video paused');
         Player.stop();
       }
@@ -100,7 +100,7 @@
       var top = Nav.top();
       if (top && (top.name === 'player' || top.name === 'browse-live')) {
         App.log('app back: video again');
-        Player.open(p.urls, { live: p.live, start: p.live ? 0 : p.start });
+        Player.open(p.urls, { live: p.live, start: p.live ? 0 : p.start, loop: p.loop });
       }
     }
   }

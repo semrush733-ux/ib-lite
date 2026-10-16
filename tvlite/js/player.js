@@ -11,7 +11,7 @@ var Player = {};
   var v = U.$('vid');
   Player.v = v;
   var st = {
-    token: 0, urls: [], ui: 0, live: false, start: 0, state: 'off', retries: 0,
+    token: 0, urls: [], ui: 0, live: false, loop: false, start: 0, state: 'off', retries: 0,
     played: false, watch: null, stall: null, loadTimer: null, t0: 0, mode: 'off', seekTo: -1
   };
   var subs = [];
@@ -30,6 +30,7 @@ var Player = {};
   Player.live = function () { return st.live; };
   Player.token = function () { return st.token; };
   Player.urls = function () { return st.urls.slice(); };
+  Player.loops = function () { return st.loop; };
   Player.active = function () { return st.state !== 'off'; };
 
   /** What is playing, for the log (never the address: it holds the account's password). */
@@ -73,7 +74,7 @@ var Player = {};
     try { v.removeAttribute('src'); v.load(); } catch (e2) {}
   }
 
-  /** Plays the first address that works. opts: {live, start (seconds), key} */
+  /** Plays the first address that works. opts: {live, start (seconds), loop (start again at the end)} */
   Player.open = function (urls, opts) {
     opts = opts || {};
     var t = ++st.token;
@@ -83,6 +84,7 @@ var Player = {};
     st.urls = (urls || []).slice();
     st.ui = 0;
     st.live = !!opts.live;
+    st.loop = !!opts.loop;
     st.start = opts.start || 0;
     st.retries = 0;
     st.played = false;
@@ -99,6 +101,7 @@ var Player = {};
     st.t0 = Date.now();
     App.log('open ' + describe(url) + (st.ui ? ' (other address)' : '') + (st.retries ? ' (reconnect ' + st.retries + ')' : ''));
     try {
+      v.loop = st.loop;
       v.src = url;
       v.load();
     } catch (e) {}
@@ -145,7 +148,7 @@ var Player = {};
   Player.retry = function () {
     if (!st.urls.length) return;
     var urls = st.urls, live = st.live, start = st.live ? 0 : (v.currentTime || st.start);
-    Player.open(urls, { live: live, start: start });
+    Player.open(urls, { live: live, start: start, loop: st.loop });
   };
 
   Player.stop = function () {

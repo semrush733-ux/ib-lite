@@ -294,7 +294,7 @@
       pv.querySelector('.err').classList.add('hide');
       pvPulse(true);
       Player.layout('preview', previewRect());
-      Player.open(src.liveUrls(it), { live: true });
+      Player.open(src.liveUrls(it), { live: true, loop: !!(src.loops && src.loops(it)) });
     }
 
     function pvPulse(on) {

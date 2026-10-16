@@ -38,7 +38,7 @@ var Screens = {};
       '<div class="cn-bg"></div><div class="cn-wash"></div>' +
       '<div class="cn-left">' + UI.logo(80) +
       '<h1>Add your playlist</h1><div class="sub">Your playlist is added on our website — no typing with the remote.</div>' +
-      '<div class="steps"></div><div class="err"></div><div class="plchoice"></div></div>' +
+      '<div class="steps"></div><div class="demo"></div><div class="err"></div><div class="plchoice"></div></div>' +
       '<div class="cn-right"><div class="qrbox"></div>' +
       '<div class="idrow"><span class="k">MAC Address:</span><span class="v mac">—</span></div>' +
       '<div class="idrow"><span class="k">Device Key:</span><span class="v key">—</span></div>' +
@@ -54,6 +54,11 @@ var Screens = {};
     function step(n, text, strong) {
       return '<div class="step"><span class="n">' + n + '</span>' + U.esc(text) + (strong ? '  <b>' + U.esc(strong) + '</b>' : '') + '</div>';
     }
+    // No playlist yet: the built-in demo content plays at once (to try the player, or to film it).
+    var demoBtn = U.el('span', 'btn f', U.icon('play') + 'Watch the 4K demo');
+    demoBtn._ok = function () { if (!opening) App.openDemo(true); };
+    el.querySelector('.demo').appendChild(demoBtn);
+    el.querySelector('.demo').appendChild(U.el('span', 'dnote', 'No playlist yet? Try the player with built-in 4K channels, movies and series.'));
 
     var shownId = '';
     function drawIds() {
@@ -71,17 +76,22 @@ var Screens = {};
     function drawError() {
       el.querySelector('.err').innerHTML = error ? '<div class="errbox">' + U.esc(error) + '</div>' : '';
     }
+    var choicesShown = false;
     function drawChoices() {
       var box = el.querySelector('.plchoice');
       var show = lists.length > 1 || (lists.length === 1 && tried && !opening);
-      if (!show) { box.innerHTML = ''; return; }
-      var had = F.cur && box.contains(F.cur);
+      var had = F.cur && box.contains(F.cur), hadIdx = 0;
+      if (had) for (var k = 1; k < box.childNodes.length; k++) if (box.childNodes[k] === F.cur) hadIdx = k - 1;
+      if (!show) { box.innerHTML = ''; if (had) F.set(demoBtn); return; }
+      // The first time the choices appear they take the focus; later the focus stays where it is.
+      var first = !choicesShown;
+      choicesShown = true;
       box.innerHTML = '<h3>Choose a playlist</h3>';
       lists.forEach(function (p, i) {
         var b = U.el('span', 'btn f', U.icon('playlist') + U.esc(p.name));
         b._ok = function () { open(p); };
         box.appendChild(b);
-        if (i === 0 && (had || !F.cur)) F.set(b);
+        if (had ? i === Math.min(hadIdx, lists.length - 1) : (i === 0 && (first || !F.cur))) F.set(b);
       });
     }
     function wait(text) { el.querySelector('.wt').textContent = text; }
@@ -123,6 +133,7 @@ var Screens = {};
     this.show = function (first) {
       drawIds();
       drawError();
+      if (!F.cur || !el.contains(F.cur)) F.set(demoBtn);
       if (first) {
         check();
         timer = setInterval(check, 5000);
@@ -204,7 +215,7 @@ var Screens = {};
     var src = App.src;
     var a = account;
     function row(k, v) { return '<div class="row2"><span class="k">' + U.esc(k) + '</span><span class="v">' + U.esc(v) + '</span></div>'; }
-    var html = row('Playlist', src && src.type === 'xtream' ? 'Xtream Codes' : 'M3U') +
+    var html = row('Playlist', src && src.type === 'xtream' ? 'Xtream Codes' : src && src.type === 'demo' ? 'Demo content (built into the app)' : 'M3U') +
       row('Status', !a ? (offline ? 'No connection' : 'Checking…') : (a.trial ? 'Trial' : 'Active')) +
       row('Expires', !a ? '—' : (a.expires ? fmtDate(a.expires) : 'Never')) +
       (a && a.note ? row('Note', a.note) : '') +
@@ -219,15 +230,26 @@ var Screens = {};
   /** Playlists added on the website for this TV. */
   App.choosePlaylist = function () {
     var d = UI.dialog({ title: 'Playlists', html: '<div class="pls"><span class="spin"></span>  Loading…</div>', width: 1000, buttons: [{ label: 'Close' }] });
+    var demo = !!(App.src && App.src.type === 'demo');
+    function demoChoice(box, focus) {
+      var b = U.el('div', 'opt f' + (demo ? ' sel' : ''), U.icon(demo ? 'radioOn' : 'radioOff') + 'Demo 4K content  <span class="dim">(built into the app)</span>');
+      b._ok = function () {
+        d.close();
+        if (!demo) App.openDemo(false);
+      };
+      box.appendChild(b);
+      if (focus || demo) F.set(b);
+    }
     Backend.playlists().then(function (lists) {
       var box = d.body.querySelector('.pls');
       if (!box) return;
       box.innerHTML = '';
       if (!lists.length) {
-        box.innerHTML = '<div class="dim">No playlists yet. Add one on ' + U.esc(Backend.siteShort()) + '/upload-playlist</div>';
+        box.innerHTML = '<div class="dim" style="margin-bottom:14px">No playlists yet. Add one on ' + U.esc(Backend.siteShort()) + '/upload-playlist</div>';
+        demoChoice(box, true);
         return;
       }
-      var cur = Store.session() ? Store.session().pid : 0;
+      var cur = Store.session() && !demo ? Store.session().pid : 0;
       lists.forEach(function (p, i) {
         var b = U.el('div', 'opt f' + (p.id === cur ? ' sel' : ''), U.icon(p.id === cur ? 'radioOn' : 'radioOff') + U.esc(p.name));
         b._ok = function () {
@@ -238,9 +260,12 @@ var Screens = {};
         box.appendChild(b);
         if (i === 0 || p.id === cur) F.set(b);
       });
+      demoChoice(box, false);
     }, function (e) {
       var box = d.body.querySelector('.pls');
-      if (box) box.innerHTML = '<div class="errbox">' + U.esc(e.message || 'No connection.') + '</div>';
+      if (!box) return;
+      box.innerHTML = '<div class="errbox" style="margin:0 0 14px">' + U.esc(e.message || 'No connection.') + '</div>';
+      demoChoice(box, true);
     });
   };
 
@@ -324,7 +349,8 @@ var Screens = {};
     tile('series', 'TV Series', function () { Nav.push(new Screens.Browse(src, 'series')); });
     tile('catchup', 'Catch Up', function () {
       if (src.type !== 'xtream') {
-        UI.message('Catch Up', 'Catch Up works with Xtream Codes playlists, where the server keeps recordings of past programmes. An M3U playlist link does not carry recordings.');
+        UI.message('Catch Up', 'Catch Up works with Xtream Codes playlists, where the server keeps recordings of past programmes. ' +
+          (src.type === 'demo' ? 'The demo content has no recordings.' : 'An M3U playlist link does not carry recordings.'));
         return;
       }
       Nav.push(new Screens.Browse(src, 'live', 'catchup'));
@@ -385,6 +411,7 @@ var Screens = {};
     /** The playlist on the website may have changed (new server, new login) or been removed. */
     function follow() {
       var s = Store.session();
+      if (s && s.mode === 'demo') return followDemo(s);
       if (!s || !s.pid || !Backend.configured()) return Promise.resolve();
       return Backend.playlists().then(function (lists) {
         var p = null;
@@ -405,6 +432,21 @@ var Screens = {};
         if (Store.sig(p) === s.psig) return;
         App.log('playlist changed on the website: reopening');
         App.openPlaylist(p, true).then(null, function () {});
+      }, function () {});
+    }
+
+    /** Demo opened from the start screen: the first playlist added on the website takes over by itself. */
+    function followDemo(s) {
+      if (!s.auto || !Backend.configured()) return Promise.resolve();
+      return Backend.playlists().then(function (lists) {
+        if (!lists.length) return;
+        if (Nav.top() !== self || Player.active()) { pendingFollow = true; return; }
+        App.log('playlist added on the website: leaving the demo');
+        App.openPlaylist(lists[0]).then(null, function (e) {
+          s.auto = false; // asked once; the Playlists window still has it
+          S.set('session', s);
+          UI.message('Playlist', '"' + lists[0].name + '": ' + Src.friendly(e));
+        });
       }, function () {});
     }
 
@@ -429,6 +471,7 @@ var Screens = {};
         if (!acc) refreshAccount();
         timers.push(setTimeout(follow, 6000));
         timers.push(setInterval(follow, 5 * 60000));
+        if (src.type === 'demo') timers.push(setInterval(function () { var s = Store.session(); if (s && s.auto) follow(); }, 15000));
         timers.push(setInterval(function () { drawClock(); Weather.refresh().then(drawClock); }, 20000));
         Weather.refresh().then(drawClock);
         App.on('licence', onLicence);

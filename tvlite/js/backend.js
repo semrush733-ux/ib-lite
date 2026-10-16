@@ -319,7 +319,7 @@ var Backend = {}, Store = {};
     S.set('identity', identity);
   }
   Store.save = function (s, site) {
-    switchAccount(s.mode === 'm3u' ? 'm3u|' + s.url : 'xtream|' + s.server + '|' + s.user);
+    if (s.mode !== 'demo') switchAccount(s.mode === 'm3u' ? 'm3u|' + s.url : 'xtream|' + s.server + '|' + s.user);
     sess = U.extend({}, s);
     sess.pid = site ? site.id : 0;
     sess.pname = site ? site.name : '';
@@ -333,9 +333,12 @@ var Backend = {}, Store = {};
   };
 
   var favCache = {}, recentCache = {}, resumeCache = null;
+  /** Demo content: its favourites and history are kept apart from the playlist's. */
+  function ns() { return sess && sess.mode === 'demo' ? 'demo_' : ''; }
   Store.favs = function (kind) {
-    if (!favCache[kind]) favCache[kind] = S.get('fav_' + kind, []) || [];
-    return favCache[kind];
+    var k = ns() + 'fav_' + kind;
+    if (!favCache[k]) favCache[k] = S.get(k, []) || [];
+    return favCache[k];
   };
   Store.isFav = function (it) {
     var l = Store.favs(it.k);
@@ -345,32 +348,35 @@ var Backend = {}, Store = {};
   Store.toggleFav = function (it) {
     var l = Store.favs(it.k);
     for (var i = 0; i < l.length; i++) {
-      if (l[i].id === it.id) { l.splice(i, 1); S.set('fav_' + it.k, l); return false; }
+      if (l[i].id === it.id) { l.splice(i, 1); S.set(ns() + 'fav_' + it.k, l); return false; }
     }
     l.unshift(it);
-    S.set('fav_' + it.k, l);
+    S.set(ns() + 'fav_' + it.k, l);
     return true;
   };
   Store.recents = function (kind) {
-    if (!recentCache[kind]) recentCache[kind] = S.get('recent_' + kind, []) || [];
-    return recentCache[kind];
+    var k = ns() + 'recent_' + kind;
+    if (!recentCache[k]) recentCache[k] = S.get(k, []) || [];
+    return recentCache[k];
   };
   Store.addRecent = function (it) {
     var l = Store.recents(it.k);
     for (var i = l.length - 1; i >= 0; i--) if (l[i].id === it.id) l.splice(i, 1);
     l.unshift(it);
     if (l.length > 30) l.length = 30;
-    S.set('recent_' + it.k, l);
+    S.set(ns() + 'recent_' + it.k, l);
   };
   Store.clearHistory = function () {
-    ['live', 'vod', 'series'].forEach(function (k) { S.del('recent_' + k); });
+    ['live', 'vod', 'series'].forEach(function (k) { S.del('recent_' + k); S.del('demo_recent_' + k); });
     recentCache = {};
     S.del('resume');
+    S.del('demo_resume');
     resumeCache = null;
   };
   function resumes() {
-    if (!resumeCache) resumeCache = S.get('resume', {}) || {};
-    return resumeCache;
+    var k = ns() + 'resume';
+    if (!resumeCache || resumeCache.k !== k) resumeCache = { k: k, m: S.get(k, {}) || {} };
+    return resumeCache.m;
   }
   Store.resume = function (key) { return U.int(resumes()[key]); };
   Store.setResume = function (key, sec) {
@@ -379,7 +385,7 @@ var Backend = {}, Store = {};
     if (sec > 0) m[key] = Math.floor(sec);
     var keys = Object.keys(m);
     while (keys.length > 300) delete m[keys.shift()];
-    S.set('resume', m);
+    S.set(resumeCache.k, m);
   };
   /** Live stream format: 'auto' (TV's own HLS first, MPEG-TS as fallback), 'm3u8' or 'ts'. */
   Store.liveFormat = function () { return S.get('live_format', 'auto'); };
