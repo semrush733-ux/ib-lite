@@ -586,20 +586,31 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
               children: [
                 Padding(
                   padding: const EdgeInsets.only(left: 6, bottom: 12),
-                  child: Row(
-                    children: [
-                      if (!InputMode.remote)
-                        ExcludeFocus(
-                          child: IconButton(
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(Icons.arrow_back_rounded, color: C.text),
-                            onPressed: () => Navigator.of(context).maybePop(),
-                          ),
-                        ),
-                      const Logo(size: 18),
-                      const SizedBox(width: 10),
-                      Text(kindTitle(widget.kind), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-                    ],
+                  // Shrinks a little when it needs more room than the panel has (the back arrow on a
+                  // phone, in the narrower Live TV panel), instead of running into the channel list.
+                  // When it fits, it keeps its size and height exactly as before.
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!InputMode.remote)
+                            ExcludeFocus(
+                              child: IconButton(
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.arrow_back_rounded, color: C.text),
+                                onPressed: () => Navigator.of(context).maybePop(),
+                              ),
+                            ),
+                          const Logo(size: 18),
+                          const SizedBox(width: 10),
+                          Text(kindTitle(widget.kind), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 Expanded(child: _categories()),
@@ -1109,6 +1120,9 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
         final cat = cats[index - 4];
         final locked = Store.isLocked(widget.kind, cat.id) && !Store.parentalUnlocked;
         final moving = _moving == cat.id;
+        // A finger (or a mouse) drags the category it holds. Always ready, not only in touch mode:
+        // a phone's volume button counts as a key, and the list may not have been rebuilt since.
+        final canDrag = _moving == null || moving;
         return _CategoryRow(
           key: ValueKey<String>('cat:${cat.id}'),
           icon: moving ? Icons.swap_vert_rounded : (locked ? Icons.lock_rounded : null),
@@ -1122,8 +1136,8 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
           // Hold OK / the finger: the category can be moved. While it moves, its row keeps handling
           // OK itself (a no-op hold), so the still-held OK cannot place it at once.
           onLongPress: _moving == null ? () => _startMove(cat) : (moving ? () {} : null),
-          onLongPressMove: InputMode.remote ? null : (dy) => _moveTo(_dragFrom + (dy / 42).round()),
-          onLongPressEnd: InputMode.remote ? null : _finishMove,
+          onLongPressMove: canDrag ? (dy) => _moveTo(_dragFrom + (dy / 42).round()) : null,
+          onLongPressEnd: canDrag ? _finishMove : null,
         );
       },
     ),
