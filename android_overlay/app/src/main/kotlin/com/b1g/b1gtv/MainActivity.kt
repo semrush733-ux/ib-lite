@@ -22,9 +22,22 @@ class MainActivity : FlutterActivity() {
     private val vpn by lazy { VpnHelper(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Video chips that pad their pictures (Fire TV 4K / 4K Max...): MPV's textures too must
+        // apply the crop (see VideoCrop). Set before any player makes a texture.
+        if (VideoCrop.needed(applicationContext)) VideoCrop.useSurfaceTexturesInFlutter(true)
         super.onCreate(savedInstanceState)
         // The app draws its own focus highlight; Android's outline around the whole screen is not wanted.
         hideSystemFocusOutline(window.decorView)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        VideoCrop.foreground = true
+    }
+
+    override fun onPause() {
+        VideoCrop.foreground = false
+        super.onPause()
     }
 
     /**

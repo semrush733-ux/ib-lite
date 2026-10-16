@@ -425,7 +425,9 @@ class ExoEngine extends PlaybackEngine {
 
   final bool live;
   int _id = 0;
-  int _texture = -1;
+  /// The Flutter texture with the picture. It can change while a video plays: on a device whose
+  /// video chip pads its pictures the picture moves to a SurfaceTexture (see VideoCrop.kt).
+  final ValueNotifier<int> _texture = ValueNotifier(-1);
   bool _disposed = false;
 
   final _position = StreamController<Duration>.broadcast();
@@ -464,8 +466,9 @@ class ExoEngine extends PlaybackEngine {
     final r = await _channel.invokeMethod<Map<dynamic, dynamic>>(
         'create', {'live': live, 'ua': kUserAgent, 'startMs': startMs, 'rebufMs': rebufMs});
     e._id = (r?['id'] as num?)?.toInt() ?? 0;
-    e._texture = (r?['texture'] as num?)?.toInt() ?? -1;
-    if (e._id == 0 || e._texture < 0) throw StateError('ExoPlayer could not start');
+    e._texture.value = (r?['texture'] as num?)?.toInt() ?? -1;
+    if (e._id == 0 || e._texture.value < 0) throw StateError('ExoPlayer could not start');
+    if (r?['cropSafe'] == true) debugPrint('B1G exo picture: SurfaceTexture (this video chip pads its pictures)');
     _live[e._id] = e;
     return e;
   }
@@ -523,6 +526,11 @@ class ExoEngine extends PlaybackEngine {
         _noSound.add((m['mime'] ?? '').toString());
       case 'firstframe':
         _firstFrame.add(null);
+      case 'texture':
+        final textureId = (m['texture'] as num?)?.toInt() ?? -1;
+        if (textureId >= 0) _texture.value = textureId;
+      case 'log':
+        debugPrint('B1G exo: ${m['text'] ?? ''}');
       case 'enhanceoff':
         enhanceLevel = 0;
         _enhanceFailed.add(null);
@@ -677,6 +685,7 @@ class ExoEngine extends PlaybackEngine {
       if (mime(f['audio']).isNotEmpty) 'Sound: ${mime(f['audio'])}',
       'Pictures skipped so far: ${(f['dropped'] as num?)?.toInt() ?? 0}',
       'Picture Enhance: ${_levelName(enhanceLevel)}',
+      if ((f['surface'] ?? '').toString().isNotEmpty) 'Picture surface: ${f['surface']}',
     ];
   }
 
@@ -705,7 +714,14 @@ class ExoEngine extends PlaybackEngine {
               return ClipRect(
                 child: FittedBox(
                   fit: fit,
-                  child: SizedBox(width: s.width, height: s.height, child: Texture(textureId: _texture)),
+                  child: SizedBox(
+                    width: s.width,
+                    height: s.height,
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _texture,
+                      builder: (context, id, _) => Texture(textureId: id),
+                    ),
+                  ),
                 ),
               );
             },

@@ -1,8 +1,10 @@
 package com.b1g.b1gtv
 
 import android.content.Context
+import android.media.MediaFormat
 import android.os.Handler
 import android.os.Looper
+import android.view.Surface
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -32,7 +34,12 @@ import io.flutter.view.TextureRegistry
  * subtitles, quality, EPG...) stay on top of it. Flutter talks to it over the "b1g/exo" channel:
  * create / open / play / pause / seek / rate / track / dispose / facts. Changes come back as
  * "event" calls with the engine id: state (position, duration, buffering, playing), size,
- * tracks, cues (subtitle text), ended and error.
+ * tracks, cues (subtitle text), ended, error, texture (the picture moved to another texture)
+ * and log.
+ *
+ * The texture is Flutter's standard one, or a SurfaceTexture on devices whose video chip hands
+ * its pictures over inside a bigger frame (see [VideoCrop]): there the standard texture would
+ * show the picture small in a corner with a green area around it.
  */
 class ExoEngine(
     private val context: Context,
@@ -76,7 +83,7 @@ class ExoEngine(
                 val rebufMs = (call.argument<Number>("rebufMs") ?: 3000).toInt().coerceIn(1000, 15000)
                 val s = Session(id, live, ua, startMs, rebufMs)
                 sessions[id] = s
-                result.success(mapOf("id" to id, "texture" to s.textureId))
+                result.success(mapOf("id" to id, "texture" to s.textureId, "cropSafe" to s.onSurfaceTexture))
                 return
             }
             val id = (call.argument<Number>("id") ?: 0).toInt()
@@ -126,8 +133,15 @@ class ExoEngine(
         startMs: Int = 1500,
         rebufMs: Int = 3000,
     ) {
-        private val producer: TextureRegistry.SurfaceProducer = textures.createSurfaceProducer()
-        val textureId: Long = producer.id()
+        // Where the picture goes: Flutter's standard texture, or a SurfaceTexture (one of the two).
+        private var producer: TextureRegistry.SurfaceProducer? = null
+        private var stEntry: TextureRegistry.SurfaceTextureEntry? = null
+        private var stSurface: Surface? = null
+        private val consumed = java.util.concurrent.atomic.AtomicLong(0)
+        private var pictureChecked = false
+        var textureId: Long = -1L
+            private set
+        val onSurfaceTexture: Boolean get() = stEntry != null
         val player: ExoPlayer
         private var released = false
         private var tracks: Tracks = Tracks.EMPTY
@@ -158,7 +172,8 @@ class ExoEngine(
                 .setBufferDurationsMs(minBuf, maxOf(if (live) 30000 else 60000, minBuf + 5000), startMs, rebufMs)
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
-            val renderers = DefaultRenderersFactory(context)
+            // The standard renderers; the video one also says when the chip pads its pictures.
+            val renderers = CropWatchingRenderersFactory(context) { mf -> main.post { onPaddedPictures(mf) } }
                 .setEnableDecoderFallback(true)
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             player = ExoPlayer.Builder(context, renderers)
@@ -166,17 +181,7 @@ class ExoEngine(
                 .setLoadControl(load)
                 .build()
 
-            producer.setSize(1920, 1080)
-            producer.setCallback(object : TextureRegistry.SurfaceProducer.Callback {
-                override fun onSurfaceAvailable() {
-                    if (!released) player.setVideoSurface(producer.surface)
-                }
-
-                override fun onSurfaceCleanup() {
-                    if (!released) player.setVideoSurface(null)
-                }
-            })
-            player.setVideoSurface(producer.surface)
+            if (VideoCrop.needed(context)) attachSurfaceTexture() else attachProducer()
 
             player.addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(state: Int) {
@@ -198,10 +203,19 @@ class ExoEngine(
 
                 override fun onVideoSizeChanged(size: VideoSize) {
                     if (size.width <= 0 || size.height <= 0) return
-                    producer.setSize(size.width, size.height)
-                    player.setVideoSurface(producer.surface)
                     outW = size.width
                     outH = size.height
+                    val p = producer
+                    if (p != null) {
+                        p.setSize(size.width, size.height)
+                        player.setVideoSurface(p.surface)
+                    } else {
+                        // Same surface; the size counts when the picture is drawn with effects.
+                        try {
+                            stEntry?.surfaceTexture()?.setDefaultBufferSize(size.width, size.height)
+                        } catch (_: Exception) {
+                        }
+                    }
                     if (enhance > 0) signalOutputSize()
                     send(id, "size", mapOf("w" to size.width, "h" to size.height))
                 }
@@ -227,6 +241,7 @@ class ExoEngine(
 
                 override fun onRenderedFirstFrame() {
                     send(id, "firstframe")
+                    watchSurfaceTexture()
                 }
 
                 override fun onCues(cueGroup: CueGroup) {
@@ -249,6 +264,101 @@ class ExoEngine(
                 }
             })
             main.post(ticker)
+        }
+
+        /** Flutter's standard texture (an ImageReader on Android 10 and newer). */
+        private fun attachProducer() {
+            val p = textures.createSurfaceProducer()
+            producer = p
+            textureId = p.id()
+            p.setSize(outW, outH)
+            p.setCallback(object : TextureRegistry.SurfaceProducer.Callback {
+                override fun onSurfaceAvailable() {
+                    if (!released && producer === p) player.setVideoSurface(p.surface)
+                }
+
+                override fun onSurfaceCleanup() {
+                    if (!released && producer === p) player.setVideoSurface(null)
+                }
+            })
+            player.setVideoSurface(p.surface)
+        }
+
+        /** A SurfaceTexture: Flutter shows only the part of the frame that is the picture. */
+        private fun attachSurfaceTexture() {
+            val e = textures.createSurfaceTexture()
+            e.surfaceTexture().setDefaultBufferSize(outW, outH)
+            e.setOnFrameConsumedListener { consumed.incrementAndGet() }
+            val s = Surface(e.surfaceTexture())
+            stEntry = e
+            stSurface = s
+            textureId = e.id()
+            player.setVideoSurface(s)
+        }
+
+        /** The video chip padded a picture: from now on it goes through a SurfaceTexture. */
+        private fun onPaddedPictures(mf: MediaFormat) {
+            if (released || !VideoCrop.mayUse(context)) return
+            VideoCrop.learnPads(context)
+            val old = producer ?: return // already on a SurfaceTexture
+            producer = null
+            attachSurfaceTexture()
+            send(id, "texture", mapOf("texture" to textureId))
+            send(id, "log", mapOf("text" to "the video chip pads its pictures (${VideoCrop.describe(mf)}): picture moved to a SurfaceTexture"))
+            // Flutter switches to the new texture on its next frame; the old one goes after that.
+            main.postDelayed({
+                try {
+                    old.release()
+                } catch (_: Exception) {
+                }
+            }, 1500)
+        }
+
+        /** Pictures this player has handed to the screen so far. */
+        private fun renderedCount(): Long = try {
+            val c = player.videoDecoderCounters
+            c?.ensureUpdated()
+            c?.renderedOutputBufferCount?.toLong() ?: 0L
+        } catch (_: Exception) {
+            0L
+        }
+
+        /**
+         * Safety net for the SurfaceTexture: a few seconds after the first picture, the screen must
+         * have taken pictures from it. If it took none while the video played, this session goes
+         * back to the standard texture (a picture with a green area is better than none).
+         */
+        private fun watchSurfaceTexture() {
+            if (pictureChecked || stEntry == null) return
+            pictureChecked = true
+            val c0 = consumed.get()
+            val r0 = renderedCount()
+            main.postDelayed({
+                if (released || stEntry == null || !player.isPlaying || !VideoCrop.foreground) return@postDelayed
+                if (renderedCount() - r0 < 20 || consumed.get() > c0) return@postDelayed
+                VideoCrop.surfaceTextureShowedNothing(context)
+                switchToProducer()
+            }, 4000)
+        }
+
+        private fun switchToProducer() {
+            val e = stEntry ?: return
+            val s = stSurface
+            stEntry = null
+            stSurface = null
+            attachProducer()
+            send(id, "texture", mapOf("texture" to textureId))
+            send(id, "log", mapOf("text" to "the SurfaceTexture showed no picture: back to the standard texture"))
+            main.postDelayed({
+                try {
+                    s?.release()
+                } catch (_: Exception) {
+                }
+                try {
+                    e.release()
+                } catch (_: Exception) {
+                }
+            }, 1500)
         }
 
         fun open(url: String, startMs: Long, level: Int, paused: Boolean = false) {
@@ -403,6 +513,7 @@ class ExoEngine(
                 "audio" to (a?.sampleMimeType ?: ""),
                 "dropped" to dropped,
                 "enhance" to enhance,
+                "surface" to (if (stEntry != null || producer?.handlesCropAndRotation() == true) "SurfaceTexture" else "ImageReader"),
             )
         }
 
@@ -415,9 +526,20 @@ class ExoEngine(
             } catch (_: Exception) {
             }
             try {
-                producer.release()
+                producer?.release()
             } catch (_: Exception) {
             }
+            try {
+                stSurface?.release()
+            } catch (_: Exception) {
+            }
+            try {
+                stEntry?.release()
+            } catch (_: Exception) {
+            }
+            producer = null
+            stSurface = null
+            stEntry = null
         }
     }
 }
