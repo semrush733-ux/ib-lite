@@ -86,7 +86,7 @@ jobs:
             --dart-define=SITE="$SITE" 2>&1 | tee ../out/build.log
           mkdir -p ../out && cp build/app/outputs/flutter-apk/app-release.apk ../out/AdminPanel.apk
 
-      - name: Sign with your own key
+      - name: Sign with your own key (v1 + v2 + v3) and make small phone APKs
         if: env.HAS_SIGNING == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -94,25 +94,49 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          set -e
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
-          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
-            --out "$RUNNER_TEMP/signed.apk" out/AdminPanel.apk
-          mv "$RUNNER_TEMP/signed.apk" out/AdminPanel.apk
-          rm -f "$RUNNER_TEMP/release.jks"
+          # Aligned for every phone (16 KB pages too) and signed with all three schemes, so old and
+          # new package installers alike accept it. Same version number for every file.
+          sign() {
+            # Old signature files out first (a fresh v1 signature is written).
+            zip -q -d "$1" 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.EC' 'META-INF/*.DSA' 'META-INF/MANIFEST.MF' >/dev/null 2>&1 || true
+            "$BT/zipalign" -f -P 16 4 "$1" "$RUNNER_TEMP/aligned.apk"
+            "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD \
+              --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+              --out "$2" "$RUNNER_TEMP/aligned.apk"
+            rm -f "$RUNNER_TEMP/aligned.apk"
+          }
+          cp out/AdminPanel.apk "$RUNNER_TEMP/universal.apk"
+          sign "$RUNNER_TEMP/universal.apk" out/AdminPanel.apk
+          # Phones need only their own processor type: much smaller downloads.
+          for pair in arm64-v8a:arm64 armeabi-v7a:arm32; do
+            abi="${pair%%:*}"; name="${pair##*:}"
+            cp "$RUNNER_TEMP/universal.apk" "$RUNNER_TEMP/$name.apk"
+            for other in arm64-v8a armeabi-v7a x86_64; do
+              [ "$other" = "$abi" ] || zip -q -d "$RUNNER_TEMP/$name.apk" "lib/$other/*" || true
+            done
+            sign "$RUNNER_TEMP/$name.apk" "out/AdminPanel-$name.apk"
+          done
+          rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP"/*.apk
+          ls -la out/*.apk
 
-      - name: Check the APK (signature, Android versions)
+      - name: Check the APKs (signature, Android versions, alignment)
         if: always()
         run: |
           [ -f out/AdminPanel.apk ] || exit 0
           BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
           {
-            "$BT/apksigner" verify --verbose out/AdminPanel.apk 2>&1 | head -12
-            "$BT/aapt2" dump badging out/AdminPanel.apk 2>&1 | grep -E "^package|dkVersion|native-code|^application:|launchable" | head -8
-            echo "--- manifest"
-            "$BT/aapt2" dump xmltree --file AndroidManifest.xml out/AdminPanel.apk 2>&1 | grep -E "E: |A: .*(name|exported|minSdk|targetSdk|icon|Cleartext|extractNative|debuggable|testOnly)" | head -80
-            "$BT/zipalign" -c -P 16 4 out/AdminPanel.apk >/dev/null 2>&1 && echo "zipalign: OK" || echo "zipalign: NOT aligned"
+            "$BT/aapt2" dump badging out/AdminPanel.apk 2>&1 | grep -E "^package|dkVersion|native-code|^application:" | head -6
+            for f in out/AdminPanel*.apk; do
+              echo
+              echo "== $(basename "$f")  $(du -m "$f" | cut -f1) MB  sha256 $(sha256sum "$f" | cut -c1-16)"
+              "$BT/apksigner" verify --verbose "$f" 2>&1 | grep -E "^Verifies|^DOES NOT|v1 scheme|v2 scheme|v3 scheme|ERROR" | head -6
+              "$BT/zipalign" -c -P 16 4 "$f" >/dev/null 2>&1 && echo "zipalign: OK" || echo "zipalign: NOT aligned"
+              "$BT/aapt2" dump badging "$f" 2>&1 | grep -E "^native-code" | head -1
+            done
           } | tee out/CHECK.txt
 
       - name: Publish to the "admin-latest" release
@@ -122,10 +146,13 @@ jobs:
         run: |
           TITLE="Admin Panel - build #${{ github.run_number }}"
           FILES=""
-          [ -f out/AdminPanel.apk ] && FILES="out/AdminPanel.apk"
+          for f in out/AdminPanel.apk out/AdminPanel-arm64.apk out/AdminPanel-arm32.apk; do [ -f "$f" ] && FILES="$FILES $f"; done
           [ -z "$FILES" ] && TITLE="$TITLE FAILED"
           {
             echo "Admin Panel app for resellers/providers. Website: ${SITE:-typed on sign-in}. Signed with own key: $HAS_SIGNING"
+            echo
+            echo "Phones: AdminPanel-arm64.apk (almost every phone from 2017 on). Older 32-bit phones: AdminPanel-arm32.apk."
+            echo "AdminPanel.apk holds every processor type (bigger download)."
             echo
             echo '### APK check'
             echo '```'
