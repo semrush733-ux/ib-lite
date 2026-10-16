@@ -226,6 +226,13 @@ var Backend = {}, Store = {};
       return call('GET', q('/device/playlists'));
     }).then(function (data) {
       storeStatus(data.device);
+      // The demo set on the website (App Settings), or null: the app's built-in demo videos.
+      var d = data.demo;
+      Backend.demo = d && U.str(d.url) ? {
+        id: 0, name: U.str(d.name) || 'Demo', type: U.str(d.type) === 'xtream' ? 'xtream' : 'm3u',
+        url: U.str(d.url), username: U.str(d.username), password: U.str(d.password), epg: U.str(d.epg_url)
+      } : null;
+      Backend.demoAt = Date.now();
       var out = [], raw = data.playlists || [];
       for (var i = 0; i < raw.length; i++) {
         var j = raw[i] || {};
@@ -319,7 +326,7 @@ var Backend = {}, Store = {};
     S.set('identity', identity);
   }
   Store.save = function (s, site) {
-    if (s.mode !== 'demo') switchAccount(s.mode === 'm3u' ? 'm3u|' + s.url : 'xtream|' + s.server + '|' + s.user);
+    if (s.mode !== 'demo' && !s.demo) switchAccount(s.mode === 'm3u' ? 'm3u|' + s.url : 'xtream|' + s.server + '|' + s.user);
     sess = U.extend({}, s);
     sess.pid = site ? site.id : 0;
     sess.pname = site ? site.name : '';
@@ -334,7 +341,7 @@ var Backend = {}, Store = {};
 
   var favCache = {}, recentCache = {}, resumeCache = null;
   /** Demo content: its favourites and history are kept apart from the playlist's. */
-  function ns() { return sess && sess.mode === 'demo' ? 'demo_' : ''; }
+  function ns() { return sess && (sess.mode === 'demo' || sess.demo) ? 'demo_' : ''; }
   Store.favs = function (kind) {
     var k = ns() + 'fav_' + kind;
     if (!favCache[k]) favCache[k] = S.get(k, []) || [];

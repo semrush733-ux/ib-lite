@@ -169,13 +169,57 @@
   Src.fromSession = function (s) { return s && s.mode === 'demo' ? new Demo() : fromSession(s); };
   Src.toSession = function (src) { return src.type === 'demo' ? { mode: 'demo' } : toSession(src); };
 
-  /** Opens the demo content. auto: opened from the start screen (no playlist yet), so the first
-   *  playlist added on the website replaces it by itself. */
-  App.openDemo = function (auto) {
+  /** True while the demo is open (the built-in videos or the demo set on the website). */
+  App.inDemo = function () { var s = Store.session(); return !!(s && (s.mode === 'demo' || s.demo)); };
+
+  function openBuiltIn(auto) {
     var src = new Demo();
     Store.save({ mode: 'demo', auto: !!auto }, null);
     App.src = src;
-    App.log('demo content opened');
+    App.log('demo opened: built-in videos');
     return src.login().then(function (acc) { Nav.reset(new Screens.Home(src, acc)); });
+  }
+
+  /** The demo set on the website (asked again when the last answer is old), or null. */
+  function websiteDemo() {
+    if (Backend.demoAt && Date.now() - Backend.demoAt < 5 * 60000) return Promise.resolve(Backend.demo || null);
+    if (!Backend.configured() || !Backend.registered()) return Promise.resolve(null);
+    return Promise.race([
+      Backend.playlists().then(function () { return Backend.demo || null; }, function () { return Backend.demo || null; }),
+      new Promise(function (r) { setTimeout(function () { r(Backend.demo || null); }, 6000); })
+    ]);
+  }
+
+  /** Opens the demo: the playlist set on the website when there is one, else the built-in videos.
+   *  auto: opened from the start screen (no playlist yet), so the first playlist added on the
+   *  website replaces it by itself. */
+  var opening = false;
+  App.openDemo = function (auto) {
+    if (opening) return Promise.resolve();
+    opening = true;
+    function done() { opening = false; }
+    UI.toast('Loading the demo…', 20000);
+    return websiteDemo().then(function (p) {
+      if (!p) { U.$('toast').innerHTML = ''; return openBuiltIn(auto); }
+      return Src.open(p).then(function (r) {
+        var s = Src.toSession(r.src);
+        s.demo = 1;
+        s.auto = !!auto;
+        Store.save(s, p);
+        S.del('demo_failed');
+        App.src = r.src;
+        U.$('toast').innerHTML = '';
+        App.log('demo opened: website playlist');
+        Nav.reset(new Screens.Home(r.src, r.account));
+      }, function (e) {
+        // Not hidden: the owner should know the demo link on the website does not open.
+        App.log('demo set on the website did not open: ' + Src.friendly(e));
+        S.set('demo_failed', Store.sig(p));
+        U.$('toast').innerHTML = '';
+        return openBuiltIn(auto).then(function () {
+          UI.message('Demo', 'The demo playlist set on the website did not open (' + Src.friendly(e) + '). The test videos built into the app are shown instead.');
+        });
+      });
+    }).then(done, function (e) { done(); throw e; });
   };
 })();

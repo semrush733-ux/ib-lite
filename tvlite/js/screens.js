@@ -230,9 +230,10 @@ var Screens = {};
   /** Playlists added on the website for this TV. */
   App.choosePlaylist = function () {
     var d = UI.dialog({ title: 'Playlists', html: '<div class="pls"><span class="spin"></span>  Loading…</div>', width: 1000, buttons: [{ label: 'Close' }] });
-    var demo = !!(App.src && App.src.type === 'demo');
+    var demo = App.inDemo();
     function demoChoice(box, focus) {
-      var b = U.el('div', 'opt f' + (demo ? ' sel' : ''), U.icon(demo ? 'radioOn' : 'radioOff') + 'Demo 4K content  <span class="dim">(built into the app)</span>');
+      var label = Backend.demo ? U.esc(Backend.demo.name) + '  <span class="dim">(demo)</span>' : 'Demo 4K content  <span class="dim">(built into the app)</span>';
+      var b = U.el('div', 'opt f' + (demo ? ' sel' : ''), U.icon(demo ? 'radioOn' : 'radioOff') + label);
       b._ok = function () {
         d.close();
         if (!demo) App.openDemo(false);
@@ -411,7 +412,7 @@ var Screens = {};
     /** The playlist on the website may have changed (new server, new login) or been removed. */
     function follow() {
       var s = Store.session();
-      if (s && s.mode === 'demo') return followDemo(s);
+      if (s && (s.mode === 'demo' || s.demo)) return followDemo(s);
       if (!s || !s.pid || !Backend.configured()) return Promise.resolve();
       return Backend.playlists().then(function (lists) {
         var p = null;
@@ -435,18 +436,28 @@ var Screens = {};
       }, function () {});
     }
 
-    /** Demo opened from the start screen: the first playlist added on the website takes over by itself. */
+    /** While the demo is open: a demo opened from the start screen gives way to the first playlist
+     *  added on the website; a demo changed on the website (set, new link, removed) opens again. */
     function followDemo(s) {
-      if (!s.auto || !Backend.configured()) return Promise.resolve();
+      if (!Backend.configured()) return Promise.resolve();
       return Backend.playlists().then(function (lists) {
-        if (!lists.length) return;
-        if (Nav.top() !== self || Player.active()) { pendingFollow = true; return; }
-        App.log('playlist added on the website: leaving the demo');
-        App.openPlaylist(lists[0]).then(null, function (e) {
-          s.auto = false; // asked once; the Playlists window still has it
-          S.set('session', s);
-          UI.message('Playlist', '"' + lists[0].name + '": ' + Src.friendly(e));
-        });
+        var away = Nav.top() !== self || Player.active();
+        if (s.auto && lists.length) {
+          if (away) { pendingFollow = true; return; }
+          App.log('playlist added on the website: leaving the demo');
+          App.openPlaylist(lists[0]).then(null, function (e) {
+            s.auto = false; // asked once; the Playlists window still has it
+            S.set('session', s);
+            UI.message('Playlist', '"' + lists[0].name + '": ' + Src.friendly(e));
+          });
+          return;
+        }
+        var want = Backend.demo ? Store.sig(Backend.demo) : 'builtin';
+        var have = s.mode === 'demo' ? 'builtin' : s.psig;
+        if (want === have || want === S.get('demo_failed', '')) return;
+        if (away) { pendingFollow = true; return; }
+        App.log('demo changed on the website: opening it again');
+        App.openDemo(!!s.auto);
       }, function () {});
     }
 
@@ -471,7 +482,7 @@ var Screens = {};
         if (!acc) refreshAccount();
         timers.push(setTimeout(follow, 6000));
         timers.push(setInterval(follow, 5 * 60000));
-        if (src.type === 'demo') timers.push(setInterval(function () { var s = Store.session(); if (s && s.auto) follow(); }, 15000));
+        timers.push(setInterval(function () { var s = Store.session(); if (s && s.auto && App.inDemo()) follow(); }, 15000));
         timers.push(setInterval(function () { drawClock(); Weather.refresh().then(drawClock); }, 20000));
         Weather.refresh().then(drawClock);
         App.on('licence', onLicence);
