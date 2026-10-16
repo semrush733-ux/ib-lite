@@ -537,6 +537,7 @@ class _DevicesPageState extends State<DevicesPage> {
                                 _act(Icons.refresh_rounded, 'Reload', _busy || _chosen.isEmpty ? null : () => _bulk('refresh')),
                                 _act(Icons.block_rounded, 'Block', _busy || _chosen.isEmpty ? null : () => _bulk('block')),
                                 _act(Icons.check_circle_outline, 'Unblock', _busy || _chosen.isEmpty ? null : () => _bulk('unblock')),
+                                _act(Icons.timer_off_rounded, 'Expire', _busy || _chosen.isEmpty ? null : () => _bulk('expire')),
                               ],
                             ),
                           ),
@@ -558,8 +559,16 @@ String actionName(String a) => switch (a) {
       'refresh' => 'Reload the playlist on',
       'block' => 'Block',
       'unblock' => 'Unblock',
+      'expire' => 'End the trial / licence now on',
       _ => a,
     };
+
+/// One tap: the trial or licence of a TV ends now (the TV shows the activation screen in a few minutes).
+Future<void> expireNow(BuildContext context, String id, String mac, String status, Future<void> Function(Future<String> Function()) run) async {
+  final what = status == 'trial' ? 'trial' : 'licence';
+  final ok = await confirm(context, 'End the $what of $mac now?\n\nThe TV shows the activation screen within a few minutes. Activate it again or renew to undo.');
+  if (ok == true) await run(() => Panel.command('expire', [id]));
+}
 
 Future<bool?> confirm(BuildContext context, String text) => showDialog<bool>(
       context: context,
@@ -706,6 +715,15 @@ class _DeviceSheetState extends State<DeviceSheet> {
                 ),
               ],
             ),
+            if (d.status == 'trial' || d.status == 'active') ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFFF7B81)),
+                onPressed: _busy ? null : () => expireNow(context, d.id, d.mac, d.status, _run),
+                icon: const Icon(Icons.timer_off_rounded),
+                label: Text(d.status == 'trial' ? 'End the trial now' : 'End the licence now'),
+              ),
+            ],
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: _reminder,

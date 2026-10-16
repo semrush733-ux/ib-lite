@@ -523,6 +523,15 @@ class _ClientSheetState extends State<ClientSheet> {
                 ),
               ],
             ),
+            if (c.status == 'trial' || c.status == 'active') ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFFF7B81)),
+                onPressed: _busy ? null : () => expireNow(context, c.deviceId, c.deviceId, c.status, _run),
+                icon: const Icon(Icons.timer_off_rounded),
+                label: Text(c.status == 'trial' ? 'End the trial now' : 'End the licence now'),
+              ),
+            ],
             const SizedBox(height: 18),
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF7B81)),
