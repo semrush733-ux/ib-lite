@@ -432,6 +432,10 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     mx = e.clientX;
     my = e.clientY;
     moved = Date.now();
+    // The pointer woke up (or the page changed) right on top of an item: moving it there focuses it.
+    if (App.blocked) return;
+    var t = U.closest(e.target, 'f');
+    if (t && t !== F.cur && inRoot(t)) F.set(t, 'mouse');
   });
   document.addEventListener('mouseover', function (e) {
     if (App.blocked || Date.now() - moved > 400) return;

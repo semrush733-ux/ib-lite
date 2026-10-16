@@ -46,7 +46,19 @@
     firstScreen().then(function (s) { Nav.reset(s); });
   };
 
+  // Back on the first screen. On an LG TV the TV itself takes over, as LG's store review asks:
+  // webOS 5 and older go to the Home screen, webOS 6 and 22 show the TV's own "exit the app?"
+  // question, webOS 23-25 go to the Home screen. Outside a TV (a browser) our own question.
   App.askExit = function () {
+    if (window.PalmSystem && PalmSystem.platformBack) {
+      App.log('back on the first screen: handed to the TV');
+      try {
+        PalmSystem.platformBack();
+        return;
+      } catch (e) {
+        App.log('platformBack failed: ' + e);
+      }
+    }
     UI.dialog({
       title: 'Exit ' + (CONFIG.appName || 'the app') + '?', html: 'Press Exit to close the app.',
       buttons: [{ label: 'Cancel' }, { label: 'Exit', pri: true, icon: 'power', ok: App.exit }], focus: 0
