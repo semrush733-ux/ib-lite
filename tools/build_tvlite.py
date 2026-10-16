@@ -94,6 +94,8 @@ def main():
     p.add_argument('--vendor', default='')
     p.add_argument('--file', default='')
     p.add_argument('--folder', default='', help='also leave the unpacked app here (for browser tests)')
+    p.add_argument('--resolution', default='1920x1080', choices=['1920x1080', '1280x720'],
+                   help='graphics resolution in appinfo.json: 1920x1080 for UHD TVs, 1280x720 for Full HD TVs (LG Seller Lounge takes one package of each)')
     a = p.parse_args()
 
     site = a.site.rstrip('/')
@@ -130,7 +132,7 @@ def main():
     appinfo = {
         'id': app_id, 'version': a.version, 'vendor': vendor, 'type': 'web', 'main': 'index.html', 'title': a.name,
         'icon': 'icon.png', 'largeIcon': 'largeIcon.png', 'bgColor': '#0B0708',
-        'resolution': '1920x1080', 'disableBackHistoryAPI': True, 'handlesRelaunch': False,
+        'resolution': a.resolution, 'disableBackHistoryAPI': True, 'handlesRelaunch': False,
     }
     files['appinfo.json'] = json.dumps(appinfo, indent=2).encode('utf-8')
 

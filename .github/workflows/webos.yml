@@ -49,6 +49,9 @@ jobs:
           mkdir -p out
           python3 tools/build_tvlite.py --out out --name "$APP_NAME" --site "$WEBSITE" --id "$APP_ID" \
             --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APK_NAME.ipk" --folder out/app 2>&1 | tee out/build.log
+          # The same app for Full HD TVs (1280x720 graphics): LG Seller Lounge takes one package per resolution.
+          python3 tools/build_tvlite.py --out out --name "$APP_NAME" --site "$WEBSITE" --id "$APP_ID" --resolution 1280x720 \
+            --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APK_NAME-720p.ipk" 2>&1 | tee -a out/build.log
           # The package must hold everything the TV needs.
           python3 - <<'PY' 2>&1 | tee -a out/build.log
           import io, json, os, sys, tarfile
@@ -81,6 +84,7 @@ jobs:
         run: |
           FILES=""
           [ -f "out/$APK_NAME.ipk" ] && [ "${{ steps.build.outcome }}" = "success" ] && FILES="out/$APK_NAME.ipk"
+          [ -n "$FILES" ] && [ -f "out/$APK_NAME-720p.ipk" ] && FILES="$FILES out/$APK_NAME-720p.ipk"
           TITLE="$APP_NAME LG TV - build #$BUILD_NUMBER (light app 2.0.$BUILD_NUMBER)"
           [ -z "$FILES" ] && TITLE="$TITLE FAILED"
           {
@@ -88,6 +92,7 @@ jobs:
             echo "Install on a TV in Developer Mode (webOS Dev Manager / ares-install) or upload it in LG Seller Lounge."
             echo ""
             echo "webOS app id: ${APPID:-?}  ·  version 2.0.$BUILD_NUMBER"
+            echo "Two packages of the same app: $APK_NAME.ipk (1920x1080, UHD TVs) and $APK_NAME-720p.ipk (1280x720, Full HD TVs)."
             if [ -z "$FILES" ]; then
               echo ""
               echo "### Errors"
