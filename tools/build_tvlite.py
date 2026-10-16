@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
-"""Builds the light LG TV app (folder tvlite/) into an installable webOS package (.ipk).
+"""Builds the light TV app (folder tvlite/) into an installable package: a webOS package (.ipk) for
+LG TVs, or with --target tizen a Samsung TV package (.wgt, not signed yet).
 
 The app is plain HTML / CSS / JavaScript with the TV's own video player: no engine to load,
-so it opens at once and stays smooth on every LG TV.
+so it opens at once and stays smooth on every LG and Samsung TV.
 
 Usage (from the repository root):
   python3 tools/build_tvlite.py --out out --name "IBO Lite Player" --site https://ibolite.pro \
       --id com.liteplayer.tv --version 2.0.1 [--build 1] [--file IBOLitePlayer.ipk]
+  python3 tools/build_tvlite.py --target tizen --out out --name "IBO Lite Player" --site https://ibolite.pro \
+      --id com.liteplayer.tv --tizen-app LitePlayer --version 2.0.1 --file LitePlayer.wgt
 The brand symbol comes from brand/icon.png (the build workflow first takes it from the website).
 """
 import argparse
+import hashlib
 import io
 import json
 import os
 import shutil
 import tarfile
 import time
+import zipfile
+from xml.sax.saxutils import escape
 
 from PIL import Image
 
@@ -49,6 +55,39 @@ def launcher_icon(sym, size):
     return bg.resize((size, size), Image.LANCZOS).convert('RGB')
 
 
+def tizen_icon(sym):
+    """Samsung's app icon: 512 x 423, the symbol on the solid dark brand colour (RGB, no transparency)."""
+    w, h = 512, 423
+    bg = Image.new('RGBA', (w * 4, h * 4), BG + (255,))
+    bg.alpha_composite(fit(sym, w * 4, h * 4, 0.62))
+    return bg.resize((w, h), Image.LANCZOS).convert('RGB')
+
+
+def tizen_pkg_id(seed):
+    """A Samsung (Tizen) package id: 10 letters and digits, always the same for the same app id."""
+    h = hashlib.md5(seed.encode('utf-8')).hexdigest()
+    al = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    return ''.join(al[int(h[i:i + 2], 16) % 62] for i in range(0, 20, 2))
+
+
+TIZEN_CONFIG = '''<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="{wid}" version="{version}" viewmodes="maximized">
+    <tizen:application id="{pkg}.{app}" package="{pkg}" required_version="4.0"/>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
+    <icon src="icon.png"/>
+    <name>{name}</name>
+    <access origin="*" subdomains="true"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/productinfo"/>
+    <tizen:profile name="tv-samsung"/>
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>
+'''
+
+
 def tar_bytes(entries):
     """entries: list of (name, bytes or None for a folder). Owner root, as webOS expects."""
     buf = io.BytesIO()
@@ -68,6 +107,19 @@ def tar_bytes(entries):
                 info.size = len(data)
                 t.addfile(info, io.BytesIO(data))
     return buf.getvalue()
+
+
+def write_folder(folder, files):
+    """The unpacked app (for browser tests)."""
+    if not folder:
+        return
+    if os.path.isdir(folder):
+        shutil.rmtree(folder)
+    for rel, data in files.items():
+        dest = os.path.join(folder, rel)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        with open(dest, 'wb') as f:
+            f.write(data)
 
 
 def ar_member(name, data, mtime):
@@ -92,7 +144,11 @@ def main():
     p.add_argument('--folder', default='', help='also leave the unpacked app here (for browser tests)')
     p.add_argument('--resolution', default='1920x1080', choices=['1920x1080', '1280x720'],
                    help='graphics resolution in appinfo.json: 1920x1080 for UHD TVs, 1280x720 for Full HD TVs (LG Seller Lounge takes one package of each)')
+    p.add_argument('--target', default='webos', choices=['webos', 'tizen'], help='webos: LG .ipk, tizen: Samsung .wgt')
+    p.add_argument('--tizen-pkg', default='', help='Samsung package id (10 letters/digits); made from --id when empty')
+    p.add_argument('--tizen-app', default='', help='Samsung application name part (letters/digits); made from --name when empty')
     a = p.parse_args()
+    tizen = a.target == 'tizen'
 
     site = a.site.rstrip('/')
     api = a.api or (site + '/wp-json/b1g/v1' if site else '')
@@ -110,16 +166,38 @@ def main():
                 files[rel] = f.read()
 
     config = {
-        'appName': a.name, 'apiBase': api, 'platform': 'lg-tv', 'version': a.version, 'build': a.build,
-        'appId': app_id,
+        'appName': a.name, 'apiBase': api, 'platform': 'samsung-tv' if tizen else 'lg-tv', 'version': a.version,
+        'build': a.build, 'appId': app_id,
     }
     files['js/config.js'] = ('/* Written by tools/build_tvlite.py */\nvar CONFIG = %s;\n' % json.dumps(config, indent=2)).encode('utf-8')
     files['index.html'] = files['index.html'].replace(b'<title>Lite Player</title>', ('<title>%s</title>' % a.name).encode('utf-8'))
+    if tizen:
+        # Samsung's own TV functions (TV id, MAC, screensaver), loaded by the TV before the app.
+        tag = b'<script src="js/config.js"></script>'
+        assert tag in files['index.html']
+        files['index.html'] = files['index.html'].replace(tag, b'<script src="$WEBAPIS/webapis/webapis.js"></script>\n' + tag)
 
     sym = symbol()
     b = io.BytesIO()
     fit(sym, 512, 512, 1.0).save(b, 'PNG', optimize=True)
     files['img/symbol.png'] = b.getvalue()
+    if tizen:
+        b = io.BytesIO()
+        tizen_icon(sym).save(b, 'PNG', optimize=True)
+        files['icon.png'] = b.getvalue()
+        pkg = a.tizen_pkg or tizen_pkg_id(a.id)
+        appn = (''.join(c for c in (a.tizen_app or a.name) if c.isalnum()) or 'App')[:40]
+        assert len(pkg) == 10 and pkg.isalnum(), 'Samsung package id must be 10 letters/digits'
+        files['config.xml'] = TIZEN_CONFIG.format(wid=escape((site or 'http://localhost') + '/' + appn, {'"': '&quot;'}),
+                                                  version=escape(a.version), pkg=pkg, app=appn, name=escape(a.name)).encode('utf-8')
+        write_folder(a.folder, files)
+        os.makedirs(a.out, exist_ok=True)
+        path = os.path.join(a.out, a.file or appn + '.wgt')
+        with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as z:
+            for rel in sorted(files):
+                z.writestr(rel, files[rel])
+        print('%s  %s.%s %s  (%d files, %.0f KB, not signed)' % (path, pkg, appn, a.version, len(files), os.path.getsize(path) / 1024))
+        return
     for name, size in (('icon.png', 80), ('largeIcon.png', 130)):
         b = io.BytesIO()
         launcher_icon(sym, size).save(b, 'PNG', optimize=True)
@@ -131,15 +209,7 @@ def main():
         'resolution': a.resolution, 'disableBackHistoryAPI': True, 'handlesRelaunch': False,
     }
     files['appinfo.json'] = json.dumps(appinfo, indent=2).encode('utf-8')
-
-    if a.folder:
-        if os.path.isdir(a.folder):
-            shutil.rmtree(a.folder)
-        for rel, data in files.items():
-            dest = os.path.join(a.folder, rel)
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            with open(dest, 'wb') as f:
-                f.write(data)
+    write_folder(a.folder, files)
 
     app_dir = 'usr/palm/applications/%s/' % app_id
     pkg_dir = 'usr/palm/packages/%s/' % app_id

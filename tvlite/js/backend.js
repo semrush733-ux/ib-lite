@@ -49,6 +49,19 @@ var Backend = {}, Store = {};
 
   /** The TV's own identifiers, so the website recognises it after the app is installed again. */
   Backend.ids = function () {
+    // Samsung TV (Tizen): its unique id (DUID) and the MAC of its network connection.
+    if (window.webapis && (webapis.productinfo || webapis.network)) {
+      var t = {};
+      try {
+        var duid = webapis.productinfo && webapis.productinfo.getDuid();
+        if (duid) t.hwid = 'sm-' + String(duid).substring(0, 60);
+      } catch (e) {}
+      try {
+        var tmac = isRealMac(webapis.network && webapis.network.getMac());
+        if (tmac) t.mac = tmac;
+      } catch (e2) {}
+      return Promise.resolve(t);
+    }
     return Promise.all([
       App.luna('luna://com.webos.service.sm/deviceid/getIDs', { idType: ['LGUDID'] }, 2000),
       App.luna('luna://com.webos.service.connectionmanager/getinfo', {}, 2000)

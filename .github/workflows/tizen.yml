@@ -1,17 +1,19 @@
 name: Samsung TV app (Tizen WGT)
 
-# Packs the player for Samsung Smart TVs (Tizen): the web version of the app with the TV's remote
-# keys (Back / Exit / play-pause) and direct connections to the IPTV server (no website relay).
+# The light TV app (folder tvlite/, the same app as on LG TVs) packed for Samsung Smart TVs (Tizen):
+# plain HTML, CSS and JavaScript with the TV's own video player, so it opens at once and runs on
+# Samsung TVs from 2018 on (Tizen 4.0+). Samsung's own parts (remote keys, the TV's id and MAC,
+# no screensaver while a video plays, the exit question) switch on only on a Samsung TV.
 #
 # Result: release "tizen-latest" with LitePlayer.wgt (NOT signed yet).
 # A Samsung TV only installs a .wgt signed with a Samsung certificate (free, made in Tizen Studio
 # with a Samsung account). Sign it there (Tizen Studio → Certificate Manager → Samsung) and install
-# with Device Manager on a TV in Developer Mode, or upload it to Samsung Seller Office.
+# it with Device Manager on a TV in Developer Mode, or upload it to Samsung Seller Office.
 
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'recorder/**', '.github/workflows/recorder.yml', 'admin_app/**', 'brand/admin-icon.png', 'brand/make-admin-icon.py', '.github/workflows/admin-ios.yml', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/ios.yml', '.github/workflows/webos.yml', 'webos/**', '.github/workflows/play.yml', 'tvlite/**', 'tools/build_tvlite.py', 'tools/make_demo_art.py']
+    paths: ['tvlite/**', 'tools/build_tvlite.py', 'tools/fetch_brand.py', 'brand/icon.png', 'brand/brand.txt', '.github/workflows/tizen.yml']
   workflow_dispatch:
 
 concurrency:
@@ -24,7 +26,7 @@ permissions:
 jobs:
   wgt:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 15
     env:
       BUILD_NUMBER: ${{ github.run_number }}
     steps:
@@ -35,64 +37,45 @@ jobs:
           get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
           APP_NAME="$(get APP_NAME)"; PACKAGE_ID="$(get PACKAGE_ID)"; WEBSITE="$(get WEBSITE)"
           WEBSITE="${WEBSITE%/}"
-          API_BASE=""; [ -n "$WEBSITE" ] && API_BASE="$WEBSITE/wp-json/b1g/v1"
-          APK_NAME="$(echo "$APP_NAME" | tr -cd '[:alnum:]')"; [ -n "$APK_NAME" ] || APK_NAME=App
-          python3 -m pip install --quiet pillow || true
+          # Samsung app id part and file name stay as they were (LitePlayer): the same app on the TVs.
+          APPN="$(echo "$APP_NAME" | tr -cd '[:alnum:]' | cut -c1-40)"; [ -n "$APPN" ] || APPN=App
+          python3 -m pip install --quiet pillow || python3 -m pip install --quiet --break-system-packages pillow || true
           python3 tools/fetch_brand.py "$WEBSITE" || true
           if [ -s brand/site_label.txt ]; then APP_NAME="$(cat brand/site_label.txt)"; fi
-          python3 tools/brand_icons.py
-          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "API_BASE=$API_BASE"; echo "APK_NAME=$APK_NAME"; echo "WEBSITE=$WEBSITE"; } >> "$GITHUB_ENV"
+          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$PACKAGE_ID"; echo "APPN=$APPN"; echo "WEBSITE=$WEBSITE"; } >> "$GITHUB_ENV"
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Build the web app for the TV
+      - name: Build the WGT
         id: build
         continue-on-error: true
-        env:
-          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           set -o pipefail
           mkdir -p out
-          flutter create --no-pub --platforms=web --org com.b1g --project-name b1gtv "$RUNNER_TEMP/webscaffold"
-          cp -r "$RUNNER_TEMP/webscaffold/web" web
-          cp web_brand/favicon.png web/favicon.png
-          sed -i "s|<title>b1gtv</title>|<title>$APP_NAME</title>|" web/index.html
-          # The TV's remote keys (Back, Exit, play / pause), before Flutter starts.
-          cp tizen/tizen.js web/tizen.js
-          sed -i 's|<head>|<head>\n  <script src="tizen.js"></script>|' web/index.html
-          flutter pub get
-          SERVER="$(tr -d ' \r\n' < config/server.txt 2>/dev/null || true)"
-          DEFS=(--dart-define=B1G_TIZEN=true --dart-define=B1G_SERVER="$SERVER" --dart-define=B1G_TMDB_KEY="$TMDB_API_KEY" --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_API_BASE="$API_BASE")
-          # Everything inside the package (the TV may not reach Google's CDN).
-          flutter build web --release --no-web-resources-cdn "${DEFS[@]}" 2>&1 | tee out/build.log \
-            || flutter build web --release "${DEFS[@]}" 2>&1 | tee -a out/build.log
-          test -f build/web/index.html
-          # The package opens index.html from its own folder.
-          sed -i 's|<base href="/">|<base href="./">|' build/web/index.html
-          # No service worker inside a packaged TV app (it crashes LG's WebAppManager and is
-          # useless on Samsung too: every file is already in the package).
-          python3 - <<'PY'
-          import re
-          p = 'build/web/flutter_bootstrap.js'
-          s = open(p).read()
-          s2 = re.sub(r'serviceWorkerSettings\s*:\s*\{[^{}]*\}\s*,?', '', s)
-          open(p, 'w').write(s2)
-          print('serviceWorkerSettings removed:', s != s2)
+          python3 tools/build_tvlite.py --target tizen --out out --name "$APP_NAME" --site "$WEBSITE" --id "$APP_ID" \
+            --tizen-app "$APPN" --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APPN.wgt" --folder out/app 2>&1 | tee out/build.log
+          # The package must hold everything the TV needs, with a valid Samsung description.
+          python3 - <<'PY' 2>&1 | tee -a out/build.log
+          import os, re, zipfile
+          import xml.etree.ElementTree as ET
+          z = zipfile.ZipFile('out/' + os.environ['APPN'] + '.wgt')
+          names = z.namelist()
+          for need in ('config.xml', 'index.html', 'icon.png', 'js/config.js', 'js/main.js', 'css/app.css', 'img/symbol.png'):
+              assert need in names, 'missing ' + need
+          root = ET.fromstring(z.read('config.xml'))
+          T = '{http://tizen.org/ns/widgets}'
+          app = root.find(T + 'application')
+          assert re.fullmatch(r'[A-Za-z0-9]{10}', app.get('package')), app.get('package')
+          assert app.get('id').startswith(app.get('package') + '.'), app.get('id')
+          assert re.fullmatch(r'\d+\.\d+\.\d+', root.get('version')), root.get('version')
+          privs = [p.get('name') for p in root.findall(T + 'privilege')]
+          assert 'http://tizen.org/privilege/tv.inputdevice' in privs
+          html = z.read('index.html').decode()
+          assert '$WEBAPIS/webapis/webapis.js' in html
+          assert '"samsung-tv"' in z.read('js/config.js').decode()
+          print('package ok:', app.get('id'), root.get('version'), root.findtext('{http://www.w3.org/ns/widgets}name'), len(names), 'files')
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write('TZID=%s\n' % app.get('id'))
           PY
-          # Tizen package description and icon.
-          PKG="$(python3 -c "import hashlib,sys;h=hashlib.md5(sys.argv[1].encode()).hexdigest();a='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';print(''.join(a[int(h[i:i+2],16)%62] for i in range(0,20,2)))" "$APP_ID")"
-          APPN="$(echo "$APK_NAME" | cut -c1-40)"
-          WID="${WEBSITE:-http://localhost}/$APPN"
-          NAME_XML="$(printf '%s' "$APP_NAME" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
-          sed -e "s|@WIDGET_ID@|$WID|" -e "s|@VERSION@|1.0.$BUILD_NUMBER|" -e "s|@PKG@|$PKG|g" -e "s|@APPNAME@|$APPN|" -e "s|@NAME@|$NAME_XML|" tizen/config.xml.in > build/web/config.xml
-          cp store_assets/tizen-icon-512.png build/web/icon.png
-          rm -f build/web/flutter_service_worker.js
-          (cd build/web && zip -qr "$GITHUB_WORKSPACE/out/$APK_NAME.wgt" .)
-          echo "Tizen package id: $PKG  app id: $PKG.$APPN"
-          echo "PKG=$PKG" >> "$GITHUB_ENV"
+          for f in out/app/js/*.js; do node --check "$f"; done
           ls -la out
 
       - name: Publish to the "tizen-latest" release
@@ -101,19 +84,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           FILES=""
-          [ -f "out/$APK_NAME.wgt" ] && FILES="out/$APK_NAME.wgt"
-          TITLE="$APP_NAME Samsung TV - build #$BUILD_NUMBER"
+          [ -f "out/$APPN.wgt" ] && [ "${{ steps.build.outcome }}" = "success" ] && FILES="out/$APPN.wgt"
+          TITLE="$APP_NAME Samsung TV - build #$BUILD_NUMBER (light app 2.0.$BUILD_NUMBER)"
           [ -z "$FILES" ] && TITLE="$TITLE FAILED"
           {
-            echo "Samsung Smart TV (Tizen) package. Not signed yet: sign it in Tizen Studio with your Samsung certificate, then install it with Device Manager (TV in Developer Mode) or upload it to Samsung Seller Office."
+            echo "Samsung Smart TV (Tizen 4.0+, TVs from 2018) package — the light app, the same as on LG TVs."
+            echo "Not signed yet: sign it in Tizen Studio with your Samsung certificate, then install it with Device Manager (TV in Developer Mode) or upload it to Samsung Seller Office."
             echo ""
-            echo "Tizen package id: ${PKG:-?}"
+            echo "Tizen app id: ${TZID:-?}  ·  version 2.0.$BUILD_NUMBER"
             if [ -z "$FILES" ]; then
               echo ""
               echo "### Errors"
               echo '```'
-              grep -E "Error|error:|Exception" out/build.log 2>/dev/null | cut -c1-300 | sort -u | head -50 || true
-              echo '---'
               tail -40 out/build.log 2>/dev/null | cut -c1-300 || true
               echo '```'
             fi

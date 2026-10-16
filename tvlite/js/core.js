@@ -185,7 +185,19 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 461: 'back', 27: 'back', 10009: 'back', 8: 'back',
     415: 'play', 19: 'pause', 413: 'stop', 417: 'ff', 412: 'rw', 179: 'playpause', 10252: 'playpause',
     33: 'chup', 34: 'chdown', 427: 'chup', 428: 'chdown', 403: 'red', 404: 'green', 405: 'yellow', 406: 'blue',
-    457: 'info', 1056: 'info'
+    457: 'info', 1056: 'info',
+    65376: 'ok', 65385: 'back' // Samsung's on-screen keyboard: Done, Cancel
+  };
+  /** Samsung TVs (Tizen) pass on only the keys an app asks for: play / pause, channel, numbers, red, info. */
+  Keys.registerTizen = function () {
+    var dev = window.tizen && tizen.tvinputdevice, got = [];
+    if (!dev) return got;
+    var want = ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind',
+      'ChannelUp', 'ChannelDown', 'ColorF0Red', 'Info', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    for (var i = 0; i < want.length; i++) {
+      try { dev.registerKey(want[i]); got.push(want[i]); } catch (e) {}
+    }
+    return got;
   };
   Keys.name = function (e) {
     var c = e.keyCode || e.which;

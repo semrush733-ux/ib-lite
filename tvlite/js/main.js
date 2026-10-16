@@ -48,7 +48,8 @@
 
   // Back on the first screen. On an LG TV the TV itself takes over, as LG's store review asks:
   // webOS 5 and older go to the Home screen, webOS 6 and 22 show the TV's own "exit the app?"
-  // question, webOS 23-25 go to the Home screen. Outside a TV (a browser) our own question.
+  // question, webOS 23-25 go to the Home screen. On a Samsung TV our own question, as Samsung's
+  // rule asks (the app closes only after the user picks Exit); in a browser the same question.
   App.askExit = function () {
     if (window.PalmSystem && PalmSystem.platformBack) {
       App.log('back on the first screen: handed to the TV');
@@ -67,6 +68,15 @@
   App.exit = function () {
     Player.stop();
     App.log('exit');
+    // Samsung TV: the app ends itself.
+    if (window.tizen && tizen.application) {
+      try {
+        tizen.application.getCurrentApplication().exit();
+        return;
+      } catch (e0) {
+        App.log('tizen exit failed: ' + e0);
+      }
+    }
     try { window.close(); } catch (e) {}
     // Still here (some TVs keep the page): hand back to the TV's home screen.
     setTimeout(function () {
@@ -118,6 +128,28 @@
   }
   document.addEventListener('visibilitychange', onVisibility);
   document.addEventListener('webkitvisibilitychange', onVisibility);
+
+  // ---------------------------------------------------------------- Samsung TV (Tizen)
+  if (window.tizen) {
+    App.log('samsung keys: ' + Keys.registerTizen().length);
+  }
+  // No screensaver while a video plays (Samsung's guide), back on when it stops or pauses.
+  if (window.webapis && webapis.appcommon && webapis.appcommon.setScreenSaver) {
+    var saverOff = null;
+    Player.on(function (ev, d) {
+      if (ev !== 'state') return;
+      var off = d.state === 'playing' || d.state === 'buffering' || d.state === 'loading';
+      if (off === saverOff) return;
+      saverOff = off;
+      try {
+        var SS = webapis.appcommon.AppCommonScreenSaverState;
+        webapis.appcommon.setScreenSaver(off ? SS.SCREEN_SAVER_OFF : SS.SCREEN_SAVER_ON, function () {},
+          function (e) { App.log('screensaver: ' + (e && e.message)); });
+      } catch (e) {
+        App.log('screensaver: ' + e);
+      }
+    });
+  }
 
   // ---------------------------------------------------------------- go
   var t0 = Date.now();

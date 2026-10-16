@@ -561,6 +561,16 @@ var Screens = {};
     row('refresh', 'Restart the app', '', function () { App.restart(); });
     this.show = function (first) {
       if (!first) return;
+      if (window.webapis && webapis.productinfo) { // Samsung TV: model and Tizen version
+        try {
+          var pi = webapis.productinfo, t0 = el.querySelector('.tvinfo');
+          var model = pi.getRealModel ? pi.getRealModel() : pi.getModel();
+          var tz = '';
+          try { tz = tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version'); } catch (e1) {}
+          if (t0) t0.textContent = [model, tz ? 'Tizen ' + tz : ''].filter(function (s) { return s; }).join(' · ');
+        } catch (e) {}
+        return;
+      }
       App.luna('luna://com.webos.service.tv.systemproperty/getSystemInfo', { keys: ['modelName', 'sdkVersion', 'firmwareVersion'] }, 1500).then(function (r) {
         if (!r) return;
         var t = el.querySelector('.tvinfo');
