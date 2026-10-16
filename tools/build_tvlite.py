@@ -17,12 +17,11 @@ import shutil
 import tarfile
 import time
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'tvlite')
 BG = (20, 10, 13)
-GLOW = (227, 38, 47)
 
 
 def symbol():
@@ -42,13 +41,10 @@ def fit(img, w, h, scale):
 
 
 def launcher_icon(sym, size):
-    """Symbol on the dark brand colour with a soft red light behind it (the LG launcher tile)."""
+    """Symbol centred on the solid dark brand colour (the LG launcher tile). LG's store rules: a square
+    icon, one solid background colour (no gradient, no transparency) that matches the app tile colour."""
     big = size * 4
     bg = Image.new('RGBA', (big, big), BG + (255,))
-    g = Image.new('RGBA', (big, big), (0, 0, 0, 0))
-    r = big * 0.42
-    ImageDraw.Draw(g).ellipse([big / 2 - r, big / 2 - r, big / 2 + r, big / 2 + r], fill=GLOW + (60,))
-    bg.alpha_composite(g.filter(ImageFilter.GaussianBlur(big * 0.18)))
     bg.alpha_composite(fit(sym, big, big, 0.72))
     return bg.resize((size, size), Image.LANCZOS).convert('RGB')
 
