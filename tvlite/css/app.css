@@ -242,7 +242,7 @@ html, body {
 .hm-svc.compact .svcbox { padding: 22px 14px 0 18px; }
 .hm-svc.compact .svcbox .ic { display: none; }
 .hm-svc.compact .svcbox .nm { font-size: 25px; }
-.hm-svc.compact .svcbox .sb { font-size: 19px; overflow: hidden; text-overflow: ellipsis; }
+.hm-svc.compact .svcbox .sb { font-size: 20px; overflow: hidden; text-overflow: ellipsis; }
 .hm-bottom { position: absolute; left: 77px; right: 77px; bottom: 43px; display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
 .infobox { position: relative; padding: 22px 36px; border-radius: 36px; background: rgba(11,6,7,0.85);
