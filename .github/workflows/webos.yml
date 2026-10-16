@@ -32,6 +32,8 @@ jobs:
         run: |
           get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
           APP_NAME="$(get APP_NAME)"; PACKAGE_ID="$(get PACKAGE_ID)"; WEBSITE="$(get WEBSITE)"
+          # The LG app has its own ID (registered in LG Seller Lounge); the Android package stays as it is.
+          LG_APP_ID="$(get LG_APP_ID)"; [ -n "$LG_APP_ID" ] && PACKAGE_ID="$LG_APP_ID"
           WEBSITE="${WEBSITE%/}"
           python3 -m pip install --quiet pillow || python3 -m pip install --quiet --break-system-packages pillow || true
           python3 tools/fetch_brand.py "$WEBSITE" || true
