@@ -265,7 +265,7 @@ Where the admin reads them:
 
 ---
 
-## 9. Demo playlist (plugin 1.0.37, app build 172+)
+## 9. Demo playlist (plugin 1.0.37, app build 173+)
 
 Built into the plugin (`includes/class-b1g-demo.php`); this section only describes it.
 
@@ -289,16 +289,18 @@ instead.
 (`b1g_demo`: type m3u), which `/device/playlists` already returns as `demo`:
 
 * the LG / Samsung app plays it with "Watch the 4K demo";
-* the Android / Fire TV app (build 172+) shows **Watch the demo** on its first screen (no playlist
+* the Android / Fire TV app (build 173+) shows **Watch the demo** on its first screen (no playlist
   yet). It opens the demo only to watch: nothing is saved, Back returns to the first screen, and a
   playlist added on the website meanwhile opens when the customer comes back.
 
-## 10. Safe app updates (plugin 1.0.38, app build 172+)
+## 10. Safe app updates (plugin 1.0.38, app build 173+)
 
 Builds 164 to 170 (17 October 2026) stop on the start logo: `shared_preferences_android` 2.5.0
 ("Pigeon JNI", published that day) cannot find its own methods in a release APK
-(`NoSuchMethodError ... SharedPreferencesApiRegistrar.getAll`). The app pins 2.4.29
-(`pubspec.yaml`, `dependency_overrides`) until a newer version passes the emulator test.
+(`NoSuchMethodError ... SharedPreferencesApiRegistrar.getAll`: R8 renames
+`kotlin.coroutines.Continuation`, which the JNI lookup asks for by name). The TV app and the Admin
+Panel app pin `">=2.4.0 <2.5.0"` (`dependency_overrides`; build 173 got 2.4.28) until a newer version
+passes the emulator test. The release notes list the package versions of every build.
 
 So that a build like that never reaches the TVs again:
 
