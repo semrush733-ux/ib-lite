@@ -143,9 +143,12 @@ M3uData parseM3u(String text) {
 /// An M3U playlist link as the source of channels, movies and series.
 /// The list is downloaded once per app start and kept in memory.
 class M3uSource implements Source {
-  M3uSource(this.url, {this.epgUrl = ''});
+  M3uSource(this.url, {this.epgUrl = '', this.title = ''});
 
   final String url;
+
+  /// Name shown for the playlist (the demo's name); the link's host when empty.
+  final String title;
 
   /// XMLTV guide address from the website (playlist settings). When empty,
   /// the address named inside the playlist itself (url-tvg) is used.
@@ -156,6 +159,7 @@ class M3uSource implements Source {
 
   @override
   String get label {
+    if (title.isNotEmpty) return title;
     final host = Uri.tryParse(url)?.host ?? '';
     return host.isEmpty ? 'M3U playlist' : host;
   }

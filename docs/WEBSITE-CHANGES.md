@@ -262,3 +262,33 @@ Where the admin reads them:
   report with its log). A reseller sees only the reports of his own clients.
 * Panel API: `GET /panel/problems?status=new|done|all&q=`, `GET /panel/problems/view?id=`,
   `POST /panel/problems/done {id, done}`, `POST /panel/problems/delete {id}`.
+
+---
+
+## 9. Demo playlist (plugin 1.0.37, app build 169+)
+
+Built into the plugin (`includes/class-b1g-demo.php`); this section only describes it.
+
+**Lite Player › Demo playlist** in WordPress: the owner adds demo videos (Media Library, a link to
+any server, or big files uploaded with FTP / File Manager into `wp-content/uploads/lite-demo/`
+with the subfolders `live/`, `movies/`, `series/` and the "Scan the folder" button), or the free
+sample set (Blender open movies + public test streams). Each video is a live channel, a movie or a
+series episode, with a category and a logo / poster. The website serves one M3U list:
+
+```
+GET /wp-json/b1g/v1/demo/playlist.m3u                      public, audio/x-mpegurl
+GET /wp-json/b1g/v1/demo/{live|movie|series}/{id}[.ext]    302 to the video
+```
+
+The list's links go through the website so that every app sorts the videos right (a path with
+`/movie/` or `/series/` or a file ending = film; a live channel made from an MP4 file has no file
+ending, so it is a channel and starts again at its end). A setting writes the videos' own links
+instead.
+
+"Use this playlist as the demo on every TV" stores it as App Settings › Demo on the TV
+(`b1g_demo`: type m3u), which `/device/playlists` already returns as `demo`:
+
+* the LG / Samsung app plays it with "Watch the 4K demo";
+* the Android / Fire TV app (build 169+) shows **Watch the demo** on its first screen (no playlist
+  yet). It opens the demo only to watch: nothing is saved, Back returns to the first screen, and a
+  playlist added on the website meanwhile opens when the customer comes back.

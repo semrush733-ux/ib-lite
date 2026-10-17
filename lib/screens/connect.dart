@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../backend.dart';
+import '../i18n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -29,6 +30,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
   bool _opening = false;
   String? _error;
   bool _tried = false;
+  // "Watch the demo": loading it, or watching it (a playlist added meanwhile opens afterwards).
+  bool _demoLoading = false;
+  bool _demoOpen = false;
 
   @override
   void initState() {
@@ -57,7 +61,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   Future<void> _check() async {
-    if (_opening || !mounted || !Backend.configured) return;
+    if (_opening || _demoOpen || !mounted || !Backend.configured) return;
     if (Backend.deviceId.isEmpty) await Backend.ensureRegistered();
     try {
       final lists = await Backend.playlists();
@@ -71,6 +75,34 @@ class _ConnectScreenState extends State<ConnectScreen> {
     } catch (_) {
       // No connection yet: the next check tries again.
     }
+  }
+
+  /// The website's demo playlist, only to watch (nothing is saved); Back comes back here.
+  Future<void> _openDemo() async {
+    final demo = Backend.demo;
+    if (demo == null || _opening || _demoOpen) return;
+    setState(() {
+      _demoOpen = true;
+      _demoLoading = true;
+      _error = null;
+    });
+    log('connect open demo type=${demo.type}');
+    try {
+      final result = await openDemoPlaylist(demo);
+      if (!mounted) return;
+      setState(() => _demoLoading = false);
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => HomeScreen(api: result.$1, account: result.$2, demo: true)));
+    } catch (e) {
+      log('demo failed: ${e.runtimeType}');
+      if (mounted) setState(() => _error = '${t('Demo')}: ${friendlyError(e)}');
+    }
+    if (!mounted) return;
+    setState(() {
+      _demoOpen = false;
+      _demoLoading = false;
+    });
+    _check();
   }
 
   Future<void> _open(BPlaylist p) async {
@@ -142,6 +174,25 @@ class _ConnectScreenState extends State<ConnectScreen> {
                             _step(2, 'Your MAC Address and Device Key are filled in for you', ''),
                             _step(3, 'Add an M3U link or your Xtream Codes login', ''),
                             _step(4, 'The playlist appears on this TV by itself', ''),
+                            // No subscription yet: the demo playlist set on the website.
+                            if (Backend.demo != null) ...[
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 14,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(t('Try the app first:'),
+                                      style: TextStyle(fontSize: 16, color: C.text.withValues(alpha: 0.9))),
+                                  _PlaylistButton(
+                                    name: _demoLoading ? t('Loading the demo…') : t('Watch the demo'),
+                                    icon: Icons.play_circle_fill_rounded,
+                                    autofocus: _lists.isEmpty,
+                                    onTap: _openDemo,
+                                  ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 18),
                             if (_error != null)
                               Container(
@@ -307,10 +358,16 @@ class _ConnectScreenState extends State<ConnectScreen> {
 }
 
 class _PlaylistButton extends StatefulWidget {
-  const _PlaylistButton({required this.name, required this.onTap, this.autofocus = false});
+  const _PlaylistButton({
+    required this.name,
+    required this.onTap,
+    this.autofocus = false,
+    this.icon = Icons.playlist_play_rounded,
+  });
   final String name;
   final VoidCallback onTap;
   final bool autofocus;
+  final IconData icon;
 
   @override
   State<_PlaylistButton> createState() => _PlaylistButtonState();
@@ -340,7 +397,7 @@ class _PlaylistButtonState extends State<_PlaylistButton> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.playlist_play_rounded, color: Colors.white, size: 20),
+              Icon(widget.icon, color: Colors.white, size: 20),
               const SizedBox(width: 8),
               Text(widget.name, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
             ],

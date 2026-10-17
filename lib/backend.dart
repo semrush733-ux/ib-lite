@@ -666,6 +666,9 @@ class Backend {
     }
   }
 
+  /// The website's demo playlist (Lite Player › Demo playlist), known after [playlists].
+  static BPlaylist? demo;
+
   static Future<List<BPlaylist>> playlists() async {
     if (!registered && !await ensureRegistered()) {
       throw BackendException('No connection to the server.');
@@ -673,6 +676,8 @@ class Backend {
     final data =
         await _get('/device/playlists?device_id=$deviceId&pairing_code=$pairingCode');
     await _storeStatus(data['device']);
+    // The demo set on the website ("Watch the demo" on the first screen), null when none.
+    demo = BPlaylist.fromJson(data['demo']);
     final out = <BPlaylist>[];
     final raw = data['playlists'];
     if (raw is List) {

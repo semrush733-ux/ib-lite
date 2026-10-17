@@ -44,10 +44,14 @@ String _two(int n) => n.toString().padLeft(2, '0');
 /// TV Series, Catch Up), and three information boxes along the bottom (this device,
 /// the playlist's expiry, place / date / time / weather).
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.api, this.account});
+  const HomeScreen({super.key, required this.api, this.account, this.demo = false});
 
   final Source api;
   final XAccount? account;
+
+  /// The demo from the website ("Watch the demo"): nothing is saved, Back goes back to the
+  /// first screen, the website's playlists are not followed.
+  final bool demo;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -77,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _account = widget.account;
     log('screen=home profile=${Store.profileId} kids=${Store.kidsMode}');
     // TV Guide reminders play from the playlist that is open.
-    Reminders.api = widget.api;
+    if (!widget.demo) Reminders.api = widget.api;
     ContinueWatching.changes.addListener(_onBackendChange);
     // Every list downloads once in the background, out of the player's way.
     ListPrefetch.start(widget.api);
@@ -85,8 +89,10 @@ class _HomeScreenState extends State<HomeScreen> {
     Backend.refreshSignal.addListener(_onRefreshSignal);
     if (_account == null) _refreshAccount();
     // A few seconds after start: pick up a new server / login set on the website.
-    Timer(const Duration(seconds: 6), _followSite);
-    _follow = Timer.periodic(const Duration(minutes: 5), (_) => _followSite());
+    if (!widget.demo) {
+      Timer(const Duration(seconds: 6), _followSite);
+      _follow = Timer.periodic(const Duration(minutes: 5), (_) => _followSite());
+    }
     Weather.refresh().then((_) {
       if (mounted) setState(() {});
     });
@@ -96,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
       Weather.refresh();
     });
-    if (!_lastChannelTried) {
+    if (!_lastChannelTried && !widget.demo) {
       _lastChannelTried = true;
       if (Store.startWithLastChannel && Store.lastLive != null) {
         // The home screen shows for a moment first.
@@ -185,6 +191,11 @@ class _HomeScreenState extends State<HomeScreen> {
         _offline = false;
       });
     } on XtreamAuthException catch (e) {
+      // The demo's login does not work: nothing of the customer's is touched.
+      if (widget.demo) {
+        if (mounted) setState(() => _offline = true);
+        return;
+      }
       await Store.logout();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -203,6 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
   (Source, XAccount)? _ready;
 
   Future<void> _followSite() async {
+    if (widget.demo) return;
     final id = Store.playlistId;
     if (id <= 0 || !Backend.configured) return;
     try {
@@ -382,6 +394,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// "Change Playlist": the playlists added on the website for this device.
   Future<void> _choosePlaylist() async {
+    // In the demo this button leaves it.
+    if (widget.demo) {
+      Navigator.of(context).maybePop();
+      return;
+    }
     // In a Kids profile only a parent changes the playlist.
     if (Store.kidsMode && !await askParentalPin(context)) return;
     if (!mounted) return;
@@ -446,7 +463,12 @@ class _HomeScreenState extends State<HomeScreen> {
         .push<bool>(MaterialPageRoute<bool>(builder: (_) => ProfilesScreen(api: widget.api)));
     if (!mounted) return;
     if (changed == true) {
-      // Another profile: the home screen starts over with its lists.
+      // Another profile: the home screen starts over with its lists (the demo stays a demo).
+      if (widget.demo) {
+        Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+            builder: (_) => HomeScreen(api: widget.api, account: _account, demo: true)));
+        return;
+      }
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => HomeScreen(api: widget.api, account: _account)),
         (_) => false,
@@ -600,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ExitGuard(child: Scaffold(
+    final page = Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -636,13 +658,16 @@ class _HomeScreenState extends State<HomeScreen> {
           const Positioned.fill(child: IgnorePointer(child: ExcludeFocus(child: RunningPuppy(size: 56)))),
         ],
       ),
-    ));
+    );
+    // The demo: Back returns to the first screen. Otherwise Back asks whether to close the app.
+    return widget.demo ? page : ExitGuard(child: page);
   }
 
   Widget _content() {
     final kids = Store.kidsMode;
     final profile = Profiles.active;
-    final continueList = ContinueWatching.all;
+    // The demo has no half-watched films of the customer's own playlist.
+    final continueList = widget.demo ? const <CwEntry>[] : ContinueWatching.all;
     return LayoutBuilder(builder: (context, box) {
       final w = box.maxWidth;
       final pad = w * 0.04;
@@ -687,6 +712,15 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               children: [
                 const Logo(size: 30),
+                if (widget.demo) ...[
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(color: C.accent, borderRadius: BorderRadius.circular(8)),
+                    child: Text(t('Demo').toUpperCase(),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                  ),
+                ],
                 SizedBox(width: w * 0.04),
                 Expanded(
                   child: SingleChildScrollView(
@@ -695,10 +729,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         _ProfileButton(profile: profile, onTap: _openProfiles),
                         const SizedBox(width: 14),
-                        if (!kids) ...[
+                        if (!kids || widget.demo) ...[
                           _PillButton(
-                            icon: Icons.playlist_play_rounded,
-                            label: _shortName(playlistTitle(widget.api), t('Change Playlist')),
+                            icon: widget.demo ? Icons.logout_rounded : Icons.playlist_play_rounded,
+                            label: widget.demo
+                                ? t('Exit demo')
+                                : _shortName(playlistTitle(widget.api), t('Change Playlist')),
                             onTap: _choosePlaylist,
                           ),
                           const SizedBox(width: 14),
@@ -992,6 +1028,19 @@ String playlistTitle(Source api) => Store.playlistName.isNotEmpty ? Store.playli
 
 /// Signs in with a playlist added on the website and remembers it.
 String sitePlaylistSig(BPlaylist p) => '${p.url}|${p.username}|${p.password}';
+
+/// The demo set on the website (Lite Player › Demo playlist, or App Settings › Demo on the TV),
+/// opened only to watch: nothing is saved, so the customer's own playlist starts clean.
+Future<(Source, XAccount)> openDemoPlaylist(BPlaylist p) async {
+  if (p.isXtream) {
+    final api = XtreamApi(parseServerInput(p.url).server, p.username, p.password);
+    final account = await api.login();
+    return (api, account);
+  }
+  final src = M3uSource(p.url, epgUrl: p.epgUrl, title: p.name);
+  final account = await src.login();
+  return (src, account);
+}
 
 Future<(Source, XAccount)> openSitePlaylist(BPlaylist p) async {
   final opened = await _openSite(p);
