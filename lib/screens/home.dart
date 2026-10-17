@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../backend.dart';
 import '../continue_watching.dart';
@@ -55,6 +56,15 @@ class _HomeScreenState extends State<HomeScreen> {
   /// "Start with the last channel" (Settings › Live Player) is tried once per app start.
   static bool _lastChannelTried = false;
 
+  /// A key was pressed on the home screen before the last channel started: the customer is
+  /// going somewhere else, so it does not start by itself.
+  bool _userActed = false;
+
+  bool _noteEarlyKey(KeyEvent e) {
+    if (e is KeyDownEvent && mounted && ModalRoute.of(context)?.isCurrent == true) _userActed = true;
+    return false;
+  }
+
   XAccount? _account;
   bool _offline = false;
   bool _refreshing = false;
@@ -89,7 +99,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _lastChannelTried = true;
       if (Store.startWithLastChannel && Store.lastLive != null) {
         // The home screen shows for a moment first.
-        Timer(const Duration(milliseconds: 700), _startLastChannel);
+        HardwareKeyboard.instance.addHandler(_noteEarlyKey);
+        Timer(const Duration(milliseconds: 700), () {
+          _startLastChannel().whenComplete(() => HardwareKeyboard.instance.removeHandler(_noteEarlyKey));
+        });
       }
     }
   }
@@ -128,10 +141,10 @@ class _HomeScreenState extends State<HomeScreen> {
       index = 0;
     }
     // A message or an update window may be open first: wait for the home screen to be on top.
-    for (var i = 0; i < 16 && mounted && ModalRoute.of(context)?.isCurrent != true; i++) {
+    for (var i = 0; i < 16 && mounted && !_userActed && ModalRoute.of(context)?.isCurrent != true; i++) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
     }
-    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    if (!mounted || _userActed || ModalRoute.of(context)?.isCurrent != true) return;
     log('start with the last channel');
     Store.addRecent(item);
     await Navigator.of(context).push(MaterialPageRoute<void>(
@@ -141,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_noteEarlyKey);
     _tick?.cancel();
     _follow?.cancel();
     ContinueWatching.changes.removeListener(_onBackendChange);
