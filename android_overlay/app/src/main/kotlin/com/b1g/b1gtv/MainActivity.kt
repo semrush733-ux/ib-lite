@@ -91,6 +91,54 @@ class MainActivity : FlutterActivity() {
     }
 
     @Suppress("DEPRECATION")
+    /** A system property (Fire OS version...), '' when there is none. */
+    private fun systemProperty(name: String): String {
+        return try {
+            val p = Runtime.getRuntime().exec(arrayOf("getprop", name))
+            val text = p.inputStream.bufferedReader().use { it.readLine() ?: "" }.trim()
+            p.destroy()
+            text
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun deviceInfo(): Map<String, Any> {
+        val out = HashMap<String, Any>()
+        out["manufacturer"] = Build.MANUFACTURER ?: ""
+        out["brand"] = Build.BRAND ?: ""
+        out["model"] = Build.MODEL ?: ""
+        out["device"] = Build.DEVICE ?: ""
+        out["product"] = Build.PRODUCT ?: ""
+        out["android"] = Build.VERSION.RELEASE ?: ""
+        out["sdk"] = Build.VERSION.SDK_INT
+        out["build"] = Build.DISPLAY ?: ""
+        out["abi"] = if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else ""
+        out["cores"] = Runtime.getRuntime().availableProcessors()
+        try {
+            val am = getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val mi = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(mi)
+            out["ramMb"] = mi.totalMem / (1024L * 1024L)
+            out["freeRamMb"] = mi.availMem / (1024L * 1024L)
+            out["lowRam"] = am.isLowRamDevice
+        } catch (_: Exception) {
+        }
+        try {
+            val dm = resources.displayMetrics
+            out["screen"] = "${dm.widthPixels}x${dm.heightPixels} @${dm.densityDpi}dpi"
+        } catch (_: Exception) {
+        }
+        val fire = systemProperty("ro.build.version.name")
+        if (fire.contains("Fire", ignoreCase = true)) out["fireOs"] = fire
+        try {
+            val v = appVersion()
+            out["app"] = "${v["name"]} (${v["code"]})"
+        } catch (_: Exception) {
+        }
+        return out
+    }
+
     private fun appVersion(): Map<String, Any> {
         val info = packageManager.getPackageInfo(packageName, 0)
         val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode.toInt() else info.versionCode
@@ -184,6 +232,13 @@ class MainActivity : FlutterActivity() {
                             "lowRam" to am.isLowRamDevice,
                             "sdk" to android.os.Build.VERSION.SDK_INT,
                         ))
+                    } catch (e: Exception) {
+                        result.success(null)
+                    }
+                } else if (call.method == "deviceInfo") {
+                    // For "Report a problem": which TV / box this is.
+                    try {
+                        result.success(deviceInfo())
                     } catch (e: Exception) {
                         result.success(null)
                     }

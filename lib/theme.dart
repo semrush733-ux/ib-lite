@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'config.dart';
+import 'logbook.dart';
 import 'remote_brand.dart';
 
 class C {
@@ -43,7 +44,11 @@ class _NoTransitions extends PageTransitionsBuilder {
   }
 }
 
-void log(String message) => debugPrint('B1G $message');
+void log(String message) {
+  debugPrint('B1G $message');
+  // Kept in memory (cleaned) for "Report a problem".
+  LogBook.add(message);
+}
 
 /// The app's logo, drawn in code: the brand symbol and the name next to it (first word white,
 /// the rest red). Symbol and name come from the website (Settings -> App look) when set, so the

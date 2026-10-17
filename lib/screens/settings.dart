@@ -11,6 +11,7 @@ import '../network.dart';
 import '../speedtest.dart';
 import '../vpn.dart';
 import '../parental.dart';
+import '../report.dart';
 import '../store.dart';
 import '../streaming.dart';
 import '../subtitle_style.dart';
@@ -292,6 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onPick: (e) => setState(() => Store.setLiveEngine(e)),
           what: 'Live TV channels and the channel preview',
           withMode: false,
+          live: true,
         );
       case _Section.subtitles:
         return _subtitles();
@@ -321,6 +323,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required ValueChanged<String> onPick,
     required String what,
     required bool withMode,
+    bool live = false,
   }) {
     final exo = ExoEngine.available;
     final mpvChosen = current == 'mpv';
@@ -433,6 +436,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 8),
           const Text('Use Standard if a video plays sound but shows no picture.',
               style: TextStyle(fontSize: 13, color: C.dim)),
+        ],
+        if (live) ...[
+          const SizedBox(height: 24),
+          Text(t('Start with the last channel').toUpperCase(),
+              style: const TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _chip('On', Store.startWithLastChannel, () => setState(() => Store.setStartWithLastChannel(true))),
+              const SizedBox(width: 10),
+              _chip('Off', !Store.startWithLastChannel, () => setState(() => Store.setStartWithLastChannel(false))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Off by default. When it is on, the channel you watched last plays by itself when the app '
+            'starts, with the other channels of its category (Up / Down go on from there). Back takes '
+            'you to the home screen. Every profile has its own last channel.',
+            style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+          ),
+          const SizedBox(height: 24),
+          const Text('REMOTE SHORTCUTS IN LIVE TV',
+              style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          const SizedBox(height: 10),
+          const Text(
+            '• Fast-forward (⏩) or the Last / Recall key: back to the channel you watched just before. '
+            'Press it again to switch back.\n'
+            '• Rewind (⏪): Start Over - the programme on now plays from its beginning. Works on channels '
+            'with catch-up (the server keeps recordings).\n'
+            '• Up / Down: next / previous channel.  Left: channel list.  Right: audio and subtitles.\n'
+            '• Guide or Info: TV Guide.  Hold OK: add to Favourites.\n'
+            'Both are also buttons on the bar (press OK while watching).',
+            style: TextStyle(fontSize: 13, color: C.dim, height: 1.55),
+          ),
         ],
       ],
     );
@@ -936,6 +973,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Text('A newer version is available: use "Update" on the home screen.',
                 style: TextStyle(fontSize: 13.5, color: C.accent)),
           ),
+        const SizedBox(height: 16),
+        // Something does not work: the app's recent log and this TV's details go to the support team.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TvFocus(
+            radius: 12,
+            color: const Color(0xFF2A1D10),
+            onTap: () => showReportDialog(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.report_problem_rounded, color: Color(0xFFF5B400)),
+                  const SizedBox(width: 12),
+                  Text(t('Report a problem'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          t('Something does not work? Send a report: the app\'s recent log and this TV\'s details go to the support team (no passwords).'),
+          style: const TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+        ),
       ],
     );
   }

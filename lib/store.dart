@@ -66,7 +66,11 @@ class Store {
 
   static bool _isPersonalKey(String k) {
     final base = k.startsWith('p:') ? k.substring(k.indexOf(':', 2) + 1) : k;
-    return base == 'resume' || base == 'cw' || base.startsWith('fav_') || base.startsWith('recent_');
+    return base == 'resume' ||
+        base == 'cw' ||
+        base == 'last_live' ||
+        base.startsWith('fav_') ||
+        base.startsWith('recent_');
   }
 
   // ---- login ----
@@ -220,6 +224,34 @@ class Store {
     }
     _p.setStringList(_pk('recent_${item.kind.name}'), list.map((f) => jsonEncode(f.toJson())).toList());
   }
+
+  // ---- last live channel (per profile) ----
+  /// The live channel watched last, null when there is none yet.
+  static XItem? get lastLive {
+    final raw = _p.getString(_pk('last_live'));
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final item = XItem.fromJson(jsonDecode(raw));
+      return item != null && item.kind == XKind.live ? item : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static void setLastLive(XItem item) {
+    if (item.kind != XKind.live) return;
+    _p.setString(_pk('last_live'), jsonEncode(item.toJson()));
+  }
+
+  /// Settings › Live Player: the app opens the last channel by itself when it starts.
+  static bool get startWithLastChannel => _p.getBool('start_last_channel') ?? false;
+  static void setStartWithLastChannel(bool v) => _p.setBool('start_last_channel', v);
+
+  // ---- order of the Movies / Series lists ----
+  /// 'default' (as the server sends them), 'new' (recently added first), 'az', 'year'
+  /// (newest year first) or 'rating' (best first).
+  static String sortOrder(XKind kind) => _p.getString('sort_${kind.name}') ?? 'default';
+  static void setSortOrder(XKind kind, String order) => _p.setString('sort_${kind.name}', order);
 
   // ---- resume positions (seconds) ----
   static Map<String, int> _loadResume() {

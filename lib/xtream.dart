@@ -97,6 +97,8 @@ class XItem {
     this.url = '',
     this.epgId = '',
     this.archive = false,
+    this.added = 0,
+    this.year = 0,
   });
 
   final XKind kind;
@@ -118,6 +120,19 @@ class XItem {
   /// the channel up in an XMLTV guide. Empty when the playlist names none.
   final String epgId;
 
+  /// When the server added it (seconds since 1970; 0 = not known). Films: "added",
+  /// series: "last_modified". Used for "Recently Added" and the "Newest" sort.
+  final int added;
+
+  /// Year of a film or series (0 = not known): from the server's fields or the name.
+  final int year;
+
+  /// The rating as a number (0 when there is none).
+  double get ratingValue {
+    final double v = double.tryParse(rating.replaceAll(',', '.')) ?? 0.0;
+    return v.isFinite && v > 0 ? v : 0.0;
+  }
+
   static XItem? fromApi(XKind kind, Map m) {
     final id = str(kind == XKind.series ? m['series_id'] : m['stream_id']);
     if (id.isEmpty) return null;
@@ -132,6 +147,8 @@ class XItem {
       rating: str(m['rating']),
       num: toInt(m['num']),
       archive: kind == XKind.live && toInt(m['tv_archive']) == 1,
+      added: kind == XKind.live ? 0 : toInt(kind == XKind.series ? m['last_modified'] : m['added']),
+      year: kind == XKind.live ? 0 : yearOf(m, name),
     );
   }
 
@@ -147,6 +164,8 @@ class XItem {
         if (url.isNotEmpty) 'u': url,
         if (epgId.isNotEmpty) 'g': epgId,
         if (archive) 'a': 1,
+        if (added > 0) 'ad': added,
+        if (year > 0) 'y': year,
       };
 
   static XItem? fromJson(dynamic j) {
@@ -166,8 +185,37 @@ class XItem {
       url: str(j['u']),
       epgId: str(j['g']),
       archive: toInt(j['a']) == 1,
+      added: toInt(j['ad']),
+      year: toInt(j['y']),
     );
   }
+}
+
+final _anyYear = RegExp(r'(?:19|20)\d{2}');
+final _yearInBrackets = RegExp(r'[(\[]\s*((?:19|20)\d{2})\s*[)\]]');
+final _yearAfterDash = RegExp(r'\s[-–|]\s*((?:19|20)\d{2})\s*$');
+
+bool _plausibleYear(int y) => y >= 1900 && y <= DateTime.now().year + 1;
+
+/// Year of a film or series: the server's year / release date, else the name
+/// ("Title (2021)", "Title [2021]", "Title - 2021"). 0 when none is found.
+int yearOf(Map m, String name) {
+  for (final key in const ['year', 'releaseDate', 'release_date', 'releasedate']) {
+    final match = _anyYear.firstMatch(str(m[key]));
+    if (match != null) {
+      final y = int.parse(match.group(0)!);
+      if (_plausibleYear(y)) return y;
+    }
+  }
+  return yearInName(name);
+}
+
+/// A year written in a title ("Title (2021)"), 0 when there is none.
+int yearInName(String name) {
+  final match = _yearInBrackets.firstMatch(name) ?? _yearAfterDash.firstMatch(name);
+  if (match == null) return 0;
+  final y = int.parse(match.group(1)!);
+  return _plausibleYear(y) ? y : 0;
 }
 
 class XEpisode {

@@ -528,6 +528,16 @@ class Backend {
     }
   }
 
+  /// "Report a problem" (report.dart): the report goes to the website, where the admin reads it.
+  /// Returns the website's answer (with report_id).
+  static Future<Map<String, dynamic>> sendReport(Map<String, dynamic> report) async {
+    if (!await ensureRegistered()) {
+      throw BackendException('This TV is not connected to the website yet. Check the internet and try again.');
+    }
+    final data = await _post('/device/report', {'device_id': deviceId, 'pairing_code': pairingCode, ...report});
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+  }
+
   /// "Reload" sent from the Admin Panel: the home screen listens and reloads the playlist.
   static final ValueNotifier<int> refreshSignal = ValueNotifier<int>(0);
 

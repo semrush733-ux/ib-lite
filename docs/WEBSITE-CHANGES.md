@@ -217,3 +217,48 @@ curl -s "https://YOURSITE/wp-json/b1g/v1/app/config?platform=android-tv&version_
 Expected: `"success": true`, a `config` object, and `update` either `null` or the object above.
 Then on a TV: sign out → the sign-in screen shows the username/password tab first; raise the
 build number in the settings → reopen the app → "Update available".
+
+---
+
+## 8. Problem reports (app build 165+, plugin 1.0.36)
+
+Already built into the Lite Player plugin 1.0.36 (`includes/class-b1g-reports.php`); this
+section only describes it. Updating the plugin creates the table `wp_b1g_reports` by itself.
+
+The TV app has **Report a problem** in Settings › Application Info and in the player's options
+(Right key while watching). The customer picks what went wrong (or writes a note) and the app
+sends:
+
+```
+POST /wp-json/b1g/v1/device/report
+{
+  "device_id": "CLT-XXXX-XXXX", "pairing_code": "123456",
+  "reason": "A channel does not play", "note": "Sky Sports 1 black since today",
+  "app_version": "1.0.165 (165)", "platform": "android-tv",
+  "device": {"manufacturer": "Amazon", "model": "AFTKRT", "android": "11", "sdk": 30,
+             "fireOs": "Fire OS 8.1.8.2", "ramMb": 1955, "screen": "1920x1080 @320dpi", ...},
+  "stream": {"title": "Sky Sports 1", "kind": "live", "host": "line.example.com:8080",
+             "format": "ts", "engine": "exo", "video": "1920 x 1080", "state": "failed",
+             "error": "...", "time": "21:04:11"},
+  "playlist": "My IPTV", "server": "line.example.com", "language": "en", "profile": "main",
+  "log": "21:03:58 open index=3 format=ts try=0 engine=exo\n..."
+}
+→ {"success": true, "report_id": 12, "message": "Thank you. Your report number is 12."}
+```
+
+* Nothing secret is sent: stream addresses keep only their host, `username=` / `password=` /
+  `token=` values are masked, the playlist login is never included.
+* Checked with `device_id` + `pairing_code` like the other device routes; at most 6 reports per
+  TV an hour and 30 per network an hour; the log is cut to its newest 60 000 characters.
+* Reports older than 90 days (and beyond the newest 2 000) are removed by themselves.
+* A new report also goes to the owner's phone when Telegram or ntfy is set up
+  (Admin Panel app › Server health).
+
+Where the admin reads them:
+
+* WordPress: **Lite Player › Problem reports** (red bubble = new ones): list, View (details,
+  last stream, device, the whole log in a box to copy), Mark done / Reopen, Delete.
+* Admin Panel app: **More › Problem reports** (New / Done / All, search, copy or share a
+  report with its log). A reseller sees only the reports of his own clients.
+* Panel API: `GET /panel/problems?status=new|done|all&q=`, `GET /panel/problems/view?id=`,
+  `POST /panel/problems/done {id, done}`, `POST /panel/problems/delete {id}`.

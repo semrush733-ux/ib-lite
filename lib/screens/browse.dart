@@ -24,6 +24,20 @@ const _favId = '*fav';
 const _searchId = '*search';
 const _allId = '*all';
 const _recentId = '*recent';
+const _newId = '*new';
+
+/// The orders the Movies / Series lists can be shown in (Store.sortOrder).
+const _sorts = [
+  ('default', 'Default order'),
+  ('new', 'Newest added'),
+  ('az', 'A–Z'),
+  ('year', 'Year (newest first)'),
+  ('rating', 'Rating (best first)'),
+];
+
+String _sortName(String order) => t(_sorts.firstWhere((s) => s.$1 == order, orElse: () => _sorts.first).$2);
+
+final _leadingMarks = RegExp(r'^[^\p{L}\p{N}]+', unicode: true);
 
 String kindTitle(XKind kind) {
   switch (kind) {
@@ -181,6 +195,8 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     // In a browser the preview needs the HLS address through the website relay, like full screen.
     final urls = Backend.playable(streamUrls);
     if (urls.isEmpty || _goingFull) return;
+    // The channel the app may start with next time (Settings › Live Player).
+    Store.setLastLive(item);
     await _stopPreview();
     if (!mounted || _goingFull) return;
     final request = ++_pvRequest;
@@ -401,6 +417,119 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     return all;
   }
 
+  /// "Recently Added": the newest titles by the date the server added them (titles without a
+  /// date are left out; an M3U playlist has none).
+  static List<XItem> _recentlyAdded(List<XItem> all) {
+    final dated = all.where((i) => i.added > 0 && Store.allowed(i)).toList()
+      ..sort((a, b) => b.added.compareTo(a.added));
+    return dated.length > 200 ? dated.sublist(0, 200) : dated;
+  }
+
+  // ------------------------------------------------------------------- sort
+  // Movies and series can be shown A–Z, newest added, by year or rating (remembered per kind).
+  // Not for Recent and Recently Added, which have their own order, nor for live channels.
+
+  bool get _sortApplies => !_live && _selected != _recentId && _selected != _newId;
+
+  List<XItem>? _viewOf;
+  String _viewOrder = '';
+  List<XItem> _viewItems = const [];
+
+  /// The list as shown: sorted once per list and order, not on every redraw.
+  List<XItem> _view(List<XItem> items) {
+    final order = _sortApplies ? Store.sortOrder(widget.kind) : 'default';
+    if (order == 'default' || items.length < 2) return items;
+    if (identical(items, _viewOf) && order == _viewOrder) return _viewItems;
+    _viewOf = items;
+    _viewOrder = order;
+    _viewItems = _sorted(items, order);
+    return _viewItems;
+  }
+
+  /// A stable sort (equal ones keep the server's order); titles without a date / year / rating
+  /// go to the end.
+  static List<XItem> _sorted(List<XItem> items, String order) {
+    final idx = List<int>.generate(items.length, (i) => i);
+    int Function(int a, int b) cmp;
+    switch (order) {
+      case 'az':
+        final keys = [for (final i in items) i.name.toLowerCase().replaceFirst(_leadingMarks, '')];
+        cmp = (a, b) => keys[a].compareTo(keys[b]);
+      case 'new':
+        cmp = (a, b) => items[b].added.compareTo(items[a].added);
+      case 'year':
+        cmp = (a, b) => items[b].year.compareTo(items[a].year);
+      case 'rating':
+        final values = [for (final i in items) i.ratingValue];
+        cmp = (a, b) => values[b].compareTo(values[a]);
+      default:
+        return items;
+    }
+    idx.sort((a, b) {
+      final c = cmp(a, b);
+      return c != 0 ? c : a - b;
+    });
+    return [for (final i in idx) items[i]];
+  }
+
+  Future<void> _chooseSort() async {
+    final current = Store.sortOrder(widget.kind);
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: C.panel,
+        title: Row(
+          children: [
+            const Icon(Icons.sort_rounded, color: C.accent),
+            const SizedBox(width: 10),
+            Text(t('Sort')),
+          ],
+        ),
+        content: SizedBox(
+          width: 340,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final s in _sorts)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: TvFocus(
+                    autofocus: s.$1 == current,
+                    selected: s.$1 == current,
+                    radius: 10,
+                    color: C.card,
+                    onTap: () => Navigator.of(ctx).pop(s.$1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                      child: Row(
+                        children: [
+                          Icon(s.$1 == current ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                              size: 19, color: s.$1 == current ? C.accent : C.dim),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(t(s.$2),
+                                style: TextStyle(
+                                    fontSize: 15, fontWeight: s.$1 == current ? FontWeight.w800 : FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 4),
+              Text(t('Titles without that information go to the end.'),
+                  style: const TextStyle(fontSize: 12.5, color: C.dim)),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (picked == null || picked == current || !mounted) return;
+    Store.setSortOrder(widget.kind, picked);
+    log('browse ${widget.kind.name} sort=$picked');
+    setState(() {});
+  }
+
   /// When the search box closed: the remote's OK / the keyboard's Search key can arrive once more
   /// on the list behind it (it used to open "All" and show everything instead of the results).
   DateTime _searchClosed = DateTime(2000);
@@ -437,6 +566,8 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
       List<XItem> items;
       if (id == _allId) {
         items = await _loadAll();
+      } else if (id == _newId) {
+        items = _recentlyAdded(await _loadAll());
       } else {
         items = await widget.api.items(widget.kind, categoryId: id);
         // Some servers ignore the category filter and send everything.
@@ -640,6 +771,30 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
                         if (_items != null)
                           Text('${_items!.length} ${countLabel(widget.kind, _items!.length)}',
                               style: const TextStyle(color: C.dim, fontSize: 14)),
+                        if (_sortApplies) ...[
+                          const SizedBox(width: 12),
+                          TvFocus(
+                            radius: 16,
+                            color: C.panel,
+                            onTap: _chooseSort,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.sort_rounded, size: 17, color: C.accent),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    Store.sortOrder(widget.kind) == 'default'
+                                        ? t('Sort')
+                                        : _sortName(Store.sortOrder(widget.kind)),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1066,19 +1221,21 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     final all = _cats;
     if (all == null) return const Loading();
     final cats = all.where((c) => !Store.isHidden(widget.kind, c.id)).toList();
+    // Search, All, Favourites, Recent (and Recently Added for movies / series) come first.
+    final fixed = _live ? 4 : 5;
     return Focus(
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: _moveKeys,
       child: ListView.builder(
       padding: const EdgeInsets.only(bottom: 16),
-      itemCount: cats.length + 4,
+      itemCount: cats.length + fixed,
       itemExtent: 42,
       // A moved category keeps its row (and the focus) while it changes place.
       findChildIndexCallback: (key) {
         if (key is! ValueKey<String>) return null;
         final i = cats.indexWhere((c) => 'cat:${c.id}' == key.value);
-        return i < 0 ? null : i + 4;
+        return i < 0 ? null : i + fixed;
       },
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -1119,7 +1276,16 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
             onFocus: () => _focusCategory(_recentId, t('Recent')),
           );
         }
-        final cat = cats[index - 4];
+        if (index == 4 && !_live) {
+          return _CategoryRow(
+            icon: Icons.fiber_new_rounded,
+            name: t('Recently Added'),
+            selected: _selected == _newId,
+            // Like "All" it needs the full list: it opens only on OK, not by moving over it.
+            onTap: () => _select(_newId, t('Recently Added')),
+          );
+        }
+        final cat = cats[index - fixed];
         final locked = Store.isLocked(widget.kind, cat.id) && !Store.parentalUnlocked;
         final moving = _moving == cat.id;
         // A finger (or a mouse) drags the category it holds. Always ready, not only in touch mode:
@@ -1148,16 +1314,19 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
 
   Widget _content() {
     if (_itemsError != null) return ErrorBox(message: _itemsError!, onRetry: _retryItems);
-    final items = _items;
-    if (items == null) {
+    final loaded = _items;
+    if (loaded == null) {
       return _cats == null && _catsError != null ? const SizedBox() : const Loading();
     }
+    final items = _view(loaded);
     if (items.isEmpty) {
       final text = _selected == _favId
           ? 'No favourites yet.\nHold OK on a ${_live ? 'channel' : 'title'} to add it here.'
           : _selected == _recentId
               ? 'Nothing watched yet.\nWhat you open appears here.'
-              : (_selected == _searchId ? 'Nothing found.' : 'This category is empty.');
+              : _selected == _newId
+                  ? t('This playlist does not say when titles were added.')
+                  : (_selected == _searchId ? 'Nothing found.' : 'This category is empty.');
       return Center(
         child: Text(text, textAlign: TextAlign.center, style: const TextStyle(color: C.dim, fontSize: 15, height: 1.5)),
       );
@@ -1174,7 +1343,7 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
         extent = ((width - (columns - 1) * 10) / columns) * 1.48;
       }
       return GridView.builder(
-        key: ValueKey('$_selected|$_query'),
+        key: ValueKey('$_selected|$_query|${_sortApplies ? Store.sortOrder(widget.kind) : ''}'),
         padding: const EdgeInsets.fromLTRB(2, 2, 2, 24),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: columns,

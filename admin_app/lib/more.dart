@@ -900,6 +900,7 @@ class MorePage extends StatelessWidget {
         tile(Icons.tv_rounded, 'All TVs', 'Search by MAC, name or login; block, reload, renew', () => go(const DevicesPage(title: 'All TVs'))),
         tile(Icons.notification_important_rounded, 'Ending soon', 'Renew or remind before they stop', () => go(const DevicesPage(filter: 'expiring', title: 'Ending in 7 days')), color: _amber),
         tile(Icons.monitor_heart_rounded, 'Server health (DNS)', 'Every server, DNS check, alerts to your phone', () => go(const HealthPage()), color: _green),
+        tile(Icons.report_problem_rounded, 'Problem reports', 'Sent from the TVs: what went wrong, TV model, app log', () => go(const ProblemsPage()), color: _amber),
         tile(Icons.download_rounded, 'Backup to Excel (CSV)', 'Every TV with status, plan and playlists', () => exportCsv(context)),
         if (superAdmin) ...[
           tile(Icons.system_update_rounded, 'App updates', 'Send a new build to all TVs or to test TVs first', () => go(const UpdatesPage()), color: const Color(0xFF1E88FF)),
@@ -1677,6 +1678,368 @@ class _LogsPageState extends State<LogsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ------------------------------------------------------------------------------- problem reports
+// "Report a problem" on the TV: the reason, the customer's note, the TV's model, the last stream
+// it played and the app's recent log (no logins or passwords).
+
+class ProblemsPage extends StatefulWidget {
+  const ProblemsPage({super.key});
+
+  @override
+  State<ProblemsPage> createState() => _ProblemsPageState();
+}
+
+class _ProblemsPageState extends State<ProblemsPage> {
+  final _q = TextEditingController();
+  String _status = 'new';
+  List<Map<String, dynamic>>? _reports;
+  int _new = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _q.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await Api.call('/panel/problems', query: {
+        'status': _status,
+        if (_q.text.trim().isNotEmpty) 'q': _q.text.trim(),
+      });
+      if (!mounted) return;
+      setState(() {
+        _reports = [for (final r in (j['reports'] as List? ?? const [])) if (r is Map) Map<String, dynamic>.from(r)];
+        _new = int.tryParse('${j['new'] ?? 0}') ?? 0;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _reports ??= []);
+      toast(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _open(Map<String, dynamic> r) async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => ProblemPage(id: int.tryParse('${r['id']}') ?? 0)));
+    if (mounted) _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = _reports;
+    return Scaffold(
+      appBar: AppBar(title: Text(_new > 0 ? 'Problem reports ($_new new)' : 'Problem reports')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            child: TextField(
+              controller: _q,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _load(),
+              decoration: const InputDecoration(hintText: 'Search (MAC, problem, note, TV model)', prefixIcon: Icon(Icons.search)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+            child: Row(
+              children: [
+                for (final s in const [('new', 'New'), ('done', 'Done'), ('all', 'All')]) ...[
+                  ChoiceChip(
+                    label: Text(s.$2),
+                    selected: _status == s.$1,
+                    onSelected: (_) {
+                      setState(() {
+                        _status = s.$1;
+                        _reports = null;
+                      });
+                      _load();
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+          Expanded(
+            child: list == null
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: list.isEmpty
+                        ? ListView(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(32),
+                                child: Text(
+                                  _status == 'new'
+                                      ? 'No new reports.\nWhen a customer presses "Report a problem" on the TV, it shows up here.'
+                                      : 'No reports.',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: _muted, height: 1.5),
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                            itemCount: list.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1, color: _line),
+                            itemBuilder: (_, i) {
+                              final r = list[i];
+                              final d = r['details'] is Map ? r['details'] as Map : const {};
+                              final stream = d['stream'] is Map ? d['stream'] as Map : const {};
+                              final done = r['status'] == 'done';
+                              final reason = '${r['reason'] ?? ''}';
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(
+                                  backgroundColor: (done ? _green : _amber).withValues(alpha: 0.16),
+                                  child: Icon(done ? Icons.check_rounded : Icons.report_problem_rounded,
+                                      color: done ? _green : _amber),
+                                ),
+                                title: Text(reason.isEmpty ? 'Report #${r['id']}' : reason,
+                                    style: const TextStyle(fontWeight: FontWeight.w700)),
+                                subtitle: Text(
+                                  [r['device_id'], r['model'], stream['title'], r['note']]
+                                      .where((x) => '${x ?? ''}'.trim().isNotEmpty)
+                                      .join(' · '),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: _muted, fontSize: 12.5),
+                                ),
+                                trailing: Text('${r['at'] ?? ''}'.replaceFirst(' ', '\n'),
+                                    textAlign: TextAlign.end, style: const TextStyle(color: _muted, fontSize: 11.5)),
+                                onTap: () => _open(r),
+                              );
+                            },
+                          ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ProblemPage extends StatefulWidget {
+  const ProblemPage({super.key, required this.id});
+  final int id;
+
+  @override
+  State<ProblemPage> createState() => _ProblemPageState();
+}
+
+class _ProblemPageState extends State<ProblemPage> {
+  Map<String, dynamic>? _r;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final j = await Api.call('/panel/problems/view', query: {'id': '${widget.id}'});
+      final r = j['report'];
+      if (mounted && r is Map) setState(() => _r = Map<String, dynamic>.from(r));
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _setDone(bool done) async {
+    setState(() => _busy = true);
+    try {
+      await Api.call('/panel/problems/done', body: {'id': widget.id, 'done': done});
+      await _load();
+      if (mounted) toast(context, done ? 'Marked as done' : 'Opened again');
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _delete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this report?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: _red))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await Api.call('/panel/problems/delete', body: {'id': widget.id});
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) toast(context, '$e', error: true);
+    }
+  }
+
+  String _asText(Map<String, dynamic> r) {
+    final d = r['details'] is Map ? r['details'] as Map : const {};
+    final b = StringBuffer()
+      ..writeln('Problem report #${r['id']}  ${r['at']}')
+      ..writeln('MAC Address: ${r['device_id']}')
+      ..writeln('Problem: ${r['reason']}')
+      ..writeln('Note: ${r['note']}')
+      ..writeln('App: ${r['app_version']} ${r['platform']}')
+      ..writeln('TV / box: ${r['model']}');
+    for (final part in const ['stream', 'device']) {
+      final m = d[part];
+      if (m is Map && m.isNotEmpty) {
+        b.writeln('');
+        b.writeln(part == 'stream' ? 'Last stream:' : 'Device:');
+        m.forEach((k, v) => b.writeln('  $k: $v'));
+      }
+    }
+    b
+      ..writeln('')
+      ..writeln('Log:')
+      ..writeln('${r['log'] ?? ''}');
+    return b.toString();
+  }
+
+  Widget _rows(String title, Map m) {
+    final entries = m.entries.where((e) => '${e.value ?? ''}'.trim().isNotEmpty).toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+    return Card(
+      color: _card,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: _line)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+            const SizedBox(height: 8),
+            for (final e in entries)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(width: 118, child: Text('${e.key}', style: const TextStyle(color: _muted, fontSize: 13))),
+                    Expanded(child: SelectableText('${e.value}', style: const TextStyle(fontSize: 13.5))),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _r;
+    return Scaffold(
+      appBar: AppBar(title: Text('Report #${widget.id}')),
+      body: r == null
+          ? const Center(child: CircularProgressIndicator())
+          : Builder(builder: (context) {
+              final d = r['details'] is Map ? r['details'] as Map : const {};
+              final done = r['status'] == 'done';
+              final log = '${r['log'] ?? ''}';
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('${r['reason'] ?? ''}'.isEmpty ? 'Problem report' : '${r['reason']}',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                      ),
+                      Chip(
+                        label: Text(done ? 'Done' : 'New'),
+                        backgroundColor: (done ? _green : _amber).withValues(alpha: 0.18),
+                        side: BorderSide.none,
+                      ),
+                    ],
+                  ),
+                  if ('${r['note'] ?? ''}'.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text('"${r['note']}"', style: const TextStyle(fontSize: 15, height: 1.4)),
+                  ],
+                  const SizedBox(height: 12),
+                  _rows('TV', {
+                    'MAC Address': r['device_id'],
+                    'Sent': r['at'],
+                    'TV / box': r['model'],
+                    'App': '${r['app_version'] ?? ''} ${r['platform'] ?? ''}'.trim(),
+                    'Playlist': d['playlist'],
+                    'Server': d['server'],
+                    'Language': d['language'],
+                    'Profile': d['profile'],
+                  }),
+                  if (d['stream'] is Map) _rows('Last stream', d['stream'] as Map),
+                  if (d['device'] is Map) _rows('Device details', d['device'] as Map),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _busy ? null : () => _setDone(!done),
+                        icon: Icon(done ? Icons.undo_rounded : Icons.check_rounded),
+                        label: Text(done ? 'Open again' : 'Mark done'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(ClipboardData(text: _asText(r)));
+                          if (context.mounted) toast(context, 'Report and log copied');
+                        },
+                        icon: const Icon(Icons.copy_rounded),
+                        label: const Text('Copy'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => Share.share(_asText(r), subject: 'Problem report #${widget.id}'),
+                        icon: const Icon(Icons.share_rounded),
+                        label: const Text('Share'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _delete,
+                        icon: const Icon(Icons.delete_outline_rounded, color: _red),
+                        label: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('App log (newest at the bottom)', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F0A0B),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _line),
+                    ),
+                    child: SelectableText(
+                      log.isEmpty ? '(empty)' : log,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 11.5, height: 1.35),
+                    ),
+                  ),
+                ],
+              );
+            }),
     );
   }
 }

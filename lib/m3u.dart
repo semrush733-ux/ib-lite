@@ -114,6 +114,7 @@ class M3uParser {
       num: list.length + 1,
       url: line,
       epgId: kind == XKind.live ? tvgId : '',
+      year: kind == XKind.live ? 0 : yearInName(name ?? ''),
     ));
   }
 

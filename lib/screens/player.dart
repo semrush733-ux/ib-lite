@@ -13,8 +13,10 @@ import '../enhance.dart';
 import '../i18n.dart';
 import '../input_mode.dart';
 import '../lang.dart';
+import '../logbook.dart';
 import '../prefetch.dart';
 import '../quality.dart';
+import '../report.dart';
 import '../sleep_timer.dart';
 import '../smooth.dart';
 import '../start_poster.dart';
@@ -193,6 +195,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   int _shownSecond = -1;
 
   int? _zapTarget;
+  // Live: the channel watched before this one (the "Last channel" jump goes back to it).
+  int? _prevIndex;
   Duration? _seekTarget;
   int _seekPresses = 0;
   bool _okDown = false;
@@ -239,6 +243,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     Playback.open++;
     Warmup.stopFilm(); // the film's head start must not hold a second connection
     _index = widget.index < 0 || widget.index >= widget.entries.length ? 0 : widget.index;
+    _noteLastChannel();
     _resetEngine();
     WidgetsBinding.instance.addObserver(this);
     _keepScreenOn(true);
@@ -270,6 +275,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _status = null;
     _accepting = true;
     _readTracks(engine.tracksNow);
+    final first = _entry.urls.isEmpty ? '' : _entry.urls.first;
+    LastStream.opened(
+        title: _entry.title,
+        kind: widget.live ? 'live' : 'film',
+        url: first,
+        format: formatOfUrl(first),
+        engine: engine.name,
+        retry: false);
+    LastStream.playing('', engine.name);
     if (!widget.live) {
       // A film preloaded on its page (paused): it starts now.
       engine.play();
@@ -402,6 +416,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       _closePlayer();
     }
     log('player closed');
+    LastStream.closed();
     _keepScreenOn(false);
     if (_fpsApplied > 0) {
       _device.invokeMethod<void>('resetFrameRate').catchError((Object _) {});
@@ -515,6 +530,16 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     }
     _wantStart = start;
     log('open index=$_index format=$format try=$_fails engine=$_engineName');
+    LastStream.opened(
+      title: entry.title,
+      kind: widget.live
+          ? 'live'
+          : (entry.episode != null ? 'episode' : (entry.resumeKey == null ? 'catch-up' : 'film')),
+      url: raw,
+      format: format,
+      engine: _engineName,
+      retry: _fails > 0,
+    );
     try {
       // This stream's sound did not play on ExoPlayer before: it goes to MPV.
       if (_engineName == 'exo' && Store.exoNoSound.contains(_streamKey)) {
@@ -649,6 +674,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _videoSize = w > 0 && h > 0 ? '$w x $h' : '';
     _videoHeight = h;
     log('ready index=$_index format=${formatOfUrl(url)} video=${w}x$h mode=${_direct ? 'direct' : 'gpu'} engine=$_engineName');
+    LastStream.playing(_videoSize, _engineName);
     if (widget.live && !kIsWeb) {
       // How long this format took to show the picture (not counted when the preview handed over
       // a stream that was already playing).
@@ -684,6 +710,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       return;
     }
     _lastError = text;
+    LastStream.noteError(text);
     final now = DateTime.now();
     if (kVerbose || now.difference(_errorLoggedAt) > const Duration(seconds: 1)) {
       _errorLoggedAt = now;
@@ -791,6 +818,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       // This engine gave up: let the other engine try once before showing the error.
       if (_switchEngine()) return;
       if (!_focus.hasPrimaryFocus) _focus.requestFocus();
+      LastStream.failed(_lastError);
       setState(() {
         _holdPicture = false;
         _heldPicture = null;
@@ -1110,6 +1138,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _panelOpen = true;
     _hideTimer?.cancel();
     log('panel=options');
+    var report = false;
     await showDialog<void>(
       context: context,
       barrierColor: const Color(0x66000000),
@@ -1181,12 +1210,27 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
               _PanelNote(SleepTimer.ends.value == null
                   ? 'The video stops by itself after the time you pick.'
                   : '${SleepTimer.endsText}. A minute before, you can keep watching.'),
+              _PanelHeading(t('Help')),
+              _PanelRow(
+                label: t('Report a problem'),
+                selected: false,
+                onTap: () {
+                  report = true;
+                  Navigator.of(ctx).pop();
+                },
+              ),
             ],
           );
         },
       ),
     );
     _panelOpen = false;
+    if (report && mounted) {
+      // The video goes on playing behind; the report says what it is playing.
+      _panelOpen = true;
+      await showReportDialog(context);
+      _panelOpen = false;
+    }
     if (mounted) _showOverlay();
   }
 
@@ -1318,6 +1362,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _reuseNext = true;
     _holdPicture = false;
     _heldPicture = null;
+    if (widget.live && index != _index) _prevIndex = _index;
     setState(() {
       _index = index;
       _zapTarget = null;
@@ -1327,9 +1372,78 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       _epg = const [];
       _lastPosition = Duration.zero;
     });
+    _noteLastChannel();
     _open();
     _scheduleEpg();
     _showOverlay();
+  }
+
+  /// Live: this channel is the one the app may start with next time (Settings › Live Player).
+  void _noteLastChannel() {
+    if (!widget.live || widget.entries.isEmpty) return;
+    final item = _entry.item;
+    if (item != null) Store.setLastLive(item);
+  }
+
+  /// "Last channel": back to the channel watched before this one (again = back and forth).
+  void _lastChannel() {
+    final prev = _prevIndex;
+    if (!widget.live || prev == null || prev < 0 || prev >= widget.entries.length || prev == _index) {
+      _toast(t('No previous channel yet.'));
+      _showOverlay();
+      return;
+    }
+    log('last channel');
+    _tuneTo(prev);
+  }
+
+  /// Start Over is possible here: an Xtream channel whose server keeps recordings (catch-up).
+  bool get _canStartOver => widget.live && widget.api is XtreamApi && (_entry.item?.archive ?? false);
+
+  /// The programme on now, from the guide of this channel (null when the guide has none).
+  XEpg? _programmeNow() {
+    final now = DateTime.now();
+    for (final e in _epg) {
+      if (!e.start.isAfter(now) && e.end.isAfter(now)) return e;
+    }
+    return null;
+  }
+
+  /// Start Over: the programme on now plays from its beginning (the server's recording); when
+  /// it is over or the customer goes back, live TV carries on.
+  Future<void> _startOver() async {
+    if (!widget.live || _panelOpen || _childOpen) return;
+    final api = widget.api;
+    final item = _entry.item;
+    if (api is! XtreamApi || item == null || !item.archive) {
+      _toast(t('Start Over works on channels with catch-up (recordings on the server).'));
+      return;
+    }
+    final current = _programmeNow();
+    if (current == null) {
+      _toast(_epg.isEmpty ? t('The TV guide of this channel is not loaded yet.') : t('The TV guide shows no programme on now.'));
+      return;
+    }
+    log('start over');
+    _hideTimer?.cancel();
+    await _playArchive(PlayEntry(
+      title: current.title.isEmpty ? _entry.title : current.title,
+      subtitle: '${_entry.title}  ·  ${t('Start Over')}  ·  ${formatClock(current.start)} – ${formatClock(current.end)}',
+      urls: api.timeshiftUrls(item.id, current.start, current.end),
+      logo: _entry.logo,
+    ));
+  }
+
+  void _toast(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(
+        duration: const Duration(milliseconds: 2600),
+        behavior: SnackBarBehavior.floating,
+        width: 460,
+        content: Text(text, textAlign: TextAlign.center),
+      ));
   }
 
   void _zap(int step) {
@@ -1480,6 +1594,16 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         }
         if (k == LogicalKeyboardKey.arrowDown || k == LogicalKeyboardKey.channelDown) {
           _zap(-1);
+          return KeyEventResult.handled;
+        }
+        // The remote's Last / Recall key, or Fast-forward: back to the channel watched before.
+        if (k == LogicalKeyboardKey.mediaLast || k == LogicalKeyboardKey.mediaFastForward) {
+          if (down) _lastChannel();
+          return KeyEventResult.handled;
+        }
+        // Rewind: Start Over (the programme on now from its beginning, on catch-up channels).
+        if (k == LogicalKeyboardKey.mediaRewind) {
+          if (down) _startOver();
           return KeyEventResult.handled;
         }
       } else {
@@ -1744,7 +1868,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
             if (many) _button(Icons.list_rounded, t('Channel list'), _openChannels, node: _mainButton, size: 52),
             if (many) _button(Icons.skip_previous_rounded, 'Previous channel', () => _zap(-1)),
             if (many) _button(Icons.skip_next_rounded, 'Next channel', () => _zap(1)),
+            if (many && _prevIndex != null)
+              _button(Icons.history_rounded, '${t('Last channel')} (${widget.entries[_prevIndex!.clamp(0, widget.entries.length - 1)].title})', _lastChannel),
             _button(Icons.calendar_view_day_rounded, t('TV Guide'), _openGuide),
+            if (_canStartOver) _button(Icons.replay_rounded, t('Start Over'), _startOver),
           ]
         : [
             if (many) _button(Icons.skip_previous_rounded, 'Previous episode', () => _step(-1)),
@@ -1946,17 +2073,31 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          current == null
-              ? 'No TV guide for this channel'
-              : '${formatClock(current.start)} – ${formatClock(current.end)}   ${current.title}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: current == null ? 13.5 : 17,
-            fontWeight: current == null ? FontWeight.w500 : FontWeight.w700,
-            color: current == null ? C.dim : C.text,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                current == null
+                    ? 'No TV guide for this channel'
+                    : '${formatClock(current.start)} – ${formatClock(current.end)}   ${current.title}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: current == null ? 13.5 : 17,
+                  fontWeight: current == null ? FontWeight.w500 : FontWeight.w700,
+                  color: current == null ? C.dim : C.text,
+                ),
+              ),
+            ),
+            // Catch-up channel: the programme can start over (Rewind key or the button).
+            if (current != null && _canStartOver) ...[
+              const SizedBox(width: 12),
+              const Icon(Icons.fast_rewind_rounded, size: 16, color: C.accent),
+              const SizedBox(width: 4),
+              Text(t('Start Over'),
+                  style: const TextStyle(fontSize: 12.5, color: C.accent, fontWeight: FontWeight.w800)),
+            ],
+          ],
         ),
         const SizedBox(height: 7),
         ClipRRect(

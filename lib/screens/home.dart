@@ -24,6 +24,7 @@ import 'catchup.dart';
 import 'connect.dart';
 import 'device.dart';
 import 'downloads.dart';
+import 'player.dart' show PlayerScreen, liveEntries;
 import 'playlists.dart';
 import 'profiles.dart';
 import 'settings.dart';
@@ -51,6 +52,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  /// "Start with the last channel" (Settings › Live Player) is tried once per app start.
+  static bool _lastChannelTried = false;
+
   XAccount? _account;
   bool _offline = false;
   bool _refreshing = false;
@@ -81,6 +85,58 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
       Weather.refresh();
     });
+    if (!_lastChannelTried) {
+      _lastChannelTried = true;
+      if (Store.startWithLastChannel && Store.lastLive != null) {
+        // The home screen shows for a moment first.
+        Timer(const Duration(milliseconds: 700), _startLastChannel);
+      }
+    }
+  }
+
+  /// The channel watched last plays by itself, with the channels of its category around it
+  /// (Up / Down zap on from there). Back leaves it on the home screen.
+  Future<void> _startLastChannel() async {
+    final item = Store.lastLive;
+    if (!mounted || item == null || !Store.allowed(item)) return;
+    final cat = item.categoryId;
+    // A locked category needs the parental PIN: not by itself at start.
+    if (cat.isNotEmpty && Store.isLocked(XKind.live, cat) && !Store.parentalUnlocked) return;
+    var items = <XItem>[];
+    var loaded = false;
+    if (cat.isNotEmpty) {
+      try {
+        items = await widget.api.items(XKind.live, categoryId: cat);
+        // Some servers ignore the category filter and send everything.
+        if (items.any((i) => i.categoryId == cat) && items.any((i) => i.categoryId != cat)) {
+          items = items.where((i) => i.categoryId == cat).toList();
+        }
+        loaded = true;
+      } catch (e) {
+        log('last channel: its category did not load (${e.runtimeType})');
+      }
+    }
+    items = items.where(Store.allowed).toList();
+    var index = items.indexWhere((i) => i.id == item.id);
+    if (index < 0) {
+      // The category came but the channel is no longer in it: nothing to start.
+      if (loaded) {
+        log('last channel: no longer on the server');
+        return;
+      }
+      items = [item];
+      index = 0;
+    }
+    // A message or an update window may be open first: wait for the home screen to be on top.
+    for (var i = 0; i < 16 && mounted && ModalRoute.of(context)?.isCurrent != true; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+    log('start with the last channel');
+    Store.addRecent(item);
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PlayerScreen(api: widget.api, entries: liveEntries(widget.api, items), index: index, live: true)));
+    _afterBack();
   }
 
   @override
