@@ -1,0 +1,300 @@
+10-17 16:20:39.650 I/AidlLazyServiceRegistrar( 2178): Unregistered all clients and exiting
+10-17 16:20:39.827 I/servicemanager(    0): Unregistering artd
+10-17 16:20:39.827 I/init    (    0): Service 'vendor.drm-clearkey-service' (pid 2178) exited with status 0 oneshot service took 3.746000 seconds in background
+10-17 16:20:39.828 I/BpBinder(    0): onLastStrongRef automatically unlinking death recipients:
+10-17 16:20:39.830 I/init    (    0): Sending signal 9 to service 'vendor.drm-clearkey-service' (pid 2178) process group...
+10-17 16:20:39.655 I/AidlLazyServiceRegistrar( 2232): Unregistered all clients and exiting
+10-17 16:20:39.832 I/libprocessgroup(    0): Successfully killed process cgroup uid 1013 pid 2178 in 0ms
+10-17 16:20:39.834 I/init    (    0): Service 'artd' (pid 2232) exited with status 0 oneshot service took 3.145000 seconds in background
+10-17 16:20:39.836 I/init    (    0): Sending signal 9 to service 'artd' (pid 2232) process group...
+10-17 16:20:39.837 I/libprocessgroup(    0): Successfully killed process cgroup uid 1082 pid 2232 in 0ms
+10-17 16:20:39.848 E/TaskPersister(  504): File error accessing recents directory (directory doesn't exist?).
+10-17 16:20:39.856 D/AvrcpBrowsablePlayerConnector(  973): Received a message: msg.what=2
+10-17 16:20:39.856 V/AvrcpBrowsablePlayerConnector(  973): Timed out waiting for players
+10-17 16:20:39.856 I/AvrcpBrowsablePlayerConnector(  973): Successfully connected to 0 browsable players.
+10-17 16:20:39.856 I/MediaPlayerList(  973): init: Browsable Player list size is 0
+10-17 16:20:39.879 D/OomAdjuster(  504): Not killing cached processes
+10-17 16:20:39.879 W/BroadcastLoopers(  504): Found previously unknown looper Thread[appscheduling.default,5,main]
+10-17 16:20:40.266 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2317 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:40.185 D/CompatibilityChangeReporter( 1568): Compat change id reported: 253665015; UID 10063; state: ENABLED
+10-17 16:20:40.185 D/CompatibilityChangeReporter( 1568): Compat change id reported: 194532703; UID 10063; state: ENABLED
+10-17 16:20:40.186 D/CompatibilityChangeReporter(  504): Compat change id reported: 253665015; UID 10063; state: ENABLED
+10-17 16:20:40.186 D/CompatibilityChangeReporter(  504): Compat change id reported: 194532703; UID 10063; state: ENABLED
+10-17 16:20:41.279 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2323 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:41.165 D/AvrcpBrowsablePlayerConnector(  973): Received a message: msg.what=2
+10-17 16:20:41.165 V/AvrcpBrowsablePlayerConnector(  973): Timed out waiting for players
+10-17 16:20:41.165 I/AvrcpBrowsablePlayerConnector(  973): Successfully connected to 0 browsable players.
+10-17 16:20:41.166 I/MediaPlayerList(  973): init: Browsable Player list size is 0
+10-17 16:20:41.517 D/ActivityManager(  504): freezing 1428 com.android.music
+10-17 16:20:41.519 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:20:41.796 D/ActivityManager(  504): freezing 1434 com.android.sdksetup
+10-17 16:20:42.291 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2326 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:42.173 D/CompatibilityChangeReporter( 1416): Compat change id reported: 150939131; UID 10073; state: ENABLED
+10-17 16:20:42.173 I/ProvidersCache( 1416): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-17 16:20:43.305 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2334 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:43.262 D/ProfileInstaller( 2259): Installing profile for com.liteplayer.tv
+10-17 16:20:44.317 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2338 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:44.256 D/ActivityManager(  504): freezing 1798 com.android.externalstorage
+10-17 16:20:44.487 D/ActivityManager(  504): freezing 1763 com.android.carrierconfig
+10-17 16:20:44.576 I/ProvidersCache( 1416): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-17 16:20:44.611 D/ActivityManager(  504): freezing 1672 com.android.quicksearchbox
+10-17 16:20:45.330 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2346 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:45.422 D/ActivityManager(  504): freezing 1663 com.android.printspooler
+10-17 16:20:45.972 D/ActivityManager(  504): freezing 2147 com.android.carrierdefaultapp
+10-17 16:20:45.979 D/ActivityManager(  504): freezing 1261 com.android.cellbroadcastreceiver
+10-17 16:20:46.343 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2349 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:46.846 W/ActivityTaskManager(  504): Launch timeout has expired, giving up wake lock!
+10-17 16:20:47.085 D/OomAdjuster(  504): Not killing cached processes
+10-17 16:20:47.086 I/ImeTracker( 1046): com.android.launcher3:a279c943: onRequestHide at ORIGIN_CLIENT_HIDE_SOFT_INPUT reason HIDE_SOFT_INPUT
+10-17 16:20:47.087 I/ImeTracker(  504): com.android.launcher3:a279c943: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-17 16:20:47.101 W/droid.launcher3( 1046): Cleared Reference was only reachable from finalizer (only reported once)
+10-17 16:20:47.355 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2352 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:47.224 D/DhcpClient(  951): Received packet: 02:15:b2:00:00:00 OFFER, ip /10.0.2.16, mask /255.255.255.0, DNS servers: /10.0.2.3 , gateways [/10.0.2.2], lease time 86400, domain null
+10-17 16:20:47.224 D/DhcpClient(  951): Received packet: 02:15:b2:00:00:00 ACK: your new IP /10.0.2.16, netmask /255.255.255.0, gateways [/10.0.2.2] DNS servers: /10.0.2.3 , lease time 86400
+10-17 16:20:47.251 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:20:47.266 I/keystore2(  156): system/security/keystore2/src/watchdog.rs:319 - Watchdog thread idle -> terminating. Have a great day.
+10-17 16:20:47.524 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:20:47.601 I/ProvidersCache( 1416): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-17 16:20:48.368 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2360 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:48.268 W/OverlayManager(  504): service 'idmap' died
+10-17 16:20:48.442 I/init    (    0): Sending signal 9 to service 'idmap2d' (pid 441) process group...
+10-17 16:20:48.448 I/libprocessgroup(    0): Successfully killed process cgroup uid 1000 pid 441 in 5ms
+10-17 16:20:48.449 I/init    (    0): Control message: Processed ctl.stop for 'idmap2d' from pid: 504 (system_server)
+10-17 16:20:48.451 I/init    (    0): Service 'idmap2d' (pid 441) received signal 9
+10-17 16:20:48.810 I/DropBoxManagerService(  504): add tag=system_app_strictmode isTagEnabled=true flags=0x2
+10-17 16:20:48.889 W/GpuWork (  387): Failed to attach bpf program to power/gpu_work_period tracepoint [2(No such file or directory)]
+10-17 16:20:49.382 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2363 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:50.394 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2366 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:50.527 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:20:50.579 W/putmethod.latin( 1351): Cleared Reference was only reachable from finalizer (only reported once)
+10-17 16:20:50.645 W/ndroid.settings(  999): Cleared Reference was only reachable from finalizer (only reported once)
+10-17 16:20:50.878 D/WifiNl80211Manager(  504): Scan result ready event
+10-17 16:20:50.878 D/WifiNative(  504): Scan result ready event
+10-17 16:20:51.063 I/SdkSandboxManager(  504): Reconciling sdk data package directories for 0
+10-17 16:20:51.407 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2369 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:52.004 D/StrictMode( 1641): StrictMode policy violation: android.os.strictmode.SqliteObjectLeakedViolation: Finalizing a Cursor that has not been deactivated or closed. database = /data/user/0/com.android.providers.contacts/databases/contacts2.db, table = raw_contacts, query = SELECT contacts_view._id AS _id, contacts_view.display_name AS display_name, contacts_view.photo_thumb_uri AS 
+10-17 16:20:52.004 D/StrictMode( 1641): 	at android.os.StrictMode.onSqliteObjectLeaked(StrictMode.java:2222)
+10-17 16:20:52.004 D/StrictMode( 1641): 	at android.database.sqlite.SQLiteCursor.finalize(SQLiteCursor.java:282)
+10-17 16:20:52.004 D/StrictMode( 1641): 	at java.lang.Daemons$FinalizerDaemon.doFinalize(Daemons.java:339)
+10-17 16:20:52.004 D/StrictMode( 1641): 	at java.lang.Daemons$FinalizerDaemon.processReference(Daemons.java:324)
+10-17 16:20:52.004 D/StrictMode( 1641): 	at java.lang.Daemons$FinalizerDaemon.runInternal(Daemons.java:300)
+10-17 16:20:52.004 D/StrictMode( 1641): 	at java.lang.Daemons$Daemon.run(Daemons.java:145)
+10-17 16:20:52.004 D/StrictMode( 1641): 	at java.lang.Thread.run(Thread.java:1012)
+10-17 16:20:52.005 D/StrictMode( 1641): StrictMode policy violation: android.os.strictmode.LeakedClosableViolation: A resource was acquired at attached stack trace but never released. See java.io.Closeable for information on avoiding resource leaks.
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.os.StrictMode$AndroidCloseGuardReporter.report(StrictMode.java:1994)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at dalvik.system.CloseGuard.warnIfOpen(CloseGuard.java:336)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.AbstractCursor.finalize(AbstractCursor.java:531)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.sqlite.SQLiteCursor.finalize(SQLiteCursor.java:291)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at java.lang.Daemons$FinalizerDaemon.doFinalize(Daemons.java:339)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at java.lang.Daemons$FinalizerDaemon.processReference(Daemons.java:324)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at java.lang.Daemons$FinalizerDaemon.runInternal(Daemons.java:300)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at java.lang.Daemons$Daemon.run(Daemons.java:145)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at java.lang.Thread.run(Thread.java:1012)
+10-17 16:20:52.005 D/StrictMode( 1641): Caused by: java.lang.Throwable: Explicit termination method 'AbstractCursor.close' not called
+10-17 16:20:52.005 D/StrictMode( 1641): 	at dalvik.system.CloseGuard.openWithCallSite(CloseGuard.java:288)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at dalvik.system.CloseGuard.open(CloseGuard.java:257)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.AbstractCursor.<init>(AbstractCursor.java:227)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.AbstractWindowedCursor.<init>(AbstractWindowedCursor.java:39)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.sqlite.SQLiteCursor.<init>(SQLiteCursor.java:98)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.sqlite.SQLiteDirectCursorDriver.query(SQLiteDirectCursorDriver.java:52)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.sqlite.SQLiteDatabase.rawQueryWithFactory(SQLiteDatabase.java:1714)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.database.sqlite.SQLiteQueryBuilder.query(SQLiteQueryBuilder.java:592)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.doQuery(ContactsProvider2.java:7543)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.queryLocal(ContactsProvider2.java:7249)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.queryCorpLookupIfNecessary(ContactsProvider2.java:7728)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.queryLookupEnterprise(ContactsProvider2.java:7867)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.queryPhoneLookupEnterprise(ContactsProvider2.java:7838)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.queryLocal(ContactsProvider2.java:7172)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.queryDirectoryIfNecessary(ContactsProvider2.java:5883)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.queryInternal(ContactsProvider2.java:5728)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at com.android.providers.contacts.ContactsProvider2.query(ContactsProvider2.java:5673)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.content.ContentProvider.query(ContentProvider.java:1692)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.content.ContentProvider$Transport.query(ContentProvider.java:292)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.content.ContentProviderNative.onTransact(ContentProviderNative.java:107)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.os.Binder.execTransactInternal(Binder.java:1344)
+10-17 16:20:52.005 D/StrictMode( 1641): 	at android.os.Binder.execTransact(Binder.java:1275)
+10-17 16:20:52.420 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2376 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:52.253 D/OomAdjuster(  504): Not killing cached processes
+10-17 16:20:53.433 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2379 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:54.445 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2382 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:55.458 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2385 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:56.470 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2388 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:56.535 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:20:57.251 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:20:57.266 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.266 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.267 W/System  (  998): A resource failed to call AbstractCursor.close. 
+10-17 16:20:57.483 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2391 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:58.496 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2394 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:59.510 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2398 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:20:59.539 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:00.011 D/EGL_emulation(  798): app_time_stats: avg=3100.11ms min=8.85ms max=23917.88ms count=8
+10-17 16:21:00.523 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2401 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:01.536 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2404 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:01.496 D/ActivityManager(  504): freezing 1416 com.android.documentsui
+10-17 16:21:01.713 D/OomAdjuster(  504): Not killing cached processes
+10-17 16:21:02.549 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2407 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:03.561 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2410 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:04.574 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2413 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:04.756 D/ActivityManager(  504): freezing 1847 com.android.traceur
+10-17 16:21:04.895 D/ActivityManager(  504): freezing 1225 com.android.cellbroadcastreceiver.module
+10-17 16:21:04.911 D/ActivityManager(  504): freezing 1824 com.android.imsserviceentitlement
+10-17 16:21:05.124 D/ActivityManager(  504): freezing 1878 com.android.messaging
+10-17 16:21:05.169 D/ActivityManager(  504): freezing 1568 com.android.providers.calendar
+10-17 16:21:05.216 D/ActivityManager(  504): freezing 1909 com.android.calendar
+10-17 16:21:05.231 D/ActivityManager(  504): freezing 1943 com.android.camera2
+10-17 16:21:05.293 D/ActivityManager(  504): freezing 1962 com.android.contacts
+10-17 16:21:05.350 D/ActivityManager(  504): freezing 2032 com.android.dynsystem:dynsystem
+10-17 16:21:05.350 D/ActivityManager(  504): freezing 1991 com.android.dynsystem
+10-17 16:21:05.350 D/ActivityManager(  504): freezing 999 com.android.settings
+10-17 16:21:05.350 D/ActivityManager(  504): freezing 1827 com.android.localtransport
+10-17 16:21:05.351 D/ActivityManager(  504): freezing 1554 com.android.keychain
+10-17 16:21:05.587 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2416 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:05.495 D/ActivityManager(  504): freezing 2065 com.android.rkpdapp
+10-17 16:21:05.546 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:05.619 D/ActivityManager(  504): freezing 2100 com.android.statementservice
+10-17 16:21:06.602 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2419 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:07.251 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:21:07.615 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2422 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:08.628 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2425 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:09.176 D/ActivityManager(  504): sync unfroze 999 com.android.settings for 3
+10-17 16:21:09.176 D/OomAdjuster(  504): Not killing cached processes
+10-17 16:21:09.178 D/BatteryUsageBroadcastReceiver(  999): onReceive:android.intent.action.BATTERY_LEVEL_CHANGED
+10-17 16:21:09.179 D/BatteryUsageBroadcastReceiver(  999): fetch data because of event: ACTION_BATTERY_LEVEL_CHANGED
+10-17 16:21:09.180 D/CompatibilityChangeReporter(  504): Compat change id reported: 161145287; UID 1000; state: ENABLED
+10-17 16:21:09.641 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2430 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:10.654 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2433 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:10.878 D/WifiNl80211Manager(  504): Scan result ready event
+10-17 16:21:10.878 D/WifiNative(  504): Scan result ready event
+10-17 16:21:11.666 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2436 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:11.553 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:11.723 D/ActivityManager(  504): freezing 800 com.android.permissioncontroller
+10-17 16:21:12.679 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2439 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:13.692 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2442 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:14.411 E/WifiHealthMonitor(  504):  Hit PackageManager exception
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): android.content.pm.PackageManager$NameNotFoundException: No module info for package: com.android.wifi
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at android.app.ApplicationPackageManager.getModuleInfo(ApplicationPackageManager.java:1190)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at com.android.server.wifi.WifiHealthMonitor.getWifiStackVersion(WifiHealthMonitor.java:367)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at com.android.server.wifi.WifiHealthMonitor.extractCurrentSoftwareBuildInfo(WifiHealthMonitor.java:588)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at com.android.server.wifi.WifiHealthMonitor.postBootSwBuildCheck(WifiHealthMonitor.java:523)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at com.android.server.wifi.WifiHealthMonitor.postBootDetectionHandler(WifiHealthMonitor.java:514)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at com.android.server.wifi.WifiHealthMonitor.-$$Nest$mpostBootDetectionHandler(WifiHealthMonitor.java:0)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at com.android.server.wifi.WifiHealthMonitor$2.onAlarm(WifiHealthMonitor.java:190)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at android.app.AlarmManager$ListenerWrapper.run(AlarmManager.java:375)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at android.os.Handler.handleCallback(Handler.java:958)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at com.android.server.wifi.RunnerHandler.dispatchMessage(RunnerHandler.java:122)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at android.os.Looper.loopOnce(Looper.java:205)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at android.os.Looper.loop(Looper.java:294)
+10-17 16:21:14.411 E/WifiHealthMonitor(  504): 	at android.os.HandlerThread.run(HandlerThread.java:67)
+10-17 16:21:14.705 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2445 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:15.718 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2448 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:16.731 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2451 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:17.251 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:21:17.744 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2454 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:18.689 W/healthd (    0): battery none chg=a
+10-17 16:21:18.757 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2457 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:19.214 D/ActivityManager(  504): freezing 999 com.android.settings
+10-17 16:21:19.770 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2460 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:20.563 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:20.783 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2463 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:21.796 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2466 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:22.809 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2469 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:23.567 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:23.822 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2472 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:24.835 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2475 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:25.847 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2478 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:26.860 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2481 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:27.252 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:21:27.257 D/EGL_emulation(  798): app_time_stats: avg=27245.70ms min=27245.70ms max=27245.70ms count=1
+10-17 16:21:27.574 D/ActivityManager(  504): sync unfroze 800 com.android.permissioncontroller for 6
+10-17 16:21:27.574 D/OomAdjuster(  504): Not killing cached processes
+10-17 16:21:27.576 I/PermissionControllerServiceImpl(  800): Updating user sensitive for user 0
+10-17 16:21:27.873 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2485 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:28.886 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2488 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:29.899 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2491 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:30.912 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2494 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:31.926 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2497 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:31.794 W/BatteryExternalStatsWorker(  504): error reading Bluetooth stats: 11
+10-17 16:21:32.938 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2500 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:33.952 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2503 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:34.964 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2506 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:35.977 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2509 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:36.990 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2512 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:37.251 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:21:37.602 D/OomAdjuster(  504): Not killing cached processes
+10-17 16:21:38.003 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2515 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:39.016 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2518 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:40.029 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2521 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:41.042 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2524 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:41.591 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:42.055 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2527 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:43.068 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2530 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:44.081 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2533 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:44.595 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:45.093 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2536 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:46.106 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2539 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:47.119 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2542 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:47.252 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:21:47.599 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:47.639 D/ActivityManager(  504): freezing 800 com.android.permissioncontroller
+10-17 16:21:48.132 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2545 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:49.144 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2548 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:50.157 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2551 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:50.209 W/resolv  (  326): SSL_connect ssl error =5, mark 0xf0064: Connection refused
+10-17 16:21:50.210 W/resolv  (  326): TLS Handshake failed
+10-17 16:21:50.210 W/resolv  (  326): query failed
+10-17 16:21:50.210 W/resolv  (  326): validateDnsTlsServer returned 0 for 10.0.2.3
+10-17 16:21:50.210 W/resolv  (  326): Validation failed
+10-17 16:21:50.603 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:50.878 D/WifiNl80211Manager(  504): Scan result ready event
+10-17 16:21:50.878 D/WifiNative(  504): Scan result ready event
+10-17 16:21:51.171 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2554 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:52.183 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2557 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:53.196 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2560 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:53.608 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:54.209 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2563 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:55.222 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2566 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:56.235 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2569 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:56.612 D/StatusBarIconController(  798): ignoring old pipeline callback because the new wifi icon is enabled
+10-17 16:21:57.248 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2572 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:57.252 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:21:57.257 D/EGL_emulation(  798): app_time_stats: avg=29999.94ms min=29999.94ms max=29999.94ms count=1
+10-17 16:21:58.261 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2575 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:21:59.274 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2578 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:00.026 D/EGL_emulation(  798): app_time_stats: avg=2769.10ms min=2769.10ms max=2769.10ms count=1
+10-17 16:22:00.287 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2581 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:01.300 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2584 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:02.312 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2587 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:03.325 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2590 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:04.338 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2593 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:05.351 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2596 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:06.364 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2599 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:07.252 D/StatusBarIconController(  798): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-17 16:22:10.246 W/BpBinder( 2604): Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+10-17 16:22:10.247 W/ProcessState( 2604): Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+10-17 16:22:10.248 W/ServiceManagerCppClient(  389): Permission failure: android.permission.CAPTURE_BLACKOUT_CONTENT from uid=2000 pid=2604
+10-17 16:22:10.248 D/PermissionCache(  389): checking android.permission.CAPTURE_BLACKOUT_CONTENT for uid=2000 => denied (274 us)
+10-17 16:22:10.256 I/hwservicemanager(  133): getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+10-17 16:22:10.256 I/Gralloc4( 2604): mapper 4.x is not supported
+10-17 16:22:10.429 I/servicemanager(    0): Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+10-17 16:22:10.561 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2606 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-17 16:22:10.575 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2609 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns

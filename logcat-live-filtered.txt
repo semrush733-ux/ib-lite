@@ -1,0 +1,43 @@
+10-17 16:20:36.792 I/SafetyLabelChangedBroadcastReceiver(  800): received broadcast packageName: com.liteplayer.tv, current user: UserHandle{0}, packageChangeEvent: NEW_INSTALL, intent user: UserHandle{0}
+10-17 16:20:36.821 D/CarrierSvcBindHelper(  998): onPackageAdded: com.liteplayer.tv
+10-17 16:20:36.846 I/ActivityTaskManager(  504): START u0 {flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity} with LAUNCH_SINGLE_TOP from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-17 16:20:36.854 V/WindowManagerShell(  798): Transition requested: android.os.BinderProxy@8e0f47e TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity } baseActivity=ComponentInfo{com.liteplayer.tv/com.b1g.b1gtv.MainActivity} topActivity=ComponentInfo{com.litep
+10-17 16:20:36.861 I/ActivityManager(  504): Start proc 2259:com.liteplayer.tv/u0a141 for next-top-activity {com.liteplayer.tv/com.b1g.b1gtv.MainActivity}
+10-17 16:20:36.867 D/CoreBackPreview(  504): Window{fb8d8f9 u0 Splash Screen com.liteplayer.tv}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@ee7ae31, mPriority=0, mIsAnimationCallback=false}
+10-17 16:20:36.880 D/ImsResolver(  998): maybeAddedImsService, packageName: com.liteplayer.tv
+10-17 16:20:36.886 D/CarrierSvcBindHelper(  998): onPackageModified: com.liteplayer.tv
+10-17 16:20:36.893 D/ImsResolver(  998): maybeAddedImsService, packageName: com.liteplayer.tv
+10-17 16:20:36.990 I/m.liteplayer.tv( 2259): Using CollectorTypeCC GC.
+10-17 16:20:36.991 W/m.liteplayer.tv( 2259): Unexpected CPU variant for x86: x86_64.
+10-17 16:20:36.991 W/m.liteplayer.tv( 2259): Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+10-17 16:20:36.995 E/m.liteplayer.tv( 2259): Not starting debugger since process cannot load the jdwp agent.
+10-17 16:20:37.060 V/WindowManager(  504): Sent Transition #6 createdAt=10-17 16:20:36.836 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity } baseActivity=ComponentInfo{com.liteplayer.tv/com.b1g.b1gtv.MainActivity} topActivity=ComponentInfo{com.lit
+10-17 16:20:37.060 V/WindowManager(  504):     info={id=6 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{6468895 Task{816fb89 #8 type=standard I=com.liteplayer.tv/com.b1g.b1gtv.MainActivity}}} m=OPEN f=NONE leash=Surface(name=Task=8)/@0x3fddadd sb=Rect(0, 0 - 1920, 1080) eb=Rect(0, 0 - 1920, 1080) d=0},{WCT{RemoteToken{d3dbd9b Task{b90a129 #1 type=home}}} m=TO_BACK f=SHOW_WALLPAPER leash
+10-17 16:20:37.097 D/nativeloader( 2259): Configuring clns-6 for other apk /data/app/~~WPd74hyBY8_yXzXln9fBEA==/com.liteplayer.tv-IhJ571fig1fzm1AERwLZQw==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~WPd74hyBY8_yXzXln9fBEA==/com.liteplayer.tv-IhJ571fig1fzm1AERwLZQw==/lib/x86_64:/data/app/~~WPd74hyBY8_yXzXln9fBEA==/com.liteplayer.tv-IhJ571fig1fzm1AERwLZQw==/base.apk!/l
+10-17 16:20:37.103 V/GraphicsEnvironment( 2259): ANGLE GameManagerService for com.liteplayer.tv: false
+10-17 16:20:37.103 V/GraphicsEnvironment( 2259): com.liteplayer.tv is not listed in per-application setting
+10-17 16:20:37.214 W/m.liteplayer.tv( 2259): type=1400 audit(0.0:15): avc:  denied  { read } for  name="max_map_count" dev="proc" ino=48697 scontext=u:r:untrusted_app:s0:c141,c256,c512,c768 tcontext=u:object_r:proc_max_map_count:s0 tclass=file permissive=0 app=com.liteplayer.tv
+10-17 16:20:37.254 I/flutter ( 2259): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+10-17 16:20:37.280 E/flutter ( 2259): [ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: PlatformException(PlatformException, java.lang.NoSuchMethodError: no non-static method "Lio/flutter/plugins/sharedpreferences/SharedPreferencesApiRegistrar;.getAll(Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;", Exception in Java: java.lang.NoSuchMet
+10-17 16:20:37.280 E/flutter ( 2259): java.lang.NoSuchMethodError: no non-static method "Lio/flutter/plugins/sharedpreferences/SharedPreferencesApiRegistrar;.getAll(Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.MessageQueue.nativePollOnce(Native Method)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.MessageQueue.next(MessageQueue.java:335)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.Looper.loopOnce(Looper.java:162)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.Looper.loop(Looper.java:294)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.app.ActivityThread.main(ActivityThread.java:8177)
+10-17 16:20:37.280 E/flutter ( 2259): 	at java.lang.reflect.Method.invoke(Native Method)
+10-17 16:20:37.280 E/flutter ( 2259): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:552)
+10-17 16:20:37.280 E/flutter ( 2259): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:971)
+10-17 16:20:37.280 E/flutter ( 2259): , java.lang.NoSuchMethodError: no non-static method "Lio/flutter/plugins/sharedpreferences/SharedPreferencesApiRegistrar;.getAll(Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.MessageQueue.nativePollOnce(Native Method)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.MessageQueue.next(MessageQueue.java:335)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.Looper.loopOnce(Looper.java:162)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.os.Looper.loop(Looper.java:294)
+10-17 16:20:37.280 E/flutter ( 2259): 	at android.app.ActivityThread.main(ActivityThread.java:8177)
+10-17 16:20:37.280 E/flutter ( 2259): 	at java.lang.reflect.Method.invoke(Native Method)
+10-17 16:20:37.280 E/flutter ( 2259): 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:552)
+10-17 16:20:37.280 E/flutter ( 2259): 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:971)
+10-17 16:20:37.280 E/flutter ( 2259): )
+10-17 16:20:37.280 E/flutter ( 2259): 
+10-17 16:20:37.283 D/CoreBackPreview(  504): Window{829c8f3 u0 com.liteplayer.tv/com.b1g.b1gtv.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@1f6d0dc, mPriority=0, mIsAnimationCallback=false}
+10-17 16:20:43.262 D/ProfileInstaller( 2259): Installing profile for com.liteplayer.tv

@@ -1,0 +1,28 @@
+10-17 16:20:36.846   504  1044 I ActivityTaskManager: START u0 {flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity} with LAUNCH_SINGLE_TOP from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-17 16:20:36.854   798   845 V WindowManagerShell: Transition requested: android.os.BinderProxy@8e0f47e TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity } baseActivity=ComponentInfo{com.liteplayer.tv/com.b1g.b1gtv.MainActivity} topActivity=ComponentInfo{com.
+10-17 16:20:36.861   504   535 I ActivityManager: Start proc 2259:com.liteplayer.tv/u0a141 for next-top-activity {com.liteplayer.tv/com.b1g.b1gtv.MainActivity}
+10-17 16:20:37.060   504   523 V WindowManager: Sent Transition #6 createdAt=10-17 16:20:36.836 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity } baseActivity=ComponentInfo{com.liteplayer.tv/com.b1g.b1gtv.MainActivity} topActivity=ComponentInfo{co
+10-17 16:20:37.060   504   523 V WindowManager:     info={id=6 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{6468895 Task{816fb89 #8 type=standard I=com.liteplayer.tv/com.b1g.b1gtv.MainActivity}}} m=OPEN f=NONE leash=Surface(name=Task=8)/@0x3fddadd sb=Rect(0, 0 - 1920, 1080) eb=Rect(0, 0 - 1920, 1080) d=0},{WCT{RemoteToken{d3dbd9b Task{b90a129 #1 type=home}}} m=TO_BACK f=SHOW_WALLPAPER 
+10-17 16:20:37.254  2259  2283 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+10-17 16:20:37.280  2259  2259 E flutter : [ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: PlatformException(PlatformException, java.lang.NoSuchMethodError: no non-static method "Lio/flutter/plugins/sharedpreferences/SharedPreferencesApiRegistrar;.getAll(Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;", Exception in Java: java.lang.NoSu
+10-17 16:20:37.280  2259  2259 E flutter : java.lang.NoSuchMethodError: no non-static method "Lio/flutter/plugins/sharedpreferences/SharedPreferencesApiRegistrar;.getAll(Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.MessageQueue.nativePollOnce(Native Method)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.MessageQueue.next(MessageQueue.java:335)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.Looper.loopOnce(Looper.java:162)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.Looper.loop(Looper.java:294)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.app.ActivityThread.main(ActivityThread.java:8177)
+10-17 16:20:37.280  2259  2259 E flutter : 	at java.lang.reflect.Method.invoke(Native Method)
+10-17 16:20:37.280  2259  2259 E flutter : 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:552)
+10-17 16:20:37.280  2259  2259 E flutter : 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:971)
+10-17 16:20:37.280  2259  2259 E flutter : , java.lang.NoSuchMethodError: no non-static method "Lio/flutter/plugins/sharedpreferences/SharedPreferencesApiRegistrar;.getAll(Ljava/lang/String;Ljava/util/List;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.MessageQueue.nativePollOnce(Native Method)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.MessageQueue.next(MessageQueue.java:335)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.Looper.loopOnce(Looper.java:162)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.os.Looper.loop(Looper.java:294)
+10-17 16:20:37.280  2259  2259 E flutter : 	at android.app.ActivityThread.main(ActivityThread.java:8177)
+10-17 16:20:37.280  2259  2259 E flutter : 	at java.lang.reflect.Method.invoke(Native Method)
+10-17 16:20:37.280  2259  2259 E flutter : 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:552)
+10-17 16:20:37.280  2259  2259 E flutter : 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:971)
+10-17 16:20:37.280  2259  2259 E flutter : )
+10-17 16:20:37.280  2259  2259 E flutter : 
+10-17 16:20:37.283   504  1044 D CoreBackPreview: Window{829c8f3 u0 com.liteplayer.tv/com.b1g.b1gtv.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@1f6d0dc, mPriority=0, mIsAnimationCallback=false}
