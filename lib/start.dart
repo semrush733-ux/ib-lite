@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'backend.dart';
 import 'm3u.dart';
 import 'config.dart';
+import 'profiles.dart';
 import 'screens/connect.dart';
 import 'screens/home.dart';
 import 'screens/login.dart';
+import 'screens/profiles.dart';
 import 'store.dart';
 import 'xtream.dart';
 
@@ -13,12 +15,18 @@ import 'xtream.dart';
 /// from anywhere.
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-/// The screen the app opens on: home with the saved playlist, or the QR screen.
+/// The screen the app opens on: home with the saved playlist ("Who's watching?" first when the
+/// TV has several profiles), or the QR screen.
 Widget startScreen() {
   // No sign-in form: the playlist is added on the website (QR code). Only the automated
   // emulator test, which has no website, still signs in with the old form.
   if (!Store.loggedIn) return kPrefillServer.isNotEmpty ? const LoginScreen() : const ConnectScreen();
-  if (Store.isM3u) return HomeScreen(api: M3uSource(Store.m3uUrl, epgUrl: Store.m3uEpgUrl));
+  final api = _savedSource();
+  return Profiles.askNow ? ProfilesScreen(api: api, atStart: true) : HomeScreen(api: api);
+}
+
+Source _savedSource() {
+  if (Store.isM3u) return M3uSource(Store.m3uUrl, epgUrl: Store.m3uEpgUrl);
   var server = Store.server;
   // A customer who signed in with username and password only follows the website: when the
   // server address is changed there, the app uses the new one from its next start.
@@ -29,5 +37,5 @@ Widget startScreen() {
       Store.moveServer(moved);
     }
   }
-  return HomeScreen(api: XtreamApi(server, Store.username, Store.password));
+  return XtreamApi(server, Store.username, Store.password);
 }

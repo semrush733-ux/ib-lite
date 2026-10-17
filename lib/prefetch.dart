@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'store.dart' show Store;
 import 'theme.dart' show log;
 import 'xtream.dart';
 
@@ -75,7 +76,8 @@ class ListPrefetch {
         final watch = Stopwatch()..start();
         try {
           if (step == 'categories') {
-            await api.categories(kind);
+            // Categories for children are noted by their names (for a Kids profile).
+            Store.noteCategories(kind, await api.categories(kind));
           } else {
             final list = await api.items(kind);
             log('prefetch ${kind.name} items=${list.length} in ${watch.elapsedMilliseconds}ms');

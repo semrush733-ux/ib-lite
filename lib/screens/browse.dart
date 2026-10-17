@@ -369,6 +369,8 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     });
     try {
       final cats = Store.sortCategories(widget.kind, await widget.api.categories(widget.kind));
+      // Categories for children are noted by their names (the Kids profile shows only those).
+      Store.noteCategories(widget.kind, cats);
       if (!mounted) return;
       _firstId = cats
           .where((c) => !Store.isHidden(widget.kind, c.id) && !Store.isLocked(widget.kind, c.id))

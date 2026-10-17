@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'dart:io' show File;
 
@@ -11,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'config.dart';
 import 'store.dart' show Store;
+import 'subtitle_style.dart';
 
 /// A message from an engine: [error] true for real errors, false for chatter.
 class EngineMessage {
@@ -398,16 +400,26 @@ class MpvEngine extends PlaybackEngine {
 
   @override
   Widget view({required BoxFit fit, required double subtitlePad}) {
-    return Video(
-      key: ObjectKey(controller),
-      controller: controller,
-      controls: NoVideoControls,
-      fit: fit,
-      fill: Colors.black,
-      subtitleViewConfiguration: SubtitleViewConfiguration(
-        padding: EdgeInsets.fromLTRB(24, 0, 24, subtitlePad),
-      ),
-    );
+    return LayoutBuilder(builder: (context, box) {
+      final w = box.maxWidth.isFinite ? box.maxWidth : 1920.0;
+      final h = box.maxHeight.isFinite ? box.maxHeight : 1080.0;
+      // media_kit shrinks subtitle text by sqrt(area / 1920 x 1080): that is undone here, so the
+      // size chosen in Settings › Subtitles is the size on the screen (as on ExoPlayer).
+      final scale = math.sqrt(((w * h) / (1920.0 * 1080.0)).clamp(0.0, 1.0));
+      final look = SubtitleLook.style(h);
+      final grow = scale > 0.05 ? 1 / scale : 1.0;
+      return Video(
+        key: ObjectKey(controller),
+        controller: controller,
+        controls: NoVideoControls,
+        fit: fit,
+        fill: Colors.black,
+        subtitleViewConfiguration: SubtitleViewConfiguration(
+          style: look.copyWith(fontSize: (look.fontSize ?? 30) * grow),
+          padding: EdgeInsets.fromLTRB(24, 0, 24, subtitlePad + SubtitleLook.lift(h)),
+        ),
+      );
+    });
   }
 }
 
@@ -704,7 +716,12 @@ class ExoEngine extends PlaybackEngine {
   Widget view({required BoxFit fit, required double subtitlePad}) {
     return ColoredBox(
       color: Colors.black,
-      child: Stack(
+      child: LayoutBuilder(builder: (context, box) => _picture(fit, subtitlePad, box.maxHeight.isFinite ? box.maxHeight : 540)),
+    );
+  }
+
+  Widget _picture(BoxFit fit, double subtitlePad, double height) {
+    return Stack(
         fit: StackFit.expand,
         children: [
           ValueListenableBuilder<Size>(
@@ -733,22 +750,13 @@ class ExoEngine extends PlaybackEngine {
                 : Positioned(
                     left: 24,
                     right: 24,
-                    bottom: subtitlePad,
-                    child: Text(
-                      text,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        height: 1.25,
-                        shadows: [Shadow(blurRadius: 6, color: Colors.black), Shadow(blurRadius: 2, color: Colors.black)],
-                      ),
-                    ),
+                    bottom: subtitlePad + SubtitleLook.lift(height),
+                    // The look chosen in Settings › Subtitles.
+                    child: Text(text, textAlign: TextAlign.center, style: SubtitleLook.style(height)),
                   ),
           ),
         ],
-      ),
-    );
+      );
   }
 }
 

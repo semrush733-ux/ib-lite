@@ -13,12 +13,14 @@ import '../vpn.dart';
 import '../parental.dart';
 import '../store.dart';
 import '../streaming.dart';
+import '../subtitle_style.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
 import 'home.dart' show wallpaperAsset;
+import 'profiles.dart';
 
-enum _Section { network, vpn, vod, live, parental, wallpaper, categories, streaming, cache, language, info }
+enum _Section { network, vpn, vod, live, subtitles, parental, profiles, wallpaper, categories, streaming, cache, language, info }
 
 /// The Google Play build has no VPN section.
 final _sections = [for (final s in _Section.values) if (!(kPlay && s == _Section.vpn)) s];
@@ -28,7 +30,9 @@ const _titles = {
   _Section.vpn: 'VPN',
   _Section.vod: 'VOD Player',
   _Section.live: 'Live Player',
+  _Section.subtitles: 'Subtitles',
   _Section.parental: 'Parental Control',
+  _Section.profiles: 'Profiles',
   _Section.wallpaper: 'Main Wallpaper',
   _Section.categories: 'Manage Categories',
   _Section.streaming: 'Streaming Boxes',
@@ -42,7 +46,9 @@ const _icons = {
   _Section.vpn: Icons.vpn_lock_rounded,
   _Section.vod: Icons.movie_creation_rounded,
   _Section.live: Icons.live_tv_rounded,
+  _Section.subtitles: Icons.closed_caption_rounded,
   _Section.parental: Icons.family_restroom_rounded,
+  _Section.profiles: Icons.people_alt_rounded,
   _Section.wallpaper: Icons.photo_library_rounded,
   _Section.language: Icons.translate_rounded,
   _Section.categories: Icons.dashboard_customize_rounded,
@@ -57,7 +63,9 @@ const _colors = {
   _Section.vpn: Color(0xFF14B8A6),
   _Section.vod: Color(0xFFFF8A00),
   _Section.live: Color(0xFFFF3B4E),
+  _Section.subtitles: Color(0xFFFACC15),
   _Section.parental: Color(0xFF22C55E),
+  _Section.profiles: Color(0xFF38BDF8),
   _Section.wallpaper: Color(0xFFD946EF),
   _Section.language: Color(0xFF06B6D4),
   _Section.categories: Color(0xFF6366F1),
@@ -95,6 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (_cats.containsKey(kind)) return;
     try {
       final list = Store.sortCategories(kind, await widget.api.categories(kind));
+      Store.noteCategories(kind, list);
       if (!mounted) return;
       setState(() => _cats[kind] = list);
     } catch (e) {
@@ -104,6 +113,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _open(_Section s) {
+    if (s == _Section.profiles) {
+      // Profiles have their own screen ("Who's watching?", with Add / change / delete).
+      setState(() => _last = s);
+      Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => ProfilesScreen(api: widget.api)))
+          .then((_) {
+        if (mounted) setState(() {});
+      });
+      return;
+    }
     setState(() {
       _section = s;
       _last = s;
@@ -274,8 +293,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           what: 'Live TV channels and the channel preview',
           withMode: false,
         );
+      case _Section.subtitles:
+        return _subtitles();
       case _Section.parental:
         return _parental();
+      case _Section.profiles:
+        return const SizedBox.shrink(); // opens its own screen
       case _Section.wallpaper:
         return _wallpapers();
       case _Section.categories:
@@ -415,6 +438,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // --------------------------------------------------------------- subtitles
+
+  Widget _subtitles() {
+    Widget row(String title, List<String> names, int selected, ValueChanged<int> pick) => Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title.toUpperCase(),
+                  style: const TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (var i = 0; i < names.length; i++)
+                    _chip(names[i], i == selected, () {
+                      pick(i);
+                      SubtitleLook.changed();
+                      setState(() {});
+                    }),
+                ],
+              ),
+            ],
+          ),
+        );
+    return ListView(
+      children: [
+        const Text('How subtitles look in films, series and live channels, on both players.',
+            style: TextStyle(fontSize: 13.5, color: C.dim)),
+        const SizedBox(height: 14),
+        const SubtitlePreview(),
+        const SizedBox(height: 20),
+        row('Size', SubtitleLook.sizeNames, Store.subSize, Store.setSubSize),
+        row('Colour', SubtitleLook.colorNames, Store.subColor, Store.setSubColor),
+        row('Background', SubtitleLook.backgroundNames, Store.subBackground, Store.setSubBackground),
+        row('Position', SubtitleLook.positionNames, Store.subPosition, Store.setSubPosition),
+        const Text(
+          'Turn subtitles on in the player: OK (or Right) during a film, then Subtitles. "Higher" helps on TVs that '
+          'cut off the bottom edge of the picture.',
+          style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+        ),
+      ],
+    );
+  }
+
   // ---------------------------------------------------------------- parental
 
   Future<void> _setPin() async {
@@ -515,12 +584,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 12),
         Expanded(
           child: _catList(
-            isOn: (c) => !Store.isHidden(_kind, c.id),
+            isOn: (c) => !Store.isHiddenSetting(_kind, c.id),
             onIcon: Icons.check_box_rounded,
             offIcon: Icons.check_box_outline_blank_rounded,
             onColor: C.accent,
             onTap: (c) async {
-              Store.setHidden(_kind, c.id, !Store.isHidden(_kind, c.id));
+              Store.setHidden(_kind, c.id, !Store.isHiddenSetting(_kind, c.id));
               setState(() {});
             },
           ),

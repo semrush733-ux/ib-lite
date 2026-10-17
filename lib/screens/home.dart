@@ -3,11 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../backend.dart';
+import '../continue_watching.dart';
 import '../downloads.dart';
 import '../i18n.dart';
 import '../m3u.dart';
+import '../parental.dart';
 import '../prefetch.dart';
+import '../profiles.dart';
 import '../puppy.dart';
+import '../reminders.dart';
 import '../speedtest.dart';
 import '../store.dart';
 import '../streaming.dart';
@@ -21,6 +25,7 @@ import 'connect.dart';
 import 'device.dart';
 import 'downloads.dart';
 import 'playlists.dart';
+import 'profiles.dart';
 import 'settings.dart';
 import 'streaming.dart';
 import 'update_web.dart' if (dart.library.io) 'update.dart';
@@ -55,7 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _account = widget.account;
-    log('screen=home');
+    log('screen=home profile=${Store.profileId} kids=${Store.kidsMode}');
+    // TV Guide reminders play from the playlist that is open.
+    Reminders.api = widget.api;
+    ContinueWatching.changes.addListener(_onBackendChange);
     // Every list downloads once in the background, out of the player's way.
     ListPrefetch.start(widget.api);
     Backend.changes.addListener(_onBackendChange);
@@ -79,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _tick?.cancel();
     _follow?.cancel();
+    ContinueWatching.changes.removeListener(_onBackendChange);
     Backend.changes.removeListener(_onBackendChange);
     Backend.refreshSignal.removeListener(_onRefreshSignal);
     super.dispose();
@@ -256,6 +265,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// "Change Playlist": the playlists added on the website for this device.
   Future<void> _choosePlaylist() async {
+    // In a Kids profile only a parent changes the playlist.
+    if (Store.kidsMode && !await askParentalPin(context)) return;
+    if (!mounted) return;
     final choice = await Navigator.of(context).push<BPlaylist>(
         MaterialPageRoute(builder: (_) => PlaylistsScreen(current: playlistTitle(widget.api))));
     // A playlist was deleted there: follow the website now (the one in use may be gone).
@@ -300,12 +312,97 @@ class _HomeScreenState extends State<HomeScreen> {
     return n.length > 22 ? '${n.substring(0, 21)}…' : n;
   }
 
-  void _openSettings() {
+  Future<void> _openSettings() async {
+    // In a Kids profile Settings need the parental PIN.
+    if (Store.kidsMode && !await askParentalPin(context)) return;
+    if (!mounted) return;
     Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => SettingsScreen(api: widget.api)))
         .then((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  /// The profile button: "Who's watching?".
+  Future<void> _openProfiles() async {
+    final changed = await Navigator.of(context)
+        .push<bool>(MaterialPageRoute<bool>(builder: (_) => ProfilesScreen(api: widget.api)));
+    if (!mounted) return;
+    if (changed == true) {
+      // Another profile: the home screen starts over with its lists.
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => HomeScreen(api: widget.api, account: _account)),
+        (_) => false,
+      );
+    } else {
+      setState(() {});
+    }
+  }
+
+  // ------------------------------------------------------------ Continue Watching
+
+  Future<void> _playContinue(CwEntry e, {bool fromStart = false}) async {
+    await playContinue(context, widget.api, e, fromStart: fromStart);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _continueMenu(CwEntry e) async {
+    final choice = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: C.panel,
+        title: Text(e.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+        content: Text(e.subtitle.isEmpty ? e.note : '${e.subtitle}\n${e.note}', style: const TextStyle(color: C.dim, height: 1.4)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, 2), child: const Text('Remove from the row')),
+          TextButton(onPressed: () => Navigator.pop(ctx, 1), child: const Text('Play from the start')),
+          TextButton(
+            autofocus: true,
+            onPressed: () => Navigator.pop(ctx, 0),
+            child: const Text('Continue', style: TextStyle(color: C.accent)),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 2) {
+      ContinueWatching.remove(e.key);
+      setState(() {});
+    } else {
+      _playContinue(e, fromStart: choice == 1);
+    }
+  }
+
+  Widget _continueRow(List<CwEntry> list, double w, double h, double pad, double gap) {
+    final rowH = (h * 0.2).clamp(92.0, 170.0).toDouble();
+    final cardW = ((w - 2 * pad - 3 * gap) / 3.6).clamp(220.0, 420.0).toDouble();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: h * 0.028),
+        Text(t('Continue Watching'),
+            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, shadows: [Shadow(color: Color(0x99000000), blurRadius: 6)])),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: rowH,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            itemCount: list.length,
+            separatorBuilder: (_, __) => SizedBox(width: gap),
+            itemBuilder: (context, i) => SizedBox(
+              width: cardW,
+              child: _ContinueCard(
+                entry: list[i],
+                height: rowH,
+                onTap: () => _playContinue(list[i]),
+                onLongPress: () => _continueMenu(list[i]),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _showAccount() {
@@ -426,13 +523,47 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _content() {
+    final kids = Store.kidsMode;
+    final profile = Profiles.active;
+    final continueList = ContinueWatching.all;
     return LayoutBuilder(builder: (context, box) {
       final w = box.maxWidth;
       final pad = w * 0.04;
       final gap = w * 0.016;
+      // A short screen (a phone) with the Continue Watching row: the page scrolls and the tiles
+      // keep a fixed height, so nothing gets squeezed.
+      final compact = continueList.isNotEmpty && box.maxHeight < 470;
+      final tiles = Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: _HomeTile(
+              autofocus: true,
+              icon: Icons.live_tv_rounded,
+              title: t('Live TV'),
+              onTap: () => _open(XKind.live),
+            ),
+          ),
+          SizedBox(width: gap),
+          Expanded(
+            child: _HomeTile(icon: Icons.movie_creation_outlined, title: t('Movies'), onTap: () => _open(XKind.vod)),
+          ),
+          SizedBox(width: gap),
+          Expanded(
+            child: _HomeTile(icon: Icons.movie_filter_outlined, title: t('TV Series'), onTap: () => _open(XKind.series)),
+          ),
+          // Catch Up lists every channel: not in a Kids profile.
+          if (!kids) ...[
+            SizedBox(width: gap),
+            Expanded(
+              child: _HomeTile(icon: Icons.replay_rounded, title: t('Catch Up'), onTap: _openCatchup),
+            ),
+          ],
+        ],
+      );
       return Padding(
         padding: EdgeInsets.fromLTRB(pad, box.maxHeight * 0.05, pad, box.maxHeight * 0.04),
-        child: Column(
+        child: _scrollIf(compact, Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ---- top bar ----
@@ -445,14 +576,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _PillButton(
-                          icon: Icons.playlist_play_rounded,
-                          label: _shortName(playlistTitle(widget.api), t('Change Playlist')),
-                          onTap: _choosePlaylist,
-                        ),
+                        _ProfileButton(profile: profile, onTap: _openProfiles),
                         const SizedBox(width: 14),
+                        if (!kids) ...[
+                          _PillButton(
+                            icon: Icons.playlist_play_rounded,
+                            label: _shortName(playlistTitle(widget.api), t('Change Playlist')),
+                            onTap: _choosePlaylist,
+                          ),
+                          const SizedBox(width: 14),
+                        ],
                         _PillButton(icon: Icons.settings_rounded, label: t('Settings'), onTap: _openSettings),
-                        if (Downloads.available) ...[
+                        if (Downloads.available && !kids) ...[
                           const SizedBox(width: 14),
                           _PillButton(
                             icon: Icons.download_rounded,
@@ -485,33 +620,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             SizedBox(height: box.maxHeight * 0.05),
             // ---- the four tiles ----
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: _HomeTile(
-                      autofocus: true,
-                      icon: Icons.live_tv_rounded,
-                      title: t('Live TV'),
-                      onTap: () => _open(XKind.live),
-                    ),
-                  ),
-                  SizedBox(width: gap),
-                  Expanded(
-                    child: _HomeTile(icon: Icons.movie_creation_outlined, title: t('Movies'), onTap: () => _open(XKind.vod)),
-                  ),
-                  SizedBox(width: gap),
-                  Expanded(
-                    child: _HomeTile(icon: Icons.movie_filter_outlined, title: t('TV Series'), onTap: () => _open(XKind.series)),
-                  ),
-                  SizedBox(width: gap),
-                  Expanded(
-                    child: _HomeTile(icon: Icons.replay_rounded, title: t('Catch Up'), onTap: _openCatchup),
-                  ),
-                ],
-              ),
-            ),
+            if (compact)
+              SizedBox(height: (box.maxHeight * 0.36).clamp(110.0, 400.0).toDouble(), child: tiles)
+            else
+              Expanded(child: tiles),
+            // ---- Continue Watching: half-watched films and episodes of this profile ----
+            if (continueList.isNotEmpty) _continueRow(continueList, w, box.maxHeight, pad, gap),
             // ---- streaming service boxes (Settings › Streaming Boxes) ----
             if (enabledStreaming().isNotEmpty) ...[
               SizedBox(height: box.maxHeight * 0.03),
@@ -570,9 +684,148 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ],
-        ),
+        )),
       );
     });
+  }
+
+  Widget _scrollIf(bool on, Widget child) => on ? SingleChildScrollView(child: child) : child;
+}
+
+/// The profile in use, at the left of the top bar: opens "Who's watching?".
+class _ProfileButton extends StatelessWidget {
+  const _ProfileButton({required this.profile, required this.onTap});
+
+  final Profile profile;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Focusable(
+      radius: 24,
+      onTap: onTap,
+      builder: (f) => AnimatedScale(
+        scale: f ? 1.06 : 1,
+        duration: const Duration(milliseconds: 140),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          height: 46,
+          padding: const EdgeInsets.fromLTRB(5, 4, 16, 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: f ? const Color(0xFF3A3D46) : const Color(0xCC1E1F25),
+            border: Border.all(color: f ? Colors.white : const Color(0x33FFFFFF), width: f ? 2.2 : 1),
+            boxShadow: f ? const [BoxShadow(color: Color(0x88E3262F), blurRadius: 18)] : const [],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ProfileAvatar(profile, size: 36),
+              const SizedBox(width: 10),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(profile.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+              if (profile.kids) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: const Color(0x3322C55E), borderRadius: BorderRadius.circular(6)),
+                  child: Text(t('Kids'),
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: Color(0xFF7CD992))),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A half-watched film or episode: poster, name, how far it got. OK plays on from there;
+/// holding OK offers "Play from the start" and "Remove from the row".
+class _ContinueCard extends StatelessWidget {
+  const _ContinueCard({required this.entry, required this.height, required this.onTap, required this.onLongPress});
+
+  final CwEntry entry;
+  final double height;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final posterH = height - 16;
+    final posterW = posterH * 2 / 3;
+    return TvFocus(
+      radius: 14,
+      color: const Color(0xD91A0D10),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: posterW,
+                height: posterH,
+                color: C.card,
+                child: NetImage(entry.image,
+                    fit: BoxFit.cover,
+                    cacheWidth: 220,
+                    fallback: entry.isEpisode ? Icons.video_library_rounded : Icons.movie_rounded),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.title,
+                      maxLines: height > 112 ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, height: 1.2)),
+                  if (entry.subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(entry.subtitle,
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: C.dim)),
+                  ],
+                  const SizedBox(height: 9),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: entry.upNext ? 0.0 : entry.progress,
+                      minHeight: 4,
+                      color: C.accent,
+                      backgroundColor: const Color(0x33FFFFFF),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(entry.upNext ? Icons.skip_next_rounded : Icons.play_arrow_rounded, size: 14, color: C.dim),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(entry.note,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11.5, color: C.dim, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

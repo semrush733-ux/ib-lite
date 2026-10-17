@@ -6,6 +6,7 @@ import 'backend.dart';
 import 'downloads.dart';
 import 'config.dart';
 import 'input_mode.dart';
+import 'reminders.dart';
 import 'remote_brand.dart';
 import 'screens/device.dart';
 import 'screens/intro.dart';
@@ -22,6 +23,8 @@ Future<void> main() async {
   await Backend.init();
   // Unfinished downloads carry on by themselves (they wait while a video plays).
   Downloads.i.init();
+  // TV Guide reminders: a message when a chosen programme starts.
+  Reminders.start();
   // Keep memory low on TV sticks with 1 GB of RAM.
   PaintingBinding.instance.imageCache.maximumSize = 300;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 48 << 20;

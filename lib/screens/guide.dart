@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../input_mode.dart';
+import '../reminders.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -265,7 +266,22 @@ class _GuideScreenState extends State<GuideScreen> {
       _toast('This programme has no recording on the server.');
       return;
     }
-    _toast('Starts ${_day(sel.start)} at ${_clock(sel.start)}.');
+    // A programme still to come: OK sets a reminder (or removes it).
+    final item = entry.item;
+    if (item == null) {
+      _toast('Starts ${_day(sel.start)} at ${_clock(sel.start)}.');
+      return;
+    }
+    final on = Reminders.toggle(item, sel);
+    setState(() {});
+    _toast(on
+        ? 'Reminder set for ${_day(sel.start)} ${_clock(sel.start)}: a message appears when "${sel.title}" starts (while the app is open).'
+        : 'Reminder removed.');
+  }
+
+  bool _reminded(int row, XEpg e) {
+    final item = widget.entries[row].item;
+    return item != null && Reminders.has(item, e.start);
   }
 
   void _toast(String text) {
@@ -345,7 +361,7 @@ class _GuideScreenState extends State<GuideScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  '↑ ↓ channel     ← → programme     OK watch (past programmes play from the recording)     ⏯ back to now',
+                  '↑ ↓ channel     ← → programme     OK watch (past: from the recording, coming up: remind me)     ⏯ back to now',
                   style: TextStyle(fontSize: 12, color: C.dim),
                 ),
               ],
@@ -420,6 +436,14 @@ class _GuideScreenState extends State<GuideScreen> {
                       if (live) _badge('LIVE NOW', C.danger),
                       if (recorded) _badge('CATCH UP', const Color(0xFF2ECC71)),
                       if (!live && !past) _badge('COMING UP', const Color(0xFF4AA3FF)),
+                      if (!live && !past && _reminded(_row, sel)) ...[
+                        const SizedBox(width: 8),
+                        _badge('REMINDER SET', const Color(0xFFFFC94A)),
+                      ],
+                      if (!live && !past && !_reminded(_row, sel)) ...[
+                        const SizedBox(width: 10),
+                        const Text('OK = remind me', style: TextStyle(fontSize: 12.5, color: C.dim)),
+                      ],
                       if (live) ...[
                         const SizedBox(width: 12),
                         SizedBox(
@@ -575,6 +599,12 @@ class _GuideScreenState extends State<GuideScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: Icon(Icons.history_rounded, size: 13, color: picked ? C.onAccent : const Color(0xFF2ECC71)),
+                      ),
+                    if (!isPast && !isNow && _reminded(i, e))
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Icon(Icons.notifications_active_rounded,
+                            size: 13, color: picked ? C.onAccent : const Color(0xFFFFC94A)),
                       ),
                     Expanded(
                       child: Text(

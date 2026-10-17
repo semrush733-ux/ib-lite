@@ -16,6 +16,57 @@ class Store {
     _fav.clear();
     _recent.clear();
     _resume = null;
+    _cw = null;
+    _kids = null;
+  }
+
+  // ---- profiles ----
+  // Each profile has its own favourites, recently watched, resume positions and Continue
+  // Watching. The first profile ("main") keeps the keys the app always used, so nothing changes
+  // for a customer with one profile; the others store theirs under "p:<id>:".
+
+  /// Id of the profile in use.
+  static String get profileId => _p.getString('profile_active') ?? 'main';
+
+  /// True while a Kids profile is in use: only categories for children are shown.
+  static bool get kidsMode => _p.getBool('profile_kids') ?? false;
+
+  static String _pk(String key) {
+    final id = profileId;
+    return id == 'main' ? key : 'p:$id:$key';
+  }
+
+  /// The profiles as saved (JSON, read by Profiles in profiles.dart); '' = only the main one.
+  static String get profilesJson => _p.getString('profiles') ?? '';
+  static Future<void> setProfilesJson(String json) => _p.setString('profiles', json);
+
+  /// Ask "Who's watching?" when the app starts (only when there is more than one profile).
+  static bool get askProfileAtStart => _p.getBool('profile_ask') ?? true;
+  static Future<void> setAskProfileAtStart(bool v) => _p.setBool('profile_ask', v);
+
+  /// Switches to another profile: its own lists are read from now on.
+  static Future<void> setProfile(String id, {required bool kids}) async {
+    await _p.setString('profile_active', id);
+    await _p.setBool('profile_kids', kids);
+    _fav.clear();
+    _recent.clear();
+    _resume = null;
+    _cw = null;
+    // Locked categories ask for the PIN again in the new profile.
+    parentalUnlocked = false;
+  }
+
+  /// Forgets everything a deleted profile had saved.
+  static Future<void> deleteProfileData(String id) async {
+    if (id == 'main') return;
+    for (final k in _p.getKeys().toList()) {
+      if (k.startsWith('p:$id:')) await _p.remove(k);
+    }
+  }
+
+  static bool _isPersonalKey(String k) {
+    final base = k.startsWith('p:') ? k.substring(k.indexOf(':', 2) + 1) : k;
+    return base == 'resume' || base == 'cw' || base.startsWith('fav_') || base.startsWith('recent_');
   }
 
   // ---- login ----
@@ -41,14 +92,15 @@ class Store {
   /// account starts clean.
   static Future<void> _switchAccount(String identity) async {
     if (_p.getString('identity') == identity) return;
-    for (final kind in XKind.values) {
-      await _p.remove('fav_${kind.name}');
-      await _p.remove('recent_${kind.name}');
+    // Favourites, recent, resume and Continue Watching of every profile belong to the old account.
+    for (final k in _p.getKeys().toList()) {
+      if (_isPersonalKey(k)) await _p.remove(k);
     }
-    await _p.remove('resume');
     _fav.clear();
     _recent.clear();
     _resume = null;
+    _cw = null;
+    _kids = null;
     await _p.setString('identity', identity);
   }
 
@@ -116,7 +168,7 @@ class Store {
     final cached = _fav[kind];
     if (cached != null) return cached;
     final list = <XItem>[];
-    for (final raw in _p.getStringList('fav_${kind.name}') ?? const <String>[]) {
+    for (final raw in _p.getStringList(_pk('fav_${kind.name}')) ?? const <String>[]) {
       try {
         final item = XItem.fromJson(jsonDecode(raw));
         if (item != null) list.add(item);
@@ -137,7 +189,7 @@ class Store {
     } else {
       list.insert(0, item);
     }
-    _p.setStringList('fav_${item.kind.name}', list.map((f) => jsonEncode(f.toJson())).toList());
+    _p.setStringList(_pk('fav_${item.kind.name}'), list.map((f) => jsonEncode(f.toJson())).toList());
     return index < 0;
   }
 
@@ -149,7 +201,7 @@ class Store {
     final cached = _recent[kind];
     if (cached != null) return cached;
     final list = <XItem>[];
-    for (final raw in _p.getStringList('recent_${kind.name}') ?? const <String>[]) {
+    for (final raw in _p.getStringList(_pk('recent_${kind.name}')) ?? const <String>[]) {
       try {
         final item = XItem.fromJson(jsonDecode(raw));
         if (item != null) list.add(item);
@@ -166,7 +218,7 @@ class Store {
     while (list.length > 30) {
       list.removeLast();
     }
-    _p.setStringList('recent_${item.kind.name}', list.map((f) => jsonEncode(f.toJson())).toList());
+    _p.setStringList(_pk('recent_${item.kind.name}'), list.map((f) => jsonEncode(f.toJson())).toList());
   }
 
   // ---- resume positions (seconds) ----
@@ -175,7 +227,7 @@ class Store {
     if (cached != null) return cached;
     final map = <String, int>{};
     try {
-      final data = jsonDecode(_p.getString('resume') ?? '{}');
+      final data = jsonDecode(_p.getString(_pk('resume')) ?? '{}');
       if (data is Map) {
         data.forEach((k, v) {
           if (v is int) map[k.toString()] = v;
@@ -197,8 +249,55 @@ class Store {
         map.remove(map.keys.first);
       }
     }
-    _p.setString('resume', jsonEncode(map));
+    _p.setString(_pk('resume'), jsonEncode(map));
   }
+
+  // ---- Continue Watching (per profile) ----
+  // Half-watched films and episodes for the row on the home screen, newest first. Plain JSON
+  // maps here; continue_watching.dart reads and writes them.
+  static List<Map<String, dynamic>>? _cw;
+
+  static List<Map<String, dynamic>> continueRaw() {
+    final cached = _cw;
+    if (cached != null) return cached;
+    final list = <Map<String, dynamic>>[];
+    try {
+      final data = jsonDecode(_p.getString(_pk('cw')) ?? '[]');
+      if (data is List) {
+        for (final e in data) {
+          if (e is Map) list.add(Map<String, dynamic>.from(e));
+        }
+      }
+    } catch (_) {}
+    _cw = list;
+    return list;
+  }
+
+  static void setContinueRaw(List<Map<String, dynamic>> list) {
+    _cw = list;
+    _p.setString(_pk('cw'), jsonEncode(list));
+  }
+
+  // ---- programme reminders (TV Guide, for the whole device) ----
+  static String get remindersJson => _p.getString('reminders') ?? '[]';
+  static Future<void> setRemindersJson(String json) => _p.setString('reminders', json);
+
+  // ---- subtitle look (Settings › Subtitles) ----
+  /// 0 small, 1 medium (standard), 2 large, 3 extra large.
+  static int get subSize => (_p.getInt('sub_size') ?? 1).clamp(0, 3).toInt();
+  static void setSubSize(int v) => _p.setInt('sub_size', v);
+
+  /// 0 white, 1 yellow, 2 cyan, 3 green.
+  static int get subColor => (_p.getInt('sub_color') ?? 0).clamp(0, 3).toInt();
+  static void setSubColor(int v) => _p.setInt('sub_color', v);
+
+  /// 0 soft shadow, 1 dark box behind the text, 2 black outline.
+  static int get subBackground => (_p.getInt('sub_bg') ?? 0).clamp(0, 2).toInt();
+  static void setSubBackground(int v) => _p.setInt('sub_bg', v);
+
+  /// 0 at the bottom, 1 a little higher (TVs that cut off the edge of the picture).
+  static int get subPosition => (_p.getInt('sub_pos') ?? 0).clamp(0, 1).toInt();
+  static void setSubPosition(int v) => _p.setInt('sub_pos', v);
 
   // ---- playback ----
   /// Audio language picked last time (ISO code such as "eng"); empty = the stream's default.
@@ -290,9 +389,83 @@ class Store {
     _p.setStringList('$name|$_accountKey', set.toList());
   }
 
-  /// Categories the customer switched off in Settings › Manage categories.
-  static bool isHidden(XKind kind, String id) => _catSet('hidden_cats').contains(_catKey(kind, id));
+  /// Categories left out of the app: switched off in Settings › Manage categories, and in a Kids
+  /// profile every category that is not for children.
+  static bool isHidden(XKind kind, String id) =>
+      _catSet('hidden_cats').contains(_catKey(kind, id)) || (kidsMode && !kidsAllowed(kind, id));
+
+  /// Only the customer's own choice in Settings › Manage categories (no Kids profile rule).
+  static bool isHiddenSetting(XKind kind, String id) => _catSet('hidden_cats').contains(_catKey(kind, id));
   static void setHidden(XKind kind, String id, bool hidden) => _setCat('hidden_cats', kind, id, hidden);
+
+  // ---- categories for the Kids profile (per account) ----
+  // Found by their names ("Kids", "Cartoons", "Family", "Disney"...) whenever the categories are
+  // loaded, and the parent can switch any category on or off for children by hand.
+  static ({Set<String> auto, Set<String> on, Set<String> off})? _kids;
+  static String _kidsFor = '';
+
+  static ({Set<String> auto, Set<String> on, Set<String> off}) get _kidsSets {
+    final account = _accountKey;
+    final cached = _kids;
+    if (cached != null && _kidsFor == account) return cached;
+    _kidsFor = account;
+    return _kids = (auto: _catSet('kids_auto'), on: _catSet('kids_on'), off: _catSet('kids_off'));
+  }
+
+  /// May children see this category? The parent's choice first, else its name.
+  static bool kidsAllowed(XKind kind, String id) {
+    final key = _catKey(kind, id);
+    final s = _kidsSets;
+    if (s.off.contains(key)) return false;
+    if (s.on.contains(key)) return true;
+    return s.auto.contains(key);
+  }
+
+  /// Whether the parent chose this category by hand (true / false) or it follows its name (null).
+  static bool? kidsChoice(XKind kind, String id) {
+    final key = _catKey(kind, id);
+    final s = _kidsSets;
+    if (s.on.contains(key)) return true;
+    if (s.off.contains(key)) return false;
+    return null;
+  }
+
+  static void setKidsChoice(XKind kind, String id, bool? allowed) {
+    _setCat('kids_on', kind, id, allowed == true);
+    _setCat('kids_off', kind, id, allowed == false);
+    _kids = null;
+  }
+
+  /// All hand-made choices of one kind go back to "by name".
+  static void resetKidsChoices(XKind kind) {
+    for (final name in const ['kids_on', 'kids_off']) {
+      final set = _catSet(name)..removeWhere((k) => k.startsWith('${kind.name}|'));
+      _p.setStringList('$name|$_accountKey', set.toList());
+    }
+    _kids = null;
+  }
+
+  static final RegExp _kidsWords = RegExp(
+    r'\b(kids?|child|children|childrens|cartoons?|toons?|junior|jr|family|families|disney|pixar|dreamworks|'
+    r'nick|nickelodeon|nickjr|cbeebies|cbbc|boomerang|baby|babies|kinder|kinderen|enfants?|infantil|infantiles|'
+    r'bambini|dzieci|cocuk|çocuk|animation|animated|animados?|animación|animacion|dibujos)\b',
+    caseSensitive: false,
+  );
+  static final RegExp _adultWords = RegExp(r'(adult|xxx|18\+|\+18|porn|sex|erot|for adults)', caseSensitive: false);
+
+  /// A category name that is meant for children.
+  static bool looksForKids(String name) => _kidsWords.hasMatch(name) && !_adultWords.hasMatch(name);
+
+  /// Called whenever a category list arrives: the categories for children are noted by name.
+  static void noteCategories(XKind kind, List<XCategory> cats) {
+    final prefix = '${kind.name}|';
+    final before = _catSet('kids_auto');
+    final after = before.where((k) => !k.startsWith(prefix)).toSet()
+      ..addAll([for (final c in cats) if (looksForKids(c.name)) _catKey(kind, c.id)]);
+    if (after.length == before.length && after.containsAll(before)) return;
+    _p.setStringList('kids_auto|$_accountKey', after.toList());
+    _kids = null;
+  }
 
   /// Categories behind the parental PIN.
   static bool isLocked(XKind kind, String id) =>

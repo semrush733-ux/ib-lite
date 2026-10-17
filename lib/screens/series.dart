@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../continue_watching.dart';
 import '../input_mode.dart';
 import '../store.dart';
 import '../theme.dart';
@@ -50,14 +51,10 @@ class _SeriesScreenState extends State<SeriesScreen> {
 
   Future<void> _play(List<XEpisode> episodes, int index) async {
     final api = widget.api;
+    final cover = _info?.cover ?? '';
+    // Each episode also knows its series, so Continue Watching on the home screen can show it.
     final entries = [
-      for (final e in episodes)
-        PlayEntry(
-          title: widget.series.name,
-          subtitle: 'S${e.season} E${e.number}  ·  ${e.title}',
-          urls: [api.episodeUrlFor(e)],
-          resumeKey: 'ep:${e.id}',
-        ),
+      for (final e in episodes) episodeEntry(api, widget.series, e, logo: cover.isNotEmpty ? cover : widget.series.icon),
     ];
     await Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => PlayerScreen(api: api, entries: entries, index: index, live: false)));

@@ -7,6 +7,7 @@ import 'package:media_kit/media_kit.dart';
 
 import '../backend.dart' show Backend;
 import '../config.dart';
+import '../continue_watching.dart';
 import '../engine.dart';
 import '../enhance.dart';
 import '../i18n.dart';
@@ -14,9 +15,11 @@ import '../input_mode.dart';
 import '../lang.dart';
 import '../prefetch.dart';
 import '../quality.dart';
+import '../sleep_timer.dart';
 import '../smooth.dart';
 import '../start_poster.dart';
 import '../store.dart';
+import '../subtitle_style.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -34,6 +37,8 @@ class PlayEntry {
     this.epgId,
     this.logo = '',
     this.item,
+    this.episode,
+    this.series,
   });
 
   final String title;
@@ -43,6 +48,26 @@ class PlayEntry {
   final String? epgId;
   final String logo;
   final XItem? item;
+
+  /// An episode of a series (for Continue Watching): the episode and its series.
+  final XEpisode? episode;
+  final XItem? series;
+}
+
+/// Live channels as the player gets them.
+List<PlayEntry> liveEntries(Source api, List<XItem> items) {
+  final format = Store.liveFormat;
+  return [
+    for (final i in items)
+      PlayEntry(
+        title: i.name,
+        urls: api.liveUrlsFor(i, format),
+        // Xtream channels use their stream id; playlist channels use the tvg-id from the M3U.
+        epgId: i.url.isEmpty ? i.id : (i.epgId.isEmpty ? null : i.epgId),
+        logo: i.icon,
+        item: i,
+      ),
+  ];
 }
 
 String formatTime(Duration d) {
@@ -678,6 +703,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     }
     final key = _entry.resumeKey;
     if (key != null) Store.setResume(key, 0);
+    try {
+      ContinueWatching.finished(_entry, next: _nextEntry);
+    } catch (_) {}
     _lastPosition = Duration.zero;
     if (_index < widget.entries.length - 1) {
       _index++;
@@ -842,7 +870,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     } else if (position.inSeconds > 0) {
       Store.setResume(key, position.inSeconds);
     }
+    // The home screen's Continue Watching follows along.
+    try {
+      ContinueWatching.note(_entry, position.inSeconds, _duration.inSeconds, next: _nextEntry);
+    } catch (e) {
+      log('continue watching note failed: ${e.runtimeType}');
+    }
   }
+
+  PlayEntry? get _nextEntry => _index + 1 < widget.entries.length ? widget.entries[_index + 1] : null;
 
   // ------------------------------------------------------- audio / subtitles
 
@@ -1111,6 +1147,17 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                   selected: _subtitleTracks[i].id == _subtitleId,
                   onTap: () => pick(() => _chooseSubtitle(_subtitleTracks[i])),
                 ),
+              if (_subtitleTracks.isNotEmpty) ...[
+                const _PanelHeading('Subtitle size'),
+                _PanelChips(
+                  labels: const ['Small', 'Medium', 'Large', 'XL'],
+                  selected: Store.subSize,
+                  onTap: (i) => pick(() {
+                    Store.setSubSize(i);
+                    SubtitleLook.changed();
+                  }),
+                ),
+              ],
               if (!widget.live) ...[
                 const _PanelHeading('Speed'),
                 _PanelChips(
@@ -1125,6 +1172,15 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                 selected: _fit,
                 onTap: (i) => pick(() => _chooseFit(i)),
               ),
+              const _PanelHeading('Sleep timer'),
+              _PanelChips(
+                labels: SleepTimer.labels,
+                selected: SleepTimer.chosenIndex,
+                onTap: (i) => pick(() => SleepTimer.set(SleepTimer.choices[i])),
+              ),
+              _PanelNote(SleepTimer.ends.value == null
+                  ? 'The video stops by itself after the time you pick.'
+                  : '${SleepTimer.endsText}. A minute before, you can keep watching.'),
             ],
           );
         },
