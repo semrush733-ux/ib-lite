@@ -122,7 +122,12 @@ jobs:
           mkdir -p out/logs
 
       - name: Get packages
-        run: flutter pub get
+        run: |
+          set -o pipefail
+          flutter pub get 2>&1 | tee out/logs/pub.log
+          # The package versions this build uses go into the release notes (a new plugin version
+          # once stopped the app on its start logo).
+          awk '/^  [a-z0-9_]+:$/{p=$1} /^    version:/{gsub(/"/,"",$2); print p" "$2}' pubspec.lock > out/logs/versions.txt || true
 
       - name: Check the code
         run: |
@@ -211,6 +216,15 @@ jobs:
             echo "### Unit tests"
             echo '```'
             tail -3 out/logs/test.log 2>/dev/null || true
+            echo '```'
+            echo "### Packages"
+            echo '```'
+            if [ -s out/logs/versions.txt ]; then
+              grep -E "^(shared_preferences|path_provider|url_launcher|media_kit|jni|http|crypto)" out/logs/versions.txt || true
+            else
+              echo "flutter pub get failed:"
+              tail -30 out/logs/pub.log 2>/dev/null || echo "(no log)"
+            fi
             echo '```'
             echo "### Errors"
             echo '```'

@@ -20,8 +20,8 @@ dependencies:
 dependency_overrides:
   # shared_preferences_android 2.5.0 (17 Oct 2026, "Pigeon JNI") fails in release APKs
   # ("NoSuchMethodError ... SharedPreferencesApiRegistrar.getAll"): the saved login cannot be
-  # read. 2.4.29 is the last version before that change (same pin as the TV app).
-  shared_preferences_android: 2.4.29
+  # read. Any 2.4.x is from before that change (same pin as the TV app).
+  shared_preferences_android: ">=2.4.0 <2.5.0"
 
 flutter:
   uses-material-design: true
