@@ -24,6 +24,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+dependency_overrides:
+  # shared_preferences_android 2.5.0 (17 Oct 2026, "Pigeon JNI") fails in release APKs: the app
+  # cannot read its settings ("NoSuchMethodError ... SharedPreferencesApiRegistrar.getAll") and
+  # stays on the start logo. 2.4.29 is the last version before that change. Remove this pin only
+  # after the emulator test (release notes, "app starts on the sign-in screen") passes with a newer one.
+  shared_preferences_android: 2.4.29
+
 flutter:
   uses-material-design: true
   assets:

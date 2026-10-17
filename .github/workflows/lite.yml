@@ -260,7 +260,10 @@ jobs:
           if [ -f out/B1G.apk ]; then cp out/B1G.apk "out/$APK_NAME.apk"; FILES="out/$APK_NAME.apk"; fi
           # Icons and banners for app stores (Amazon, Google Play) and Samsung Tizen.
           if [ -n "$FILES" ] && [ -f out/store-assets.zip ]; then FILES="$FILES out/store-assets.zip"; fi
-          TITLE="$APP_NAME - build #$BUILD_NUMBER"
+          # Until the emulator test (job "smoke") has opened the app, the title says so: the website's
+          # "Follow new builds automatically" does not announce such a build to the TVs. The smoke job
+          # then sets "… build #N" (app opens) or "… build #N FAILED: …" (it does not).
+          TITLE="$APP_NAME - build #$BUILD_NUMBER (emulator test running)"
           # What brand this build used (the hourly check compares it with the website).
           if [ -n "$FILES" ] && [ -s out/brand_sig.txt ]; then { echo ""; echo "Brand: $(cat out/brand_sig.txt)"; } >> out/REPORT.md; fi
           if [ -z "$FILES" ]; then TITLE="$APP_NAME - build #$BUILD_NUMBER FAILED (APK below is from an earlier build)"; fi
@@ -424,6 +427,24 @@ jobs:
           gh release view latest --json body -q .body > "$RUNNER_TEMP/body.md"
           { echo ""; cat out/smoke/SMOKE.md; } >> "$RUNNER_TEMP/body.md"
           gh release edit latest --notes-file "$RUNNER_TEMP/body.md"
+          # The title says whether this build may go to the TVs. "FAILED" when the app does not open
+          # (the website never announces such a build); only a build that opened and signed in on the
+          # emulator gets the plain "… build #N".
+          NAME="$(gh release view latest --json name -q .name)"
+          case "$NAME" in
+            *"build #$BUILD_NUMBER "*|*"build #$BUILD_NUMBER") ;;
+            *) echo "The release already holds another build ($NAME): title left as it is."; exit 0 ;;
+          esac
+          APP="${NAME%% - build #*}"
+          if grep -qE '^FAIL  (app installs|app starts on the sign-in screen|sign in with the remote opens the home screen)' out/smoke/SMOKE.md; then
+            TITLE="$APP - build #$BUILD_NUMBER FAILED: the app does not open (emulator test) - do not send it to the TVs"
+          elif grep -qE '^PASS  sign in with the remote opens the home screen' out/smoke/SMOKE.md; then
+            TITLE="$APP - build #$BUILD_NUMBER"
+          else
+            TITLE="$APP - build #$BUILD_NUMBER (emulator test did not finish)"
+          fi
+          echo "release title: $TITLE"
+          gh release edit latest --title "$TITLE"
 
       - name: Publish the test screenshots
         if: always()

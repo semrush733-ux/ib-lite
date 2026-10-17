@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:media_kit/media_kit.dart';
@@ -10,32 +12,67 @@ import 'reminders.dart';
 import 'remote_brand.dart';
 import 'screens/device.dart';
 import 'screens/intro.dart';
+import 'screens/start_problem.dart';
 import 'start.dart';
 import 'store.dart';
 import 'theme.dart';
 import 'voice.dart';
 
+/// MediaKit and the key watcher are set up once, also when "Try again" opens the app anew.
+bool _basicsReady = false;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  MediaKit.ensureInitialized();
-  InputMode.init();
-  await Store.init();
-  await RemoteBrand.init();
-  await Backend.init();
+  await _open();
+}
+
+/// Opens the app. When something it needs fails while it opens (its saved settings, the player
+/// library), [StartProblemApp] shows why and offers the newest version from the website, instead
+/// of leaving the TV on the start logo.
+Future<void> _open() async {
+  try {
+    if (!_basicsReady) {
+      MediaKit.ensureInitialized();
+      InputMode.init();
+      _basicsReady = true;
+    }
+    await Store.init();
+    await RemoteBrand.init();
+    await Backend.init();
+  } catch (e, stack) {
+    log('start failed: $e');
+    debugPrint('B1G start failed at: ${stack.toString().split('\n').take(8).join(' | ')}');
+    runApp(StartProblemApp(error: '$e', retry: () => unawaited(_open())));
+    return;
+  }
   // Voice: Alexa / Google Assistant commands for the player, and whether a microphone can be offered.
-  await Voice.init();
+  try {
+    await Voice.init().timeout(const Duration(seconds: 3));
+  } catch (e) {
+    log('voice init: ${e.runtimeType}');
+  }
   // Unfinished downloads carry on by themselves (they wait while a video plays).
-  Downloads.i.init();
+  unawaited(Downloads.i.init().catchError((Object e) {
+    log('downloads init: ${e.runtimeType}');
+  }));
   // TV Guide reminders: a message when a chosen programme starts.
-  Reminders.start();
+  try {
+    Reminders.start();
+  } catch (e) {
+    log('reminders init: ${e.runtimeType}');
+  }
   // Keep memory low on TV sticks with 1 GB of RAM.
   PaintingBinding.instance.imageCache.maximumSize = 300;
   PaintingBinding.instance.imageCache.maximumSizeBytes = 48 << 20;
   // The remote is the main input: always show which element has focus.
   FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await SystemChrome.setPreferredOrientations(
-      const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+  unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
+  try {
+    await SystemChrome.setPreferredOrientations(
+        const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]).timeout(const Duration(seconds: 3));
+  } catch (e) {
+    log('screen mode: ${e.runtimeType}');
+  }
   runApp(const B1GApp());
 }
 

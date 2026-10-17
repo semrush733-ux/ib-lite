@@ -265,7 +265,7 @@ Where the admin reads them:
 
 ---
 
-## 9. Demo playlist (plugin 1.0.37, app build 169+)
+## 9. Demo playlist (plugin 1.0.37, app build 172+)
 
 Built into the plugin (`includes/class-b1g-demo.php`); this section only describes it.
 
@@ -289,6 +289,24 @@ instead.
 (`b1g_demo`: type m3u), which `/device/playlists` already returns as `demo`:
 
 * the LG / Samsung app plays it with "Watch the 4K demo";
-* the Android / Fire TV app (build 169+) shows **Watch the demo** on its first screen (no playlist
+* the Android / Fire TV app (build 172+) shows **Watch the demo** on its first screen (no playlist
   yet). It opens the demo only to watch: nothing is saved, Back returns to the first screen, and a
   playlist added on the website meanwhile opens when the customer comes back.
+
+## 10. Safe app updates (plugin 1.0.38, app build 172+)
+
+Builds 164 to 170 (17 October 2026) stop on the start logo: `shared_preferences_android` 2.5.0
+("Pigeon JNI", published that day) cannot find its own methods in a release APK
+(`NoSuchMethodError ... SharedPreferencesApiRegistrar.getAll`). The app pins 2.4.29
+(`pubspec.yaml`, `dependency_overrides`) until a newer version passes the emulator test.
+
+So that a build like that never reaches the TVs again:
+
+* CI: the release is titled `... build #N (emulator test running)` until the emulator test has
+  opened the app and signed in; then `... build #N`, or
+  `... build #N FAILED: the app does not open (emulator test) - do not send it to the TVs`.
+* Plugin 1.0.38: `B1G_Builds::latest()` treats "FAILED" and "(emulator test ...)" as not good, so
+  "Follow new builds automatically" and the Admin Panel's "Send build N to the TVs" skip them.
+* App: when something it needs fails while it opens, it shows "... could not open" with the reason
+  and the website's newer version ("Update now") instead of staying on the logo, so a later fixed
+  build reaches the TV by itself.
