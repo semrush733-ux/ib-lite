@@ -16,6 +16,18 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- Fire TV: Alexa voice commands for the player ("Alexa, pause / rewind 30 seconds / next").
+         Not needed from Fire OS 14; other devices ignore it. -->
+    <uses-permission android:name="com.amazon.permission.media.session.voicecommandcontrol" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- The app's microphone (voice search) uses Android's speech screen when the device has one. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <!-- IPTV servers are mostly plain http, so clear-text traffic must be allowed. -->
     <application
         android:label="Cloud Player"
@@ -59,5 +71,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Fire TV: Alexa's commands reach the player at once (it keeps its own play / pause state). -->
+        <meta-data
+            android:name="com.amazon.voice.supports_background_media_session"
+            android:value="true" />
     </application>
 </manifest>

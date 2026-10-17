@@ -13,6 +13,7 @@ import 'screens/intro.dart';
 import 'start.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'voice.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,6 +22,8 @@ Future<void> main() async {
   await Store.init();
   await RemoteBrand.init();
   await Backend.init();
+  // Voice: Alexa / Google Assistant commands for the player, and whether a microphone can be offered.
+  await Voice.init();
   // Unfinished downloads carry on by themselves (they wait while a video plays).
   Downloads.i.init();
   // TV Guide reminders: a message when a chosen programme starts.

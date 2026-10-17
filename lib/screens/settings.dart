@@ -16,6 +16,7 @@ import '../store.dart';
 import '../streaming.dart';
 import '../subtitle_style.dart';
 import '../theme.dart';
+import '../voice.dart';
 import '../widgets.dart';
 import '../xtream.dart';
 import 'home.dart' show wallpaperAsset;
@@ -471,6 +472,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: TextStyle(fontSize: 13, color: C.dim, height: 1.55),
           ),
         ],
+        const SizedBox(height: 24),
+        Text(t('Voice control').toUpperCase(),
+            style: const TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+        const SizedBox(height: 10),
+        Text(
+          '• Fire TV (Alexa): while watching, hold the remote\'s Alexa (microphone) button and say "pause", '
+          '"play", "rewind 30 seconds", "fast forward", "next", "previous" or "restart" (with an Echo: '
+          '"Alexa, pause"). On live TV "next" / "previous" change the channel and "rewind" / "restart" '
+          'start the programme over (channels with catch-up). Alexa cannot search inside the app: Amazon '
+          'allows that only for its own catalogue.\n'
+          '• Phones and Android / Google TV boxes: the microphone button (home screen, Search and the '
+          'player bar). Say a channel, film or series to search it, or while watching: "next", "pause", '
+          '"play", "back 30 seconds", "forward 2 minutes", "start over", "last channel", a channel name or '
+          '"channel 25". The Google Assistant on Android TV also understands "pause", "next"...'
+          '${Voice.canListen ? '' : '\nThis device has no speech screen for apps, so no microphone button is shown here.'}',
+          style: const TextStyle(fontSize: 13, color: C.dim, height: 1.55),
+        ),
       ],
     );
   }

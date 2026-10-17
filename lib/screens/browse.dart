@@ -13,6 +13,7 @@ import '../input_mode.dart';
 import '../start_poster.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../voice.dart';
 import '../widgets.dart';
 import '../xtream.dart';
 import 'guide.dart';
@@ -76,10 +77,13 @@ String countLabel(XKind kind, int n) {
 
 /// Categories on the left, channels / titles on the right.
 class BrowseScreen extends StatefulWidget {
-  const BrowseScreen({super.key, required this.api, required this.kind});
+  const BrowseScreen({super.key, required this.api, required this.kind, this.search});
 
   final Source api;
   final XKind kind;
+
+  /// Opens with these search results (voice search from the home screen).
+  final String? search;
 
   @override
   State<BrowseScreen> createState() => _BrowseScreenState();
@@ -399,7 +403,12 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
       final first = cats
           .where((c) => !Store.isHidden(widget.kind, c.id) && !Store.isLocked(widget.kind, c.id))
           .firstOrNull;
-      if (first == null) {
+      final search = widget.search?.trim() ?? '';
+      if (search.isNotEmpty && !_searchedAtStart) {
+        // Voice search from the home screen: straight to the results.
+        _searchedAtStart = true;
+        _runSearch(search);
+      } else if (first == null) {
         _select(_allId, allTitle(widget.kind));
       } else {
         _select(first.id, first.name);
@@ -597,12 +606,32 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     });
   }
 
+  bool _searchedAtStart = false;
+
   Future<void> _search() async {
     if (_justSearched) return; // the same key press again: no second search box
     _focusTimer?.cancel();
     final q = await _askSearch(context, _query);
     _searchClosed = DateTime.now();
     if (q == null || q.isEmpty || !mounted) return;
+    await _runSearch(q);
+  }
+
+  /// The remote's search / microphone key: say the name (or type it where there is no microphone).
+  Future<void> _voiceSearch() async {
+    if (!Voice.canListen) {
+      await _search();
+      return;
+    }
+    _focusTimer?.cancel();
+    final heard = await Voice.listen(prompt: t('Say the name'));
+    _searchClosed = DateTime.now();
+    if (heard.isEmpty || !mounted) return;
+    await _runSearch(voiceQuery(heard.first));
+  }
+
+  Future<void> _runSearch(String q) async {
+    if (!mounted) return;
     final request = ++_request;
     setState(() {
       _query = q;
@@ -654,7 +683,7 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     final id = _selected;
     final name = _selectedName;
     if (id == _searchId) {
-      _search();
+      _runSearch(_query);
       return;
     }
     _selected = '';
@@ -704,10 +733,22 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
     }
   }
 
+  KeyEventResult _screenKeys(FocusNode node, KeyEvent e) {
+    if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.browserSearch) {
+      _voiceSearch();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
+      body: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onKeyEvent: _screenKeys,
+        child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
@@ -815,6 +856,7 @@ class _BrowseScreenState extends State<BrowseScreen> with WidgetsBindingObserver
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1558,14 +1600,36 @@ Future<String?> _askSearch(BuildContext context, String initial) {
       backgroundColor: C.panel,
       title: const Text('Search'),
       content: SizedBox(
-        width: 380,
-        child: TvField(
-          controller: controller,
-          label: 'Name',
-          icon: Icons.search_rounded,
-          autofocus: true,
-          action: TextInputAction.search,
-          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+        width: Voice.canListen ? 440 : 380,
+        child: Row(
+          children: [
+            Expanded(
+              child: TvField(
+                controller: controller,
+                label: 'Name',
+                icon: Icons.search_rounded,
+                autofocus: true,
+                action: TextInputAction.search,
+                onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+              ),
+            ),
+            // Say the name instead of typing it (phones, Android / Google TV boxes).
+            if (Voice.canListen) ...[
+              const SizedBox(width: 10),
+              TvFocus(
+                radius: 26,
+                color: C.card,
+                onTap: () async {
+                  final heard = await Voice.listen(prompt: t('Say the name'));
+                  if (heard.isNotEmpty && ctx.mounted) Navigator.of(ctx).pop(voiceQuery(heard.first));
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Icon(Icons.mic_rounded, color: C.accent, size: 26),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
       actions: [

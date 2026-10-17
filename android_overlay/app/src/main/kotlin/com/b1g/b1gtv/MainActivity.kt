@@ -20,6 +20,8 @@ class MainActivity : FlutterActivity() {
     private var exo: ExoEngine? = null
     private val net by lazy { NetHelper(this) }
     private val vpn by lazy { VpnHelper(this) }
+    // Alexa / Google Assistant commands for the player, and the app's own microphone.
+    private var voice: VoiceHelper? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Video chips that pad their pictures (Fire TV 4K / 4K Max...): MPV's textures too must
@@ -180,6 +182,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         exo = ExoEngine(applicationContext, flutterEngine.renderer, flutterEngine.dartExecutor.binaryMessenger)
+        voice = VoiceHelper(this, flutterEngine.dartExecutor.binaryMessenger)
         // The player asks to keep the screen awake while a stream is open.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "b1g/device")
             .setMethodCallHandler { call, result ->
@@ -303,12 +306,15 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         exo?.disposeAll()
         exo = null
+        voice?.release()
+        voice = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (voice?.onActivityResult(requestCode, resultCode, data) == true) return
         if (requestCode == VpnHelper.PERMISSION_REQUEST) vpn.onPermission(resultCode == RESULT_OK)
     }
 }

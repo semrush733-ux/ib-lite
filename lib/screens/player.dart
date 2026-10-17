@@ -23,6 +23,7 @@ import '../start_poster.dart';
 import '../store.dart';
 import '../subtitle_style.dart';
 import '../theme.dart';
+import '../voice.dart';
 import '../widgets.dart';
 import '../xtream.dart';
 import '../warmup.dart';
@@ -134,7 +135,7 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver {
+class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver implements VoiceTarget {
   static const _device = MethodChannel('b1g/device');
   static const _maxFails = 8;
 
@@ -222,6 +223,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   Timer? _retryTimer;
   Timer? _epgTimer;
   Timer? _enhanceTimer;
+  Timer? _voiceTimer;
   // Picture Enhance watch: skipped pictures since the last look, and how many looks in a row
   // were heavy. The key of the open stream (to remember streams ExoPlayer has no sound for).
   int _dropBase = -1;
@@ -249,6 +251,9 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _keepScreenOn(true);
     _watchdog = Timer.periodic(const Duration(seconds: 2), (_) => _checkHealth());
     _enhanceTimer = Timer.periodic(const Duration(seconds: 3), (_) => _watchEnhance());
+    // Alexa / the Google Assistant: "pause", "next", "rewind 30 seconds"... go to this player.
+    Voice.attach(this);
+    _voiceTimer = Timer.periodic(const Duration(seconds: 10), (_) => _voiceState());
     final adopt = widget.adopt;
     if (adopt != null) {
       _adoptEngine(adopt);
@@ -284,6 +289,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
         engine: engine.name,
         retry: false);
     LastStream.playing('', engine.name);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _voiceState());
     if (!widget.live) {
       // A film preloaded on its page (paused): it starts now.
       engine.play();
@@ -349,6 +355,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       _buffering = b;
       _noteStall(b);
       if (mounted) setState(() {});
+      _voiceState();
     }));
     _subs.add(engine.completed.listen((done) {
       if (done) _onCompleted();
@@ -396,9 +403,10 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     final healthy = _accepting && (_ready || _adopting) && !_dead && _retryTimer?.isActive != true;
     _generation++;
     _accepting = false;
-    for (final t in [_hideTimer, _watchdog, _zapTimer, _seekTimer, _retryTimer, _epgTimer, _enhanceTimer]) {
+    for (final t in [_hideTimer, _watchdog, _zapTimer, _seekTimer, _retryTimer, _epgTimer, _enhanceTimer, _voiceTimer]) {
       t?.cancel();
     }
+    Voice.detach(this);
     _saveResume();
     final back = widget.handBack;
     final keep = _engine;
@@ -471,6 +479,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       _retryTimer?.cancel();
       _saveResume();
       _closePlayer();
+      Voice.idle();
       log('player suspended');
     } else if (state == AppLifecycleState.resumed && _suspended) {
       _suspended = false;
@@ -688,6 +697,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _matchFrameRate();
     if (mounted) setState(() => _status = null);
     _showOverlay();
+    _voiceState();
   }
 
   static final _address = RegExp(r'[a-z]+://\S+');
@@ -819,6 +829,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       if (_switchEngine()) return;
       if (!_focus.hasPrimaryFocus) _focus.requestFocus();
       LastStream.failed(_lastError);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _voiceState());
       setState(() {
         _holdPicture = false;
         _heldPicture = null;
@@ -1376,6 +1387,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _open();
     _scheduleEpg();
     _showOverlay();
+    _voiceState();
   }
 
   /// Live: this channel is the one the app may start with next time (Settings › Live Player).
@@ -1446,6 +1458,166 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       ));
   }
 
+  // ------------------------------------------------------------------- voice
+
+  /// Tells Alexa / the Google Assistant what plays here, so they know what "pause", "next" or
+  /// "rewind" can do (a live channel has no pause; "rewind" / "restart" there is Start Over).
+  void _voiceState() {
+    if (!mounted || _childOpen || _suspended || widget.entries.isEmpty) return;
+    final many = widget.entries.length > 1;
+    if (widget.live) {
+      Voice.state(
+        title: _entry.title,
+        playing: !_dead && (_ready || _adopting),
+        buffering: !_dead && (_buffering || (!_ready && !_adopting)),
+        canSeek: _canStartOver,
+        canNext: many,
+        canPrevious: many,
+      );
+    } else {
+      Voice.state(
+        title: _entry.title,
+        playing: _ready && !_userPaused && !_dead,
+        buffering: _buffering && !_userPaused && !_dead,
+        positionMs: _position.inMilliseconds,
+        durationMs: _duration.inMilliseconds,
+        speed: _speed,
+        canPause: true,
+        canSeek: _duration > Duration.zero,
+        canNext: _index + 1 < widget.entries.length,
+        canPrevious: true,
+      );
+    }
+  }
+
+  /// A command from Alexa / the Google Assistant (through Android's media session).
+  @override
+  void onVoiceCommand(String command, int positionMs) {
+    if (!mounted || _childOpen) return;
+    switch (command) {
+      case 'play':
+        _voiceDo(const VoiceCommand('play'));
+      case 'pause':
+      case 'stop':
+        _voiceDo(const VoiceCommand('pause'));
+      case 'next':
+        _voiceDo(const VoiceCommand('next'));
+      case 'previous':
+        _voiceDo(const VoiceCommand('previous'));
+      case 'forward':
+        _voiceDo(const VoiceCommand('forward', seconds: 10));
+      case 'rewind':
+        _voiceDo(const VoiceCommand('back', seconds: 10));
+      case 'seek':
+        if (widget.live) {
+          // "Alexa, rewind" / "restart" on a live channel: Start Over. Forward is not possible.
+          if (positionMs <= 1000) {
+            _startOver();
+          } else {
+            _toast(t('Live TV cannot go forward.'));
+          }
+        } else if (positionMs >= 0) {
+          _seekTo(Duration(milliseconds: positionMs));
+        }
+    }
+  }
+
+  /// Seeks a film / episode to [to] (kept inside the video).
+  void _seekTo(Duration to) {
+    if (widget.live || !_ready || _duration <= Duration.zero) return;
+    _seekTimer?.cancel();
+    _seekPresses = 0;
+    _previewSeek(to);
+    final target = _seekTarget;
+    if (target != null) _commitSeek(target);
+  }
+
+  /// Carries out what was said (to the app's microphone or to an assistant).
+  void _voiceDo(VoiceCommand c) {
+    log('voice do ${c.action}');
+    switch (c.action) {
+      case 'play':
+        if (_dead) {
+          _retryNow();
+        } else if (!widget.live && _userPaused) {
+          _togglePause();
+        } else {
+          _showOverlay();
+        }
+      case 'pause':
+        if (widget.live) {
+          _toast(t('A live channel cannot pause.'));
+        } else if (_ready && !_userPaused) {
+          _togglePause();
+        }
+      case 'next':
+        if (widget.live) {
+          _zap(1);
+        } else if (_index + 1 < widget.entries.length) {
+          _step(1);
+        } else {
+          _toast(t('There is no next episode.'));
+        }
+      case 'previous':
+        if (widget.live) {
+          _zap(-1);
+        } else if (_index == 0 || _position > const Duration(seconds: 15)) {
+          _seekTo(Duration.zero);
+        } else {
+          _step(-1);
+        }
+      case 'last':
+        if (widget.live) _lastChannel();
+      case 'startover':
+        if (widget.live) {
+          _startOver();
+        } else {
+          _seekTo(Duration.zero);
+        }
+      case 'forward':
+      case 'back':
+        final back = c.action == 'back';
+        if (widget.live) {
+          if (back) {
+            _startOver();
+          } else {
+            _toast(t('Live TV cannot go forward.'));
+          }
+        } else {
+          _seekTo(_position + Duration(seconds: back ? -c.seconds : c.seconds));
+        }
+      case 'channel':
+        if (widget.live && c.index >= 0 && c.index < widget.entries.length) {
+          if (c.index != _index) {
+            _tuneTo(c.index);
+          } else {
+            _showOverlay();
+          }
+        }
+      default:
+        _toast(c.heard.isEmpty ? t('Nothing was heard. Try again.') : '${t('Not understood:')} "${c.heard}"');
+    }
+  }
+
+  /// The app's own microphone (phones, Android / Google TV boxes): say a channel, "next",
+  /// "pause", "back 30 seconds", "start over"...
+  Future<void> _voiceListen() async {
+    if (!Voice.canListen || _panelOpen || _childOpen) return;
+    _hideTimer?.cancel();
+    _panelOpen = true;
+    final heard = await Voice.listen(
+        prompt: widget.live ? t('Say a channel name, "next" or "start over"') : t('Say "pause", "next" or "back 30 seconds"'));
+    _panelOpen = false;
+    if (!mounted) return;
+    if (heard.isEmpty) {
+      _showOverlay();
+      return;
+    }
+    _voiceDo(parseVoice(heard,
+        live: widget.live, channels: widget.live ? [for (final e in widget.entries) e.title] : const <String>[]));
+    _showOverlay();
+  }
+
   void _zap(int step) {
     final count = widget.entries.length;
     if (count < 2) {
@@ -1480,6 +1652,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     log(_userPaused ? 'paused' : 'resumed');
     setState(() {});
     _showOverlay();
+    _voiceState();
   }
 
   void _seek(int direction) {
@@ -1515,6 +1688,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _lastPosition = to;
     setState(() => _seekTarget = null);
     _showOverlay();
+    _voiceState();
   }
 
   void _toggleFavourite() {
@@ -1585,6 +1759,11 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
       // The remote's Guide / EPG key.
       if (widget.live && (k == LogicalKeyboardKey.guide || k == LogicalKeyboardKey.info)) {
         if (down) _openGuide();
+        return KeyEventResult.handled;
+      }
+      // The remote's search / microphone key (when Android gives it to the app): voice command.
+      if (k == LogicalKeyboardKey.browserSearch && Voice.canListen) {
+        if (down) _voiceListen();
         return KeyEventResult.handled;
       }
       if (widget.live) {
@@ -1887,6 +2066,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
             if (many) _button(Icons.skip_next_rounded, 'Next episode', () => _step(1)),
           ];
     final List<Widget> side = [
+      if (Voice.canListen) _button(Icons.mic_rounded, t('Voice'), _voiceListen),
       _button(Icons.audiotrack_rounded, t('Audio language'), _openOptions, node: widget.live && !many ? _mainButton : null),
       _button(Icons.closed_caption_rounded, t('Subtitles'), _openOptions),
       _button(Icons.aspect_ratio_rounded, 'Picture: ${_fitNames[_fit]}', _cycleFit),
@@ -2025,19 +2205,30 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
                     const SizedBox(height: 4),
                     SizedBox(
                       height: 66,
-                      child: Row(
-                        children: [
-                          // Name of the button the remote is on.
-                          Expanded(
-                            child: Text(_buttonLabel,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13, height: 1.2, color: C.dim)),
-                          ),
-                          ...centre,
-                          const SizedBox(width: 22),
-                          ...side,
-                        ],
+                      // On a small screen (a phone) the buttons get smaller instead of running off the edge.
+                      child: LayoutBuilder(
+                        builder: (context, box) => Row(
+                          children: [
+                            // Name of the button the remote is on.
+                            Expanded(
+                              child: Text(_buttonLabel,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13, height: 1.2, color: C.dim)),
+                            ),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: box.maxWidth > 120 ? box.maxWidth - 120 : 0.0),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [...centre, const SizedBox(width: 22), ...side],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],

@@ -17,6 +17,7 @@ import '../speedtest.dart';
 import '../store.dart';
 import '../streaming.dart';
 import '../theme.dart';
+import '../voice.dart';
 import '../weather.dart';
 import '../widgets.dart';
 import '../xtream.dart';
@@ -289,6 +290,52 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => BrowseScreen(api: widget.api, kind: kind)))
         .then((_) => _afterBack());
+  }
+
+  /// Voice search: say a channel, film or series. The right section opens with the results;
+  /// when it is not clear which one, the customer picks it.
+  Future<void> _voiceSearch() async {
+    final heard = await Voice.listen(prompt: t('Say a channel, film or series'));
+    if (!mounted || heard.isEmpty) return;
+    final said = heard.first;
+    final words = ' ${voiceNorm(said)} ';
+    XKind? kind;
+    if (RegExp(r' (series|season|episode|drama|serial) ').hasMatch(words)) {
+      kind = XKind.series;
+    } else if (RegExp(r' (movie|movies|film|films) ').hasMatch(words)) {
+      kind = XKind.vod;
+    } else if (RegExp(r' (channel|channels|live) ').hasMatch(words)) {
+      kind = XKind.live;
+    }
+    final query = voiceQuery(said);
+    final chosen = kind ?? await _askKind(query);
+    if (chosen == null || !mounted) return;
+    log('voice search kind=${chosen.name}');
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => BrowseScreen(api: widget.api, kind: chosen, search: query)))
+        .then((_) => _afterBack());
+  }
+
+  Future<XKind?> _askKind(String query) {
+    return showDialog<XKind>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: C.panel,
+        title: Row(
+          children: [
+            const Icon(Icons.mic_rounded, color: C.accent),
+            const SizedBox(width: 10),
+            Expanded(child: Text('"$query"', maxLines: 2, overflow: TextOverflow.ellipsis)),
+          ],
+        ),
+        content: Text(t('Where should I search?'), style: const TextStyle(color: C.dim, fontSize: 15)),
+        actions: [
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(ctx, XKind.live), child: Text(t('Live TV'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, XKind.vod), child: Text(t('Movies'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, XKind.series), child: Text(t('Series'))),
+        ],
+      ),
+    );
   }
 
   /// Back on the home screen: a playlist change from the website that waited is applied now.
@@ -675,6 +722,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
+                // Voice search (phones, Android / Google TV boxes; Fire TV has no speech screen for apps).
+                if (Voice.canListen) ...[
+                  _IconSquare(icon: Icons.mic_rounded, tooltip: t('Voice search'), onTap: _voiceSearch),
+                  const SizedBox(width: 12),
+                ],
                 _IconSquare(
                   icon: _refreshing ? Icons.hourglass_top_rounded : Icons.sync_rounded,
                   tooltip: 'Reload',
