@@ -22,6 +22,10 @@ dependency_overrides:
   # ("NoSuchMethodError ... SharedPreferencesApiRegistrar.getAll"): the saved login cannot be
   # read. Any 2.4.x is from before that change (same pin as the TV app).
   shared_preferences_android: ">=2.4.0 <2.5.0"
+  # The iPhone side of the same change (shared_preferences_foundation 2.6.0, "FFI") does not
+  # compile on the cloud Mac ("Swift Compiler Error: Unexpected ',' separator" in messages.g.swift),
+  # so no new AdminPanel.ipa was made after 16 Oct. Any 2.5.x is from before that change.
+  shared_preferences_foundation: ">=2.5.0 <2.6.0"
 
 flutter:
   uses-material-design: true
