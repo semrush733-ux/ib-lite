@@ -89,7 +89,7 @@ var Src = {};
     if (e.auth) return e.message;
     if (e.kind === 'timeout') return 'The server did not answer in time. Please try again.';
     if (e.kind === 'network') return 'Cannot reach the server. Check the address and your internet connection.';
-    if (e.kind === 'format') return 'This address did not answer like an IPTV server.';
+    if (e.kind === 'format') return 'This address did not answer like a playlist server.';
     if (e.kind === 'http') return (e.status === 401 || e.status === 403) ? 'Wrong username or password.' : 'The server answered with an error (' + e.status + ').';
     return e.message || 'Something went wrong. Please try again.';
   };
@@ -131,7 +131,7 @@ var Src = {};
     return this.api('', 20000).then(function (data) {
       var u = data && data.user_info;
       if (!u || typeof u !== 'object') {
-        var e = new Error('This address did not answer like an IPTV server.');
+        var e = new Error('This address did not answer like a playlist server.');
         e.kind = 'format';
         throw e;
       }
