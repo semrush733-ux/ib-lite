@@ -255,6 +255,18 @@ def main():
             st = guide_state(page)
             check('demo guide: on now', 'LIVE NOW' in st['badges'], st)
             page.evaluate("App.key('play')")
+            # the selection lower down: the rows above it on screen load too
+            page.evaluate("UI.closeAll(); Nav.pop()")
+            T.wait_for(page, "Nav.top().name !== 'guide'", 3)
+            n = page.evaluate("App.src.categories('live').then(function (c) { return Promise.all(c.map(function (x) { return App.src.items('live', x.id); })); })"
+                              ".then(function (all) { var l = all.reduce(function (a, b) { return b.length > a.length ? b : a; }, []);"
+                              " Nav.push(new Screens.Guide({ src: App.src, items: l, index: l.length - 1, title: 'Demo' })); return l.length; })")
+            check('demo guide: a category with 6 channels or more', n >= 6, n)
+            T.wait_for(page, "Nav.top().name === 'guide'", 3)
+            check('demo guide from a lower channel: every row on screen loads', T.wait_for(page,
+                  "[].slice.call(document.querySelectorAll('.screen.guide .gr')).filter(function (r) { return r.style.display !== 'none'; })"
+                  ".every(function (r) { return !/Loading/.test(r.textContent); })", 5),
+                  page.evaluate("[].slice.call(document.querySelectorAll('.screen.guide .gr')).map(function (r) { return r.textContent.slice(0, 40); })"))
             check('demo: no script errors', not errors, '; '.join(errors[:3]))
             b.close()
     finally:

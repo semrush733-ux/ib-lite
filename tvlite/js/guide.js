@@ -196,7 +196,9 @@
       clearTimeout(loadTimer);
       loadTimer = setTimeout(function () {
         queue = [row];
-        for (var i = Math.max(0, row - 4); i <= Math.min(items.length - 1, row + 9); i++) if (i !== row) queue.push(i);
+        // the rows on screen and a few around the selection
+        var from = Math.max(0, Math.min(top, row - 4)), to = Math.min(items.length - 1, Math.max(top + ROWS - 1, row + 9));
+        for (var i = from; i <= to; i++) if (i !== row) queue.push(i);
         pump();
       }, 200);
     }
