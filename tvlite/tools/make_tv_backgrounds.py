@@ -10,14 +10,14 @@ show:
     tvlite/img/connect_full.webp  .cn-bg picture + .cn-wash
 
 Run from the repository root after changing assets/home_bg.webp or the colours below:
-    python3 tools/make_tv_backgrounds.py
+    python3 tvlite/tools/make_tv_backgrounds.py
 """
 import base64, io, os
 
 from PIL import Image
 from playwright.sync_api import sync_playwright
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC = os.path.join(ROOT, 'assets/home_bg.webp')
 OUT = os.path.join(ROOT, 'tvlite/img')
 

@@ -43,7 +43,7 @@ var Screens = {};
       '<div class="idrow"><span class="k">MAC Address:</span><span class="v mac">—</span></div>' +
       '<div class="idrow"><span class="k">Device Key:</span><span class="v key">—</span></div>' +
       '<div class="waitline"><span class="wl"></span><span class="wt">Waiting for your playlist…</span></div></div>';
-    // One opaque picture (photo + colour wash made in advance: tools/make_tv_backgrounds.py).
+    // One opaque picture (photo + colour wash made in advance: tvlite/tools/make_tv_backgrounds.py).
     el.querySelector('.cn-bg').style.backgroundImage = 'url(img/connect_full.webp)';
     el.querySelector('.wl').appendChild(UI.pulse());
     var site = Backend.siteShort();
@@ -314,8 +314,8 @@ var Screens = {};
       '<div class="hm-bg"></div>' +
       '<div class="hm-top">' + UI.logo(60) + '<div class="hm-pills"></div><div class="hm-icons"></div></div>' +
       '<div class="hm-tiles"></div>' +
-      '<div class="hm-bottom"><div class="infobox"></div><div class="expiry"></div><div class="wbox"></div></div>';
-    // One opaque picture (photo + wash + vignette made in advance: tools/make_tv_backgrounds.py).
+      '<div class="hm-bottom"><div class="infobox"></div><div class="plbox"></div><div class="wbox"></div></div>';
+    // One opaque picture (photo + wash + vignette made in advance: tvlite/tools/make_tv_backgrounds.py).
     el.querySelector('.hm-bg').style.backgroundImage = 'url(img/home_full.webp)';
 
     var pills = el.querySelector('.hm-pills');
@@ -392,18 +392,48 @@ var Screens = {};
       el.querySelector('.infobox').innerHTML =
         'MAC Address: ' + U.esc(Backend.deviceId || '—') + '<br>Device Key: ' + U.esc(Backend.pairing || '—') +
         '<br>Application Expiry: ' + U.esc(appExpiry());
-      var ex = el.querySelector('.expiry');
-      var text;
-      if (!acc) text = offline ? 'Playlist: no connection' : 'Playlist: checking…';
-      else if (acc.note) text = acc.note;
-      else if (!acc.expires) text = 'Playlist Expiry: Unlimited';
-      else {
-        var e = acc.expires;
-        text = 'Playlist Expiry: ' + U.days[e.getDay()] + ' ' + e.getDate() + ', ' + U.months[e.getMonth()] + ' ' + e.getFullYear();
-      }
-      ex.textContent = text;
-      ex.style.color = offline && !acc ? '#FF6B6B' : '';
+      drawPlaylistBox();
       plPill.querySelector('.pl').textContent = shortName(App.title(), 'Change Playlist');
+    }
+    /** Whole calendar days from today to the day the playlist ends (negative: ended). */
+    function daysLeft(end) {
+      var now = new Date();
+      return Math.round((Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
+        Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+    }
+    /** The playlist box between the device box and the clock (as in the Android app): its name with
+     *  a dot (green fine, amber ends within a week, red ended / no connection), when it ends, and
+     *  the days left with the connections (screens at once) it allows. */
+    function drawPlaylistBox() {
+      var GREEN = '#2ECC71', AMBER = '#FFC94A', RED = '#FF6B6B';
+      var dot = GREEN, lines = [], name = App.title() || '—';
+      if (!acc) {
+        dot = offline ? RED : '#8B93A3';
+        lines.push(offline ? ['No connection to the server', RED] : ['Checking the playlist…', '']);
+        lines.push([offline ? 'Press Reload to try again' : 'One moment please', '#8B93A3']);
+      } else if (src.type === 'm3u' || src.type === 'demo') {
+        // M3U links (and the demo) carry no end date: what the list holds instead.
+        var holds = String(acc.note || '').replace(/^M3U playlist\s*·\s*/, '');
+        lines.push([src.type === 'demo' ? 'Playlist Expiry: Unlimited' : 'Playlist Expiry: not given (M3U link)', '']);
+        lines.push([holds || 'M3U playlist', '']);
+      } else {
+        var e = acc.expires, parts = [], color = '';
+        if (acc.trial) parts.push('Trial');
+        if (!e) {
+          lines.push(['Playlist Expiry: Unlimited', '']);
+          if (!acc.trial) parts.push('Active');
+        } else {
+          lines.push(['Playlist Expiry: ' + U.days[e.getDay()] + ' ' + e.getDate() + ', ' + U.months[e.getMonth()] + ' ' + e.getFullYear(), '']);
+          var d = daysLeft(e);
+          parts.push(d < 0 ? 'Ended' : d === 0 ? 'Ends today' : d === 1 ? '1 day left' : d + ' days left');
+          if (d < 0) { color = RED; dot = RED; } else if (d <= 7) { color = AMBER; dot = AMBER; }
+        }
+        if (acc.maxConnections > 0) parts.push(acc.maxConnections === 1 ? '1 connection' : acc.maxConnections + ' connections');
+        lines.push([parts.join('  ·  '), color]);
+      }
+      var html = '<div class="ln"><i class="dot" style="background:' + dot + '"></i>Playlist: ' + U.esc(name) + '</div>';
+      lines.forEach(function (l) { html += '<div class="ln"' + (l[1] ? ' style="color:' + l[1] + '"' : '') + '>' + U.esc(l[0]) + '</div>'; });
+      el.querySelector('.plbox').innerHTML = html;
     }
     function drawClock() {
       var now = new Date();

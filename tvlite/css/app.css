@@ -237,11 +237,15 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .hm-svc.compact .svcbox .nm { font-size: 25px; }
 .hm-svc.compact .svcbox .sb { font-size: 20px; overflow: hidden; text-overflow: ellipsis; }
 .hm-bottom { position: absolute; left: 77px; right: 77px; bottom: 43px; display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
+  -webkit-box-align: stretch; -webkit-align-items: stretch; align-items: stretch; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
 .infobox { position: relative; padding: 22px 36px; border-radius: 36px; background: rgba(11,6,7,0.85);
   border: 3px solid rgba(255,255,255,0.4); font-size: 27px; font-weight: 700; line-height: 1.5; white-space: nowrap; }
-.expiry { position: relative; margin-bottom: 8px; padding: 12px 32px; border-radius: 20px; background: rgba(11,6,7,0.8);
-  border: 3px solid rgba(255,255,255,0.4); font-size: 27px; font-weight: 700; white-space: nowrap; }
+/* the playlist box: same look and height as the boxes beside it (the row stretches them) */
+.plbox { position: relative; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; max-width: 640px; min-width: 0; margin: 0 30px;
+  padding: 22px 36px; border-radius: 36px; background: rgba(11,6,7,0.85); border: 3px solid rgba(255,255,255,0.4);
+  font-size: 27px; font-weight: 700; line-height: 1.5; box-sizing: border-box; }
+.plbox .ln { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plbox .dot { display: inline-block; vertical-align: middle; width: 16px; height: 16px; border-radius: 50%; margin: -4px 14px 0 0; }
 .wbox { position: relative; width: 540px; padding: 22px 36px; border-radius: 36px; background: rgba(11,6,7,0.85);
   border: 3px solid rgba(255,255,255,0.4); font-size: 27px; font-weight: 700; }
 .wbox .pl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 50px; }

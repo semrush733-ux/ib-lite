@@ -22,8 +22,20 @@ cd /d %FOLDER%
 
 echo.
 echo [1/4] Downloading the newest Samsung build ...
-curl -L --fail -o LitePlayer.wgt "%URL%"
+rem The old file goes first, so an old build can never be installed again by mistake.
+if exist LitePlayer.wgt del /f /q LitePlayer.wgt
+if exist LitePlayer.wgt (
+  echo The old LitePlayer.wgt in %FOLDER% could not be deleted. Close Tizen Studio and try again.
+  goto fail
+)
+curl -L --fail -H "Cache-Control: no-cache" -o LitePlayer.wgt "%URL%"
 if errorlevel 1 goto fail
+if not exist LitePlayer.wgt goto fail
+set VER=
+for /f "tokens=2 delims=:, " %%v in ('tar -xOf LitePlayer.wgt js/config.js 2^>nul ^| findstr version') do set VER=%%~v
+if "%VER%"=="" set VER=unknown
+echo.
+echo     Downloaded: IBO Lite Player version %VER%
 
 echo.
 echo [2/4] Signing it with the certificate "%PROFILE%" ...
@@ -45,7 +57,8 @@ call %TIZEN%\tools\ide\bin\tizen.bat install -n LitePlayer.wgt -t %TV% -- %FOLDE
 call %TIZEN%\tools\ide\bin\tizen.bat run -p %APP_ID% -t %TV%
 
 echo.
-echo Done: IBO Lite Player is updated on the TV and opening now.
+echo Done: IBO Lite Player %VER% is on the TV and opening now.
+echo On the TV: Settings shows "Version %VER%" on the left.
 pause
 exit /b 0
 
