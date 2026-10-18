@@ -2,8 +2,8 @@
 
 Builds the Samsung variant, serves it next to the mock server (ci/mock_server.py) and opens it in
 Chromium. Checks: English by default, Settings › Language (Urdu: the app starts again with the
-Android app's Urdu texts, and only that language's file loads), Automatic (a TV in German gets
-German), and Settings › Main Wallpaper (the home picture changes at once, the choice stays).
+Android app's Urdu texts, and only that language's file loads), English on a German TV until a
+language is chosen, Automatic (a TV in German gets German), and Settings › Main Wallpaper (the home picture changes at once, the choice stays).
 
     python3 tvlite/test/look_test.py              (from the repository root)
 """
@@ -71,7 +71,7 @@ def main():
             T.wait_for(page, "Nav.top().name === 'settings'", 2)
             page.evaluate("[].slice.call(document.querySelectorAll('.sbox')).filter(function (r) { return r.querySelector('.lb').textContent === 'Language'; })[0]._ok()")
             check('Language: the choices', T.wait_for(page, "document.querySelectorAll('.lg2').length === 26", 2), page.evaluate("document.querySelectorAll('.lg2').length"))
-            check('Language: Automatic is the one in use', plain(page.evaluate("F.cur.textContent")).startswith('Automatic'), page.evaluate("F.cur.textContent"))
+            check('Language: English is the one in use', plain(page.evaluate("F.cur.textContent")).startswith('English'), page.evaluate("F.cur.textContent"))
             page.screenshot(path=os.path.join(tmp, 'languages.png'))
             with page.expect_navigation():
                 page.evaluate("[].slice.call(document.querySelectorAll('.lg2')).filter(function (b) { return /Urdu/.test(b.textContent); })[0]._ok()")
@@ -91,8 +91,12 @@ def main():
             check('Urdu: no script errors', not errors, '; '.join(errors[:3]))
             ctx.close()
 
-            # ---------------- Automatic: a TV in German
+            # ---------------- a TV in German: English until a language is chosen, Automatic: German
             ctx, page, errors = open_home(b, 'de-DE')
+            check('German TV: English until a language is chosen', tiles(page) == ['Live TV', 'Movies', 'TV Series', 'Catch Up'], tiles(page))
+            check('German TV: no language file loads', not any('js/lang/' in s for s in scripts(page)), scripts(page))
+            ctx.close()
+            ctx, page, errors = open_home(b, 'de-DE', "try { localStorage.setItem('lt_ui_lang', JSON.stringify('auto')); } catch (e) {}")
             want = [de['Live TV'], de['Movies'], de['Series'], de['Catch Up']]
             check('Automatic: German on a German TV', tiles(page) == want, [tiles(page), want])
             fit = page.evaluate("""(function () { var p = document.querySelector('.hm-pills'), s = document.querySelectorAll('.hm-pills .pill')[2];

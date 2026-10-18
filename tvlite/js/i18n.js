@@ -17,8 +17,9 @@ var I18N = { rows: {} };
   for (var i = 0; i < I18N.keys.length; i++) index[I18N.keys[i]] = i;
   I18N.add = function (code, row) { I18N.rows[code] = row; };
 
-  /** The language chosen in Settings ('auto' or a code). */
-  App.uiLanguage = function () { var v = S.get('ui_lang', 'auto'); return typeof v === 'string' && v ? v : 'auto'; };
+  /** The language chosen in Settings ('auto' = the TV's, or a code). English until one is chosen: the
+   *  translations cover the main texts only, and the TV stores test the language the app is listed in. */
+  App.uiLanguage = function () { var v = S.get('ui_lang', 'en'); return typeof v === 'string' && v ? v : 'en'; };
   /** The TV's own language (its first two letters). */
   App.tvLanguage = function () {
     var l = String(navigator.language || (navigator.languages && navigator.languages[0]) || 'en').toLowerCase();
