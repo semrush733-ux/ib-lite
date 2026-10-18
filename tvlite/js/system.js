@@ -309,7 +309,8 @@
       ['Licence', Backend.statusLine() || 'Unknown (no answer from the website yet)'],
       ['Expires', licEnd()],
       ['Playlist', App.title() || '—'],
-      ['Video player', Player.engine === 'avplay' ? 'Samsung AVPlay' : 'The TV\'s standard player'],
+      ['Video player', Player.choice() === 'auto' ? 'Automatic (now: ' + (Player.engine === 'avplay' ? 'Samsung AVPlay' : 'the standard player') + ')' :
+        Player.engine === 'avplay' ? 'Samsung AVPlay' : 'The TV\'s standard player'],
       ['Profile', Profiles.active().n + (Store.kidsMode() ? ' (Kids)' : '')]
     ];
     var box = U.el('div', 'infobox2');

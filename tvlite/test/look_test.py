@@ -69,7 +69,7 @@ def main():
             # ---------------- Settings › Language: Urdu
             page.evaluate("Nav.push(new Screens.Settings())")
             T.wait_for(page, "Nav.top().name === 'settings'", 2)
-            page.evaluate("[].slice.call(document.querySelectorAll('.srow')).filter(function (r) { return /Language/.test(r.textContent); })[0]._ok()")
+            page.evaluate("[].slice.call(document.querySelectorAll('.sbox')).filter(function (r) { return r.querySelector('.lb').textContent === 'Language'; })[0]._ok()")
             check('Language: the choices', T.wait_for(page, "document.querySelectorAll('.lg2').length === 26", 2), page.evaluate("document.querySelectorAll('.lg2').length"))
             check('Language: Automatic is the one in use', plain(page.evaluate("F.cur.textContent")).startswith('Automatic'), page.evaluate("F.cur.textContent"))
             page.screenshot(path=os.path.join(tmp, 'languages.png'))
@@ -104,7 +104,7 @@ def main():
             check('wallpaper: the standard one', 'img/home_full.webp' in page.evaluate("document.querySelector('.hm-bg').style.backgroundImage"))
             page.evaluate("Nav.push(new Screens.Settings())")
             T.wait_for(page, "Nav.top().name === 'settings'", 2)
-            page.evaluate("(l) => [].slice.call(document.querySelectorAll('.srow')).filter(function (r) { return r.querySelector('.lb').textContent === l; })[0]._ok()", de['Main Wallpaper'])
+            page.evaluate("(l) => [].slice.call(document.querySelectorAll('.sbox')).filter(function (r) { return r.querySelector('.lb').textContent === l; })[0]._ok()", de['Main Wallpaper'])
             check('wallpaper: 21 choices', T.wait_for(page, "document.querySelectorAll('.wp').length === 21", 2))
             check('wallpaper: the thumbnails load', T.wait_for(page, "[].slice.call(document.querySelectorAll('.wp img')).every(function (i) { return i.complete && i.naturalWidth === 384; })", 4))
             page.screenshot(path=os.path.join(tmp, 'wallpapers.png'))

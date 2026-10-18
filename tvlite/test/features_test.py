@@ -183,9 +183,12 @@ def main():
             # Settings: the switch
             page, errors = start(b, fake)
             page.evaluate("Nav.push(new Screens.Settings())")
-            row = page.evaluate("""(function () { var r = [].slice.call(document.querySelectorAll('.srow')).filter(function (x) {
+            # Settings › Live Player: the row "Start with the last channel", Off / On
+            page.evaluate("[].slice.call(document.querySelectorAll('.sbox')).filter(function (b) { return b.querySelector('.lb').textContent === 'Live Player'; })[0]._ok()")
+            T.wait_for(page, "!!document.querySelector('.choices')", 2)
+            row = page.evaluate("""(function () { var r = [].slice.call(document.querySelectorAll('.choices .subrow')).filter(function (x) {
                 return /Start with the last channel/.test(x.innerText); })[0]; if (!r) return null;
-                var before = r.querySelector('.vl2').textContent; r._ok(); return [before, r.querySelector('.vl2').textContent,
+                var before = r.querySelector('.chip.sel').textContent; r.querySelectorAll('.chip')[1]._ok(); return [before, r.querySelector('.chip.sel').textContent,
                 JSON.parse(localStorage.getItem('lt_start_last_channel'))]; })()""")
             check('settings: "Start with the last channel" switches On', row == ['Off', 'On', True], row)
             check('settings: no script errors', not errors, '; '.join(errors[:3]))

@@ -100,14 +100,24 @@ def main():
             # ---------------- Settings
             page.evaluate("Nav.push(new Screens.Settings())")
             T.wait_for(page, "Nav.top().name === 'settings'", 2)
-            rows = page.evaluate("[].slice.call(document.querySelectorAll('.srow .lb')).map(function (r) { return r.textContent; })")
-            for want in ('Network and speed test', 'Subtitles', 'Clear cache', 'Application info'):
-                check('Settings: ' + want, want in rows, rows)
+            rows = page.evaluate("[].slice.call(document.querySelectorAll('.sbox .lb')).map(function (r) { return r.textContent; })")
+            for want in ('Network', 'Live Player', 'VOD Player', 'Subtitles', 'Parental Control', 'Profiles', 'Main Wallpaper', 'Manage Categories',
+                         'Streaming Boxes', 'Clear Cache', 'Language', 'Application Info', 'Playlists', 'My device', 'Account', 'Speed test',
+                         'Report a problem', 'Restart the app'):
+                check('Settings box: ' + want, want in rows, rows)
+            check('Settings: 18 boxes, three rows of six', len(rows) == 18 and page.evaluate(
+                "(function () { var b = document.querySelectorAll('.sbox'); return b[5].offsetTop === b[0].offsetTop && b[6].offsetTop > b[0].offsetTop && b[12].offsetTop > b[6].offsetTop; })()"), rows)
+            check('Settings: the first box in focus', page.evaluate("F.cur && F.cur.querySelector('.lb').textContent") == 'Network')
+            page.evaluate("App.key('right')")
+            check('Settings: Right moves along the boxes', page.evaluate("F.cur.querySelector('.lb').textContent") == 'Live Player')
+            page.evaluate("App.key('down')")
+            check('Settings: Down to the next row', page.evaluate("F.cur.querySelector('.lb').textContent") == 'Manage Categories', page.evaluate("F.cur.querySelector('.lb').textContent"))
+            page.screenshot(path=os.path.join(tmp, 'settings.png'))
 
             def press_row(label):
-                page.evaluate("(l) => [].slice.call(document.querySelectorAll('.srow')).filter(function (r) { return r.querySelector('.lb').textContent === l; })[0]._ok()", label)
+                page.evaluate("(l) => [].slice.call(document.querySelectorAll('.sbox')).filter(function (r) { return r.querySelector('.lb').textContent === l; })[0]._ok()", label)
 
-            press_row('Network and speed test')
+            press_row('Network')
             check('Network: the connection', T.wait_for(page, "/CONNECTED/.test(UI.topDialog() ? UI.topDialog().innerText : '')", 3), dialog_text(page))
             text = dialog_text(page)
             check('Network: Wi-Fi name, signal and addresses', 'Home WiFi 5G' in text and 'Good' in text and '192.168.1.50' in text and '192.168.1.1' in text and '8.8.8.8' in text, text)
@@ -119,7 +129,9 @@ def main():
             page.evaluate("App.src.categories('live')")
             T.wait_for(page, "Object.keys(App.src.cache).length > 0", 3)
             page.evaluate("localStorage.setItem('lt_weather', '{}')")
-            press_row('Clear cache')
+            press_row('Clear Cache')
+            check('Clear Cache: the cache or the watch history', 'Clear watch history' in dialog_text(page) and 'Clear cache now' in dialog_text(page), dialog_text(page))
+            page.evaluate("[].slice.call(document.querySelectorAll('.dialog .acts .btn')).pop()._ok()")
             check('Clear cache: asks first', 'Clear cache?' in dialog_text(page), dialog_text(page))
             page.evaluate("[].slice.call(document.querySelectorAll('.dialog .acts .btn')).pop()._ok()")
             check('Clear cache: the lists go', page.evaluate("Object.keys(App.src.cache).length") == 0)
@@ -128,7 +140,7 @@ def main():
             check('Clear cache: says so', 'Cache cleared' in page.evaluate("document.getElementById('toast').textContent"))
 
             # Application info
-            press_row('Application info')
+            press_row('Application Info')
             T.wait_for(page, "!!document.querySelector('.infobox2')", 2)
             text = dialog_text(page)
             check('Application info: name, version, device, licence', 'IBO Lite Player' in text and '2.0.999' in text and 'build 999' in text and 'MAC Address' in text and 'Licence' in text, text)

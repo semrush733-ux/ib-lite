@@ -822,109 +822,166 @@ var Screens = {};
   };
 
   // ================================================================== settings
+  /** A window of choices, one row each: [label, names, chosen index, pick(i)] (Live / VOD Player). */
+  App.choiceDialog = function (title, rows, note, done) {
+    var wrap = U.el('div', 'choices'), first = null;
+    rows.forEach(function (r) {
+      var row = U.el('div', 'subrow', '<span class="k">' + U.esc(r[0]) + '</span>');
+      r[1].forEach(function (name, i) {
+        var c = U.el('span', 'chip f' + (i === r[2] ? ' sel' : ''), U.esc(name));
+        c._ok = function () {
+          if (r[3](i) === false) return; // the choice asked first and keeps the old one for now
+          [].forEach.call(row.querySelectorAll('.chip'), function (x, k) { x.classList.toggle('sel', k === i); });
+        };
+        c._enter = function (dir) { F.set(dir === 'up' || dir === 'down' ? (row.querySelector('.chip.sel') || c) : c); };
+        row.appendChild(c);
+        if (!first && i === r[2]) first = c;
+      });
+      wrap.appendChild(row);
+    });
+    if (note) wrap.appendChild(U.el('div', 'kc-note', U.esc(note)));
+    return UI.dialog({ title: title, html: wrap, width: 1500, buttons: [{ label: 'Done', pri: true }], focusEl: first, onClose: done });
+  };
+
+  /** Settings as boxes, as in the Android app (one box per section). */
   Screens.Settings = function () {
     this.name = 'settings';
     var el = this.el = screenEl();
-    el.innerHTML = '<div class="br-bg"></div><div class="st-side">' + UI.logo(46) + '<h1>Settings</h1><div class="ver"></div></div>' +
-      '<div class="st-main"><div class="st-rows"></div></div>';
-    el.querySelector('.ver').innerHTML = U.esc(CONFIG.appName) + '<br>Version ' + U.esc(CONFIG.version || '') +
-      '<br>' + U.esc(Backend.statusLine() || '') + '<br><span class="tvinfo"></span>';
-    var main = el.querySelector('.st-rows'), scroll = 0;
+    el.innerHTML = '<div class="br-bg"></div><div class="st-head">' + UI.logo(46) + '<h1>' + U.esc(App.t('Settings')) + '</h1>' +
+      '<div class="ver"></div></div><div class="st-grid"></div>';
+    el.querySelector('.ver').innerHTML = U.esc(CONFIG.appName) + '  ·  Version ' + U.esc(CONFIG.version || '') +
+      (Backend.statusLine() ? '  ·  ' + U.esc(Backend.statusLine()) : '') + '<span class="tvinfo"></span>';
+    var grid = el.querySelector('.st-grid');
+    function rgba(hex, a) {
+      var n = parseInt(hex.substring(1), 16);
+      return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+    }
+    function box(icon, color, title, value, ok) {
+      var b = U.el('div', 'sbox f', '<span class="si">' + U.icon(icon) + '</span><span class="lb">' + U.esc(title) + '</span><span class="vl2"></span>');
+      b.style.background = 'linear-gradient(135deg, ' + rgba(color, 0.2) + ', #1B1416 72%)';
+      b.querySelector('.si').style.color = color;
+      b._ok = function () { ok(b); };
+      b._val = function (v) { b.querySelector('.vl2').textContent = v || ''; };
+      b._val(value);
+      grid.appendChild(b);
+      return b;
+    }
+    function onOff(v) { return v ? 'On' : 'Off'; }
     var FORMATS = { auto: 'Automatic (TV player, HLS first)', m3u8: 'HLS (m3u8)', ts: 'MPEG-TS (ts)' };
-    /** More rows than the screen holds: the list moves with the focus. */
-    function keepInView(r) {
-      var top = r.offsetTop, bottom = top + r.offsetHeight, view = 1080 - 70 - 40;
-      if (top - scroll < 0) scroll = Math.max(0, top - 20);
-      else if (bottom - scroll > view) scroll = bottom - view;
-      main.style.webkitTransform = main.style.transform = scroll ? 'translateY(' + (-scroll) + 'px)' : '';
-    }
-    function row(icon, label, value, ok) {
-      var r = U.el('div', 'srow f', U.icon(icon) + '<span class="lb">' + U.esc(label) + '</span><span class="vl2">' + (value || '') + '</span>');
-      r._ok = function () { ok(r); };
-      r._focus = function () { keepInView(r); };
-      main.appendChild(r);
-      return r;
-    }
-    row('playlist', App.t('Playlists'), U.esc(shortName(App.title(), '')) + U.icon('chevR'), function () { App.choosePlaylist(); });
-    row('person', App.t('Profiles'), U.esc(Profiles.active().n) + U.icon('chevR'), function () { Nav.push(new Screens.Profiles({ src: App.src })); });
-    row('live', 'Live stream format', U.esc(FORMATS[Store.liveFormat()] || FORMATS.auto), function (r) {
-      var order = ['auto', 'm3u8', 'ts'];
-      var next = order[(order.indexOf(Store.liveFormat()) + 1) % order.length];
-      Store.setLiveFormat(next);
-      r.querySelector('.vl2').textContent = FORMATS[next];
-      UI.toast('Live channels: ' + FORMATS[next]);
-    });
-    // Samsung: the TV's standard player, or Samsung's AVPlay (for streams the standard one does not open).
-    if (Player.avplayAvailable) {
-      var PLAYERS = { standard: 'Standard (recommended)', avplay: 'Samsung AVPlay' };
-      row('play', 'Video player', U.esc(PLAYERS[S.get('samsung_player', 'standard')] || PLAYERS.standard), function () {
-        var next = S.get('samsung_player', 'standard') === 'avplay' ? 'standard' : 'avplay';
+    var FORMAT_SHORT = { auto: 'Automatic', m3u8: 'HLS', ts: 'MPEG-TS' };
+    var PLAYERS = { auto: 'Automatic (recommended)', standard: 'Standard', avplay: 'Samsung AVPlay' };
+    var PLAYER_ORDER = ['auto', 'standard', 'avplay'];
+    var FIT_NAMES = { fit: 'Fit', fill: 'Fill', stretch: 'Stretch' };
+    /** Samsung: Automatic (each stream on the player that plays it), the TV's standard player or
+     *  AVPlay (the app starts again to switch). */
+    function playerRow() {
+      var cur = Math.max(0, PLAYER_ORDER.indexOf(Player.choice()));
+      return ['Video player', PLAYER_ORDER.map(function (k) { return PLAYERS[k]; }), cur, function (i) {
+        var next = PLAYER_ORDER[i];
+        if (next === Player.choice()) return true;
         UI.confirm('Video player: ' + PLAYERS[next] + '?', 'The app starts again to switch the player.', 'Switch', 'Cancel', function () {
           S.set('samsung_player', next);
           App.log('video player: ' + next);
           Player.stop();
           location.reload();
         });
-      });
+        return false;
+      }];
     }
-    // As in the Android app (Settings › Live Player): off by default.
-    function onOff(v) { return v ? 'On' : 'Off'; }
-    row('replay', App.t('Start with the last channel'), onOff(S.get('start_last_channel', false)), function (r) {
-      var v = !S.get('start_last_channel', false);
-      S.set('start_last_channel', v);
-      r.querySelector('.vl2').textContent = onOff(v);
-      UI.toast(v ? 'When the app starts, the channel you watched last plays by itself' : 'The app starts on the home screen', 3000);
+    function pictureRow() {
+      var fits = Player.fits();
+      return ['Picture', fits.map(function (f) { return FIT_NAMES[f]; }), Math.max(0, fits.indexOf(Player.fit())), function (i) { Player.setFit(fits[i]); }];
+    }
+
+    // Row 1: as in the Android app.
+    box('wifi', '#1E88FF', 'Network', '', function () { App.networkDialog(); });
+    var liveBox = box('live', '#FF3B4E', App.t('Live Player'), FORMAT_SHORT[Store.liveFormat()] || FORMAT_SHORT.auto, function () {
+      var order = ['auto', 'm3u8', 'ts'];
+      var rows = [
+        ['Live stream format', order.map(function (f) { return FORMATS[f]; }), Math.max(0, order.indexOf(Store.liveFormat())), function (i) {
+          Store.setLiveFormat(order[i]);
+          liveBox._val(FORMAT_SHORT[order[i]]);
+        }],
+        [App.t('Start with the last channel'), ['Off', 'On'], S.get('start_last_channel', false) ? 1 : 0, function (i) {
+          S.set('start_last_channel', !!i);
+          UI.toast(i ? 'When the app starts, the channel you watched last plays by itself' : 'The app starts on the home screen', 3000);
+        }],
+        pictureRow()
+      ];
+      if (Player.avplayAvailable) rows.push(playerRow());
+      App.choiceDialog(App.t('Live Player'), rows, 'Live channels and the channel preview. Start with the last channel: the channel you watched last plays when the app starts, ' +
+        'with the others of its category (Up / Down go on from there); Back takes you to the home screen.');
     });
-    function subLook() { return U.esc(App.subLook.sizes[App.subLook.size()] + ', ' + App.subLook.colors[App.subLook.color()].toLowerCase()) + U.icon('chevR'); }
-    var subRow = row('subs', App.t('Subtitles'), subLook(), function () { App.subtitleSettings(function () { subRow.querySelector('.vl2').innerHTML = subLook(); }); });
-    row('apps', App.t('Manage Categories', 'Manage categories'), U.icon('chevR'), function () { Nav.push(new Screens.CatChoice(App.src, 'hide')); });
-    var pinRow = row('lock', App.t('Parental Control', 'Parental control'), (Store.pin() ? 'On' : 'Off') + U.icon('chevR'), function () {
-      Nav.push(new Screens.CatChoice(App.src, 'lock'));
+    var vodBox = box('movie', '#FF8A00', App.t('VOD Player'), Player.avplayAvailable ? PLAYERS[Player.choice()].replace(' (recommended)', '') : 'The TV\'s player', function () {
+      var rows = [pictureRow()];
+      if (Player.avplayAvailable) rows.unshift(playerRow());
+      App.choiceDialog(App.t('VOD Player'), rows, 'Movies and series play in the TV\'s own hardware player. Films carry on where you stopped; ' +
+        'sound tracks, subtitles and the speed are in the player (OK, then the Sound button).');
     });
-    row('tv', App.t('My device'), U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
-    row('person', 'Account', U.icon('chevR'), function () { App.accountDialog(App.account, false); });
-    function svcCount() { var n = Streaming.enabled().length; return (n ? n + ' on' : 'Off') + U.icon('chevR'); }
-    var svcRow = row('video', 'Streaming boxes', svcCount(), function () {
-      Streaming.dialog(function () { svcRow.querySelector('.vl2').innerHTML = svcCount(); });
+    function subLook() { return App.subLook.sizes[App.subLook.size()] + ', ' + App.subLook.colors[App.subLook.color()].toLowerCase(); }
+    var subBox = box('cc', '#FACC15', App.t('Subtitles'), subLook(), function () { App.subtitleSettings(function () { subBox._val(subLook()); }); });
+    var pinBox = box('kids', '#22C55E', App.t('Parental Control'), onOff(!!Store.pin()), function () { Nav.push(new Screens.CatChoice(App.src, 'lock')); });
+    var profBox = box('groups', '#38BDF8', App.t('Profiles'), Profiles.active().n, function () { Nav.push(new Screens.Profiles({ src: App.src })); });
+    // Row 2
+    function wallName() { return App.wallpaper() ? '#' + App.wallpaper() : App.t('Default'); }
+    var wallBox = box('wallpaper', '#D946EF', App.t('Main Wallpaper'), wallName(), function () { App.wallpaperDialog(function () { wallBox._val(wallName()); }); });
+    box('apps', '#6366F1', App.t('Manage Categories'), '', function () { Nav.push(new Screens.CatChoice(App.src, 'hide')); });
+    function svcCount() { var n = Streaming.enabled().length; return n ? n + ' on' : 'Off'; }
+    var svcBox = box('video', '#EF4444', 'Streaming Boxes', svcCount(), function () { Streaming.dialog(function () { svcBox._val(svcCount()); }); });
+    box('clean', '#8B5CF6', App.t('Clear Cache'), '', function () {
+      UI.dialog({
+        title: App.t('Clear Cache'), width: 1200,
+        html: U.esc('The cache: the channel and film lists and the TV guide kept by the app load fresh from the server. ' +
+          'The watch history: recently watched and the places where films were stopped (of the profile in use). ' +
+          'Your playlist, favourites, profiles and settings stay.'),
+        buttons: [{ label: 'Cancel' }, {
+          label: 'Clear watch history', icon: 'history', ok: function () {
+            UI.confirm('Clear watch history?', 'Recently watched and the places where films were stopped are removed.', 'Clear', 'Cancel', function () {
+              Store.clearHistory();
+              UI.toast('Watch history cleared');
+            });
+          }
+        }, { label: App.t('Clear cache now'), icon: 'clean', pri: true, ok: function () { App.clearCache(); } }], focus: 2
+      });
     });
     function langName() {
       var c = App.uiLanguage();
-      if (c === 'auto') return U.esc(App.t('Automatic (TV language)')) + U.icon('chevR');
-      for (var i = 0; i < I18N.langs.length; i++) if (I18N.langs[i][0] === c) return U.esc(I18N.langs[i][2]) + U.icon('chevR');
-      return U.icon('chevR');
+      if (c === 'auto') return App.t('Automatic (TV language)');
+      for (var i = 0; i < I18N.langs.length; i++) if (I18N.langs[i][0] === c) return I18N.langs[i][2];
+      return '';
     }
-    row('lang', App.t('Language'), langName(), function () { App.languageDialog(); });
-    function wallName() { return U.esc(App.wallpaper() ? '#' + App.wallpaper() : App.t('Default')) + U.icon('chevR'); }
-    var wallRow = row('wallpaper', App.t('Main Wallpaper'), wallName(), function () {
-      App.wallpaperDialog(function () { wallRow.querySelector('.vl2').innerHTML = wallName(); });
-    });
-    row('wifi', 'Network and speed test', U.icon('chevR'), function () { App.networkDialog(); });
-    row('error', App.t('Report a problem'), U.icon('chevR'), function () { App.reportProblem(); });
-    row('clean', App.t('Clear Cache', 'Clear cache'), '', function () { App.clearCache(); });
-    row('info', App.t('Application Info', 'Application info'), U.icon('chevR'), function () { App.appInfo(); });
-    row('history', 'Clear watch history', '', function () {
-      UI.confirm('Clear watch history?', 'Recently watched and the places where films were stopped are removed.', 'Clear', 'Cancel', function () {
-        Store.clearHistory();
-        UI.toast('Watch history cleared');
-      });
-    });
-    row('refresh', 'Restart the app', '', function () { App.restart(); });
+    box('lang', '#06B6D4', App.t('Language'), langName(), function () { App.languageDialog(); });
+    box('info', '#F5B400', App.t('Application Info'), 'Version ' + (CONFIG.version || ''), function () { App.appInfo(); });
+    // Row 3: the TV app's own.
+    var plBox = box('playlist', '#E3262F', App.t('Playlists'), shortName(App.title(), ''), function () { App.choosePlaylist(); });
+    box('tv', '#94A3B8', App.t('My device'), Backend.deviceId || '', App.deviceDialog);
+    box('account', '#F472B6', 'Account', '', function () { App.accountDialog(App.account, false); });
+    box('speed', '#10B981', 'Speed test', '', function () { App.speedTest(); });
+    box('error', '#F97316', App.t('Report a problem'), '', function () { App.reportProblem(); });
+    box('refresh', '#64748B', 'Restart the app', '', function () { App.restart(); });
+
     this.show = function (first) {
-      if (!first) { pinRow.querySelector('.vl2').innerHTML = (Store.pin() ? 'On' : 'Off') + U.icon('chevR'); return; }
+      if (!first) {
+        pinBox._val(onOff(!!Store.pin()));
+        profBox._val(Profiles.active().n);
+        plBox._val(shortName(App.title(), ''));
+        return;
+      }
+      F.set(grid.firstChild);
       if (window.webapis && webapis.productinfo) { // Samsung TV: model and Tizen version
         try {
           var pi = webapis.productinfo, t0 = el.querySelector('.tvinfo');
           var model = pi.getRealModel ? pi.getRealModel() : pi.getModel();
           var tz = '';
           try { tz = tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version'); } catch (e1) {}
-          if (t0) t0.textContent = [model, tz ? 'Tizen ' + tz : ''].filter(function (s) { return s; }).join(' · ');
+          if (t0) t0.textContent = [model, tz ? 'Tizen ' + tz : ''].filter(function (s) { return s; }).map(function (s) { return '  ·  ' + s; }).join('');
         } catch (e) {}
         return;
       }
       App.luna('luna://com.webos.service.tv.systemproperty/getSystemInfo', { keys: ['modelName', 'sdkVersion', 'firmwareVersion'] }, 1500).then(function (r) {
         if (!r) return;
         var t = el.querySelector('.tvinfo');
-        if (t) t.textContent = [r.modelName, r.sdkVersion ? 'webOS ' + r.sdkVersion : ''].filter(function (s) { return s; }).join(' · ');
+        if (t) t.textContent = [r.modelName, r.sdkVersion ? 'webOS ' + r.sdkVersion : ''].filter(function (s) { return s; }).map(function (s) { return '  ·  ' + s; }).join('');
       });
     };
   };

@@ -98,7 +98,7 @@ def main():
             # ---------------- Settings › Subtitles
             page.evaluate("Nav.push(new Screens.Settings())")
             T.wait_for(page, "Nav.top().name === 'settings'", 2)
-            page.evaluate("[].slice.call(document.querySelectorAll('.srow')).filter(function (r) { return /Subtitles/.test(r.textContent); })[0]._ok()")
+            page.evaluate("[].slice.call(document.querySelectorAll('.sbox')).filter(function (r) { return r.querySelector('.lb').textContent === 'Subtitles'; })[0]._ok()")
             check('Settings: the subtitle look', T.wait_for(page, "!!document.querySelector('.subset')", 2))
             check('Settings: Medium in focus', page.evaluate("F.cur && F.cur.textContent") == 'Medium')
             page.evaluate("App.key('right')")
@@ -114,7 +114,7 @@ def main():
             check('Settings: the sample follows', sample == str(round(73 * 0.62)) + 'px', sample)
             page.screenshot(path=os.path.join(tmp, 'subtitle-settings.png'))
             page.evaluate("UI.closeAll()")
-            row = page.evaluate("[].slice.call(document.querySelectorAll('.srow')).filter(function (r) { return /Subtitles/.test(r.textContent); })[0].textContent")
+            row = page.evaluate("[].slice.call(document.querySelectorAll('.sbox')).filter(function (r) { return r.querySelector('.lb').textContent === 'Subtitles'; })[0].textContent")
             check('Settings: the row says Large, yellow', 'Large, yellow' in row, row)
             FT.back_to(page, 'home', 3)
             page.evaluate("window.__av.calls = []")

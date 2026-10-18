@@ -521,17 +521,26 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .opt.on { background: #5B1D22; border-color: #E3262F; }
 
 /* ---------- settings ---------- */
-.st-side { position: absolute; left: 0; top: 0; width: 520px; height: 1080px; background: #181214; padding: 44px 40px; }
-.st-side h1 { font-size: 48px; font-weight: 800; margin: 50px 0 14px; }
-.st-side .ver { color: #8B93A3; font-size: 26px; line-height: 1.5; }
-.st-main { position: absolute; left: 580px; right: 80px; top: 70px; bottom: 0; overflow: hidden; padding: 6px 6px 0; margin: -6px -6px 0; }
-.st-rows { will-change: transform; -webkit-transition: -webkit-transform 200ms ease-out; transition: transform 200ms ease-out; }
-.srow { height: 112px; border-radius: 22px; background: #231A1C; border: 4px solid transparent; margin-bottom: 18px; padding: 0 34px; white-space: nowrap; position: relative; }
-.srow .ic { font-size: 50px; color: #E3262F; vertical-align: middle; margin-right: 26px; line-height: 104px; }
-.srow .lb { display: inline-block; vertical-align: middle; font-size: 31px; font-weight: 700; }
-.srow .vl2 { position: absolute; right: 34px; top: 0; line-height: 104px; font-size: 28px; color: #D5DAE3; font-weight: 600; }
-.srow .vl2 .ic { font-size: 40px; color: #8B93A3; margin: 0 0 0 10px; }
-.srow.on { background: #5B1D22; border-color: #E3262F; }
+.st-head { position: absolute; left: 70px; right: 70px; top: 44px; height: 120px; white-space: nowrap; }
+.st-head .logo { vertical-align: middle; }
+.st-head h1 { display: inline-block; vertical-align: middle; margin: 0 0 0 40px; padding-left: 40px; border-left: 3px solid rgba(255,255,255,0.14);
+  font-size: 50px; font-weight: 800; line-height: 70px; }
+.st-head .ver { position: absolute; right: 0; top: 30px; color: #8B93A3; font-size: 25px; }
+.st-grid { position: absolute; left: 70px; right: 70px; top: 200px; white-space: normal; font-size: 0; }
+/* As in the Android app: one box per section, the icon in the section's colour. */
+.sbox { position: relative; display: inline-block; vertical-align: top; width: 276px; height: 248px; margin: 0 24px 24px 0; border-radius: 28px;
+  border: 3px solid rgba(255,255,255,0.10); text-align: center; overflow: hidden; }
+.sbox:nth-child(6n) { margin-right: 0; }
+.sbox .si { position: absolute; left: 0; right: 0; top: 34px; height: 80px; }
+.sbox .si .ic { font-size: 74px; line-height: 80px; }
+/* The name in one or two lines, the value under it; together in the space under the icon. */
+.sbox .lb { position: absolute; left: 14px; right: 14px; top: 124px; font-size: 28px; font-weight: 700; line-height: 34px; color: #fff;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.sbox .vl2 { position: absolute; left: 16px; right: 16px; bottom: 22px; font-size: 22px; color: #8B93A3; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sbox.two .lb { top: 112px; }
+.sbox.on { border-color: #fff; -webkit-transform: scale(1.05); transform: scale(1.05); box-shadow: 0 0 0 5px rgba(227,38,47,0.45); }
+.choices .subrow { height: 96px; }
+.choices .subrow .k { width: 380px; white-space: normal; line-height: 1.2; }
 
 /* ---------- activation ---------- */
 .ac-left { position: absolute; left: 0; top: 0; width: 960px; height: 1080px; padding: 0 96px; background: linear-gradient(135deg, #1B1F2A, #0E0A0B); }

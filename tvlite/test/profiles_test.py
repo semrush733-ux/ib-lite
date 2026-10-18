@@ -108,13 +108,11 @@ def main():
             check('PIN: wrong one refused', T.wait_for(page, "/Wrong PIN/.test(UI.topDialog().querySelector('.pinerr').textContent)", 2))
             type_in(page, '1234')
             check('PIN: right one opens Settings', T.wait_for(page, "Nav.top().name === 'settings'", 3), FT.top(page))
-            rows = page.evaluate("[].slice.call(document.querySelectorAll('.srow .lb')).map(function (r) { return r.textContent; })")
-            check('Settings: Profiles and Parental control rows', 'Profiles' in rows and 'Parental control' in rows, rows)
-            # the last row can be reached: the list moves
-            page.evaluate("var r = document.querySelectorAll('.srow'); F.set(r[r.length - 1])")
-            time.sleep(0.5)
-            bottom = page.evaluate("document.querySelectorAll('.srow')[document.querySelectorAll('.srow').length - 1].getBoundingClientRect().bottom")
-            check('Settings: the last row comes into view', bottom <= 1080, bottom)
+            rows = page.evaluate("[].slice.call(document.querySelectorAll('.sbox .lb')).map(function (r) { return r.textContent; })")
+            check('Settings: Profiles and Parental Control boxes', 'Profiles' in rows and 'Parental Control' in rows, rows)
+            # every box is on the screen (as in the Android app)
+            bottom = page.evaluate("document.querySelectorAll('.sbox')[document.querySelectorAll('.sbox').length - 1].getBoundingClientRect().bottom")
+            check('Settings: all the boxes on one screen', bottom <= 1080, bottom)
             FT.back_to(page, 'home')
 
             # a parent ticks "Sports" in Kids categories

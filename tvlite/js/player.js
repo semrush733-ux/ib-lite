@@ -55,11 +55,18 @@ var Player = {};
   }
 
   // ================================================================ the engines
-  // Samsung's AVPlay only when chosen in Settings (the TV's standard player is the default).
+  // Samsung: the TV's standard player (<video>) and Samsung's AVPlay. Settings › Video player:
+  // Automatic (the default): every stream on the player that suits it (AVPlay for MPEG-TS, MKV and
+  // other files, the standard player for HLS and MP4), and on the other one when it does not play
+  // there; what played is remembered per kind of file. Or always one of the two.
   Player.avplayAvailable = !!(window.webapis && webapis.avplay && typeof webapis.avplay.open === 'function');
-  var av = Player.avplayAvailable && S.get('samsung_player', 'standard') === 'avplay' ? webapis.avplay : null;
+  var choice = Player.avplayAvailable ? String(S.get('samsung_player', 'auto') || 'auto') : 'standard';
+  if (choice !== 'avplay' && choice !== 'standard') choice = 'auto';
+  var av = Player.avplayAvailable && choice !== 'standard' ? webapis.avplay : null;
   var avObj = null;
-  Player.engine = av ? 'avplay' : 'video';
+  Player.engine = choice === 'avplay' ? 'avplay' : 'video';
+  /** 'auto', 'standard' or 'avplay' (Samsung); 'standard' elsewhere. */
+  Player.choice = function () { return choice; };
 
   // ---------------------------------------------------------------- <video> (LG, browsers)
   var VideoEngine = {
@@ -284,14 +291,51 @@ var Player = {};
       avObj.id = 'avp';
       avObj.className = 'hide';
       v.parentNode.insertBefore(avObj, v);
-      v.classList.add('hide');
-      E = AvEngine;
-      App.log('player: Samsung AVPlay');
+      if (choice === 'avplay') { v.classList.add('hide'); E = AvEngine; }
+      App.log('player: ' + (choice === 'avplay' ? 'Samsung AVPlay' : 'automatic (the TV\'s player and AVPlay)'));
     } catch (e) {
       App.log('player: AVPlay not available (' + (e && e.message) + '), <video> used');
       av = null;
+      choice = 'standard';
       Player.engine = 'video';
     }
+  }
+  /** Changes the engine between two tries of a stream (the other one lets go and hides first). */
+  function setEngine(next) {
+    if (next === E) return;
+    try { E.release(); } catch (e) {}
+    E.show(false);
+    E = next;
+    Player.engine = E === AvEngine ? 'avplay' : 'video';
+    if (st.mode !== 'off') E.show(true);
+  }
+  // Automatic: AVPlay first for these kinds of file (the standard player first for the rest).
+  var AV_FIRST = { ts: 1, mkv: 1, avi: 1, flv: 1, wmv: 1, mpg: 1, mpeg: 1, vob: 1, php: 1, '': 1 };
+  var learned = S.get('engine_by_type', {}) || {};
+  function fileType(url) {
+    var p = String(url || '').split('?')[0].toLowerCase(), m = /\.([a-z0-9]{2,5})$/.exec(p);
+    return m ? m[1] : '';
+  }
+  /** The tries of a stream: each address on its player, then (Automatic) on the other one. */
+  function plan(urls) {
+    if (choice !== 'auto' || !av) return urls.map(function (u) { return { u: u, e: E }; });
+    var first = [], second = [];
+    urls.forEach(function (u) {
+      var k = fileType(u), l = learned[k];
+      var pref = l === 'avplay' ? AvEngine : l === 'video' ? VideoEngine : AV_FIRST[k] ? AvEngine : VideoEngine;
+      first.push({ u: u, e: pref });
+      second.push({ u: u, e: pref === AvEngine ? VideoEngine : AvEngine });
+    });
+    return first.concat(second);
+  }
+  /** What played, kept for next time (Automatic). */
+  function learn(url) {
+    if (choice !== 'auto' || !av) return;
+    var k = fileType(url), name = E === AvEngine ? 'avplay' : 'video';
+    if (learned[k] === name) return;
+    learned[k] = name;
+    S.set('engine_by_type', learned);
+    App.log('player: ' + (k || 'this kind of stream') + ' plays on ' + (name === 'avplay' ? 'AVPlay' : 'the standard player'));
   }
 
   // ---------------------------------------------------------------- where the picture is
@@ -318,11 +362,11 @@ var Player = {};
    *  or 'stretch'. Kept for next time; the small preview always shows all of the picture. AVPlay has
    *  no "fill": Fit and Stretch there. */
   var FITS = { fit: 'contain', fill: 'cover', stretch: 'fill' };
-  Player.fits = function () { return av ? ['fit', 'stretch'] : ['fit', 'fill', 'stretch']; };
+  Player.fits = function () { return E === AvEngine ? ['fit', 'stretch'] : ['fit', 'fill', 'stretch']; };
   Player.fit = function () { var f = S.get('picture_fit', 'fit'); return Player.fits().indexOf(f) >= 0 ? f : 'fit'; };
   function applyFit() {
     var f = st.mode === 'full' ? Player.fit() : 'fit';
-    if (av) {
+    if (E === AvEngine) {
       if (avState() === 'NONE') return;
       try { av.setDisplayMethod(f === 'stretch' ? 'PLAYER_DISPLAY_MODE_FULL_SCREEN' : 'PLAYER_DISPLAY_MODE_LETTER_BOX'); } catch (e) {}
       return;
@@ -336,10 +380,10 @@ var Player = {};
     applyFit();
   };
   /** Films: playback speed (the TV's standard player; not for live channels). */
-  Player.speeds = function () { return av || st.live ? [] : [0.5, 0.75, 1, 1.25, 1.5, 2]; };
+  Player.speeds = function () { return E === AvEngine || st.live ? [] : [0.5, 0.75, 1, 1.25, 1.5, 2]; };
   Player.speed = function () { return st.speed || 1; };
   Player.setSpeed = function (x) {
-    if (av || st.live) return;
+    if (E === AvEngine || st.live) return;
     st.speed = x;
     try { v.defaultPlaybackRate = x; v.playbackRate = x; } catch (e) {} // kept when the stream reconnects
     App.log('speed ' + x);
@@ -362,7 +406,8 @@ var Player = {};
     var wasPlaying = st.state !== 'off';
     release();
     st.urls = (urls || []).slice();
-    st.ui = 0;
+    st.tries = plan(st.urls);
+    st.ti = 0;
     st.live = !!opts.live;
     st.lastWhat = describe(st.urls[0]);
     st.lastInfo = '';
@@ -373,7 +418,7 @@ var Player = {};
     st.seekTo = -1;
     st.speed = 1;
     if (st.sub >= 0) { st.sub = -1; emit('sub', { text: '' }); }
-    if (!av) { try { v.defaultPlaybackRate = 1; } catch (e) {} }
+    try { v.defaultPlaybackRate = 1; } catch (e) {}
     setState('loading');
     if (!st.urls.length) { setState('error', 'no address'); return t; }
     // A moment for the TV's player to let go of the previous stream (one connection per account).
@@ -382,9 +427,11 @@ var Player = {};
   };
 
   function load(t) {
-    var url = st.urls[st.ui];
+    var tr = st.tries[st.ti], url = tr.u;
+    setEngine(tr.e);
     st.t0 = Date.now();
-    App.log('open ' + describe(url) + (st.ui ? ' (other address)' : '') + (st.retries ? ' (reconnect ' + st.retries + ')' : ''));
+    App.log('open ' + describe(url) + (st.ti ? (url === st.urls[0] ? ' (the other player)' : ' (other address)') : '') +
+      (st.retries ? ' (reconnect ' + st.retries + ')' : '') + (choice === 'auto' ? ' on ' + (E === AvEngine ? 'AVPlay' : 'the standard player') : ''));
     E.load(t, url);
     arm(t, st.live ? 14000 : 30000);
   }
@@ -401,8 +448,8 @@ var Player = {};
     if (t !== st.token) return;
     App.log('stream problem: ' + why);
     clearTimers();
-    if (!st.played && st.ui + 1 < st.urls.length) {
-      st.ui++;
+    if (!st.played && st.ti + 1 < st.tries.length) {
+      st.ti++;
       release();
       st.loadTimer = setTimeout(function () { if (t === st.token) load(t); }, 150);
       return;
@@ -445,8 +492,10 @@ var Player = {};
     clearTimeout(st.stall);
     if (!st.played) {
       st.played = true;
-      App.log('picture after ' + (Date.now() - st.t0) + ' ms (' + (fmt(st.urls[st.ui]) || 'file') + ', ' + Player.engine + ')');
-      if (st.live) Src.formatWorked(fmt(st.urls[st.ui]), st.ui > 0);
+      var url = st.tries[st.ti].u;
+      App.log('picture after ' + (Date.now() - st.t0) + ' ms (' + (fmt(url) || 'file') + ', ' + Player.engine + ')');
+      if (st.live) Src.formatWorked(fmt(url), url !== st.urls[0]);
+      learn(url);
       emit('first');
     }
     st.retries = 0;
@@ -476,9 +525,9 @@ var Player = {};
     setState('ended');
   }
 
-  // <video> events (LG, browsers).
-  function on(name, fn) { v.addEventListener(name, fn); }
-  if (E === VideoEngine) {
+  // <video> events (LG, browsers, Samsung's standard player): only while it is the engine.
+  function on(name, fn) { v.addEventListener(name, function (e) { if (E === VideoEngine) fn(e); }); }
+  (function () {
     on('playing', onPlaying);
     on('loadedmetadata', function () {
       if (!st.live && st.start > 1) {
@@ -511,7 +560,7 @@ var Player = {};
         setState('playing');
       }
     });
-  }
+  })();
 
   // ---------------------------------------------------------------- controls (films)
   Player.pos = function () { return E.pos(); };
@@ -560,8 +609,8 @@ var Player = {};
     for (var k = 0; k < l.length; k++) if (l[k].lang === want) { Player.setSub(l[k].i); return; }
   }
   Player.on(function (ev) { if (ev === 'meta') autoSub(); });
-  if (E === VideoEngine && v.textTracks && v.textTracks.addEventListener) {
-    v.textTracks.addEventListener('addtrack', function () { emit('meta'); });
+  if (v.textTracks && v.textTracks.addEventListener) {
+    v.textTracks.addEventListener('addtrack', function () { if (E === VideoEngine) emit('meta'); });
   }
 
   /** The stream's sound tracks, when the TV tells them. */

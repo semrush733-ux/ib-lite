@@ -29,7 +29,7 @@ def cat_rows(page, sel):
 
 
 def open_settings_row(page, label):
-    page.evaluate("""(l) => { var r = [].slice.call(document.querySelectorAll('.srow')).filter(function (x) {
+    page.evaluate("""(l) => { var r = [].slice.call(document.querySelectorAll('.sbox')).filter(function (x) {
         return x.querySelector('.lb').textContent === l; })[0]; F.set(r); r._ok(); }""", label)
 
 
@@ -72,7 +72,7 @@ def main():
 
             # ---------------- Manage categories: hide Sports
             page.evaluate("Nav.push(new Screens.Settings())")
-            open_settings_row(page, 'Manage categories')
+            open_settings_row(page, 'Manage Categories')
             check('Manage categories: opens', T.wait_for(page, "Nav.top().name === 'hide-categories' && document.querySelectorAll('.kcrow .nm').length > 1", 5), FT.top(page))
             click_choice(page, 'Sports')
             check('Manage categories: Sports hidden', page.evaluate("Store.isHiddenSetting('live', '2')") is True)
@@ -90,7 +90,7 @@ def main():
 
             # ---------------- Parental control: lock UK Entertainment (a PIN is made first)
             page.evaluate("Nav.push(new Screens.Settings())")
-            open_settings_row(page, 'Parental control')
+            open_settings_row(page, 'Parental Control')
             T.wait_for(page, "Nav.top().name === 'lock-categories' && document.querySelectorAll('.kcrow .nm').length > 1", 5)
             click_choice(page, 'UK Entertainment')
             check('lock: asks for a new PIN first', T.wait_for(page, "!!UI.topDialog() && /Set a parental PIN/.test(UI.topDialog().innerText)", 3))
