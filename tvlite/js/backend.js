@@ -343,9 +343,11 @@ var Backend = {}, Store = {};
     if (S.get('identity', '') === identity) return;
     ['live', 'vod', 'series'].forEach(function (k) { S.del('fav_' + k); S.del('recent_' + k); S.del('catorder_' + k); });
     S.del('resume');
+    S.del('continue');
     favCache = {};
     recentCache = {};
     resumeCache = null;
+    cwCache = null;
     S.set('identity', identity);
   }
   Store.save = function (s, site) {
@@ -402,6 +404,9 @@ var Backend = {}, Store = {};
     S.del('resume');
     S.del('demo_resume');
     resumeCache = null;
+    S.del('continue');
+    S.del('demo_continue');
+    cwCache = null;
   };
   function resumes() {
     var k = ns() + 'resume';
@@ -416,6 +421,71 @@ var Backend = {}, Store = {};
     var keys = Object.keys(m);
     while (keys.length > 300) delete m[keys.shift()];
     S.set(resumeCache.k, m);
+  };
+
+  // ------------------------------------------------------------------ Continue Watching
+  /** Half-watched films and episodes for the row on the home screen, newest first, at most 20 (as in
+   *  the Android app). A card: {key: 'vod:<id>' or 'ep:<id>' (the resume key), t: the film's or the
+   *  series' name, s: 'S1 E3  ·  title' or the film's year and genre, img, pos and dur in seconds
+   *  (dur 0: not known yet), at, item: the film or the series, ep: the episode, next: 1 for the
+   *  episode after one watched to the end (not started yet)}. A series has one card: its latest. */
+  var cwCache = null;
+  function cwList() {
+    var k = ns() + 'continue';
+    if (!cwCache || cwCache.k !== k) cwCache = { k: k, l: S.get(k, []) || [] };
+    return cwCache.l;
+  }
+  function cwSave() {
+    if (cwCache.l.length > 20) cwCache.l.length = 20;
+    S.set(cwCache.k, cwCache.l);
+  }
+  /** Takes out the card with this key, and with seriesId every card of that series. */
+  function cwDrop(l, key, seriesId) {
+    for (var i = l.length - 1; i >= 0; i--) {
+      var c = l[i];
+      if (c.key === key || (seriesId && c.ep && c.item && c.item.id === seriesId)) l.splice(i, 1);
+    }
+  }
+  Store.epLabel = function (e) { return 'S' + e.season + ' E' + e.num + (e.title ? '  ·  ' + e.title : ''); };
+  Store.continueList = function () { return cwList().slice(); };
+  Store.removeContinue = function (key) {
+    cwDrop(cwList(), key, null);
+    cwSave();
+  };
+  /** The player tells where a film or an episode got to. w: {key, t, s, img, item, ep}. */
+  Store.noteContinue = function (w, pos, dur) {
+    if (!w || !w.key || !w.item) return;
+    var l = cwList(), i;
+    pos = Math.floor(pos || 0);
+    dur = Math.floor(dur || 0);
+    if (dur > 60 && pos > dur * 0.95) { Store.finishContinue(w, null); return; }
+    if (pos < 30) {
+      // Only a few seconds in: no new card, but a card that is there keeps the right place.
+      for (i = 0; i < l.length; i++) {
+        if (l[i].key !== w.key) continue;
+        l[i].pos = pos;
+        if (dur > 0) l[i].dur = dur;
+        cwSave();
+      }
+      return;
+    }
+    cwDrop(l, w.key, w.ep ? w.item.id : null);
+    var c = { key: w.key, t: w.t || w.item.n || '', s: w.s || '', img: w.img || w.item.i || '', pos: pos, dur: dur, at: Date.now(), item: w.item };
+    if (w.ep) c.ep = w.ep;
+    l.unshift(c);
+    cwSave();
+  };
+  /** Watched to the end: its card goes, and the episode after it (next) gets a "Next episode" card. */
+  Store.finishContinue = function (w, next) {
+    if (!w || !w.key) return;
+    var l = cwList();
+    cwDrop(l, w.key, null);
+    if (next && w.ep && w.item) {
+      cwDrop(l, 'ep:' + next.id, w.item.id);
+      l.unshift({ key: 'ep:' + next.id, t: w.t || w.item.n || '', s: Store.epLabel(next), img: w.img || w.item.i || '', pos: 0, dur: 0,
+        at: Date.now(), item: w.item, ep: next, next: 1 });
+    }
+    cwSave();
   };
   /** The customer's own order of categories (hold OK on a category and move it), per kind. */
   Store.catOrder = function (kind) { return S.get(ns() + 'catorder_' + kind, []) || []; };

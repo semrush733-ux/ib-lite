@@ -303,7 +303,11 @@ var Screens = {};
   };
 
   // ================================================================== home
-  Screens.Home = function (src, account) {
+  /** "Start with the last channel" is tried once, on the home screen the app starts with. */
+  var lastChannelTried = false;
+
+  /** boot: the home screen the app starts with (main.js). */
+  Screens.Home = function (src, account, boot) {
     var self = this;
     this.name = 'home';
     App.src = src;
@@ -380,6 +384,109 @@ var Screens = {};
         svcRow.appendChild(b);
       });
       if (had) F.set(liveTile);
+    }
+
+    // Continue Watching (as in the Android app): half-watched films and episodes, newest first,
+    // between the tiles and the streaming boxes. OK plays on where it stopped; holding OK offers
+    // "Play from the start" and "Remove from the row".
+    var cwBox = U.el('div', 'hm-cw');
+    cwBox.innerHTML = '<div class="cwh">Continue Watching</div><div class="cws"></div>';
+    el.appendChild(cwBox);
+    var cwStrip = cwBox.querySelector('.cws'), cwShown = null, cwScroll = 0, cwBusy = false;
+    var CW_VIEW = 1766; // the row's visible width (screen less the margins)
+    function cwNote(c) {
+      if (c.next) return 'Next episode';
+      if (c.dur > 0) {
+        var left = Math.ceil((c.dur - c.pos) / 60);
+        if (left > 0) return left >= 60 ? Math.floor(left / 60) + ' h ' + (left % 60) + ' min left' : left + ' min left';
+      }
+      var m = Math.floor(c.pos / 60);
+      return m >= 60 ? 'At ' + Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : 'At ' + m + ' min';
+    }
+    function cwScrollTo(card) {
+      var x = card.offsetLeft, w = card.offsetWidth;
+      if (x - cwScroll < 0) cwScroll = x;
+      else if (x + w - cwScroll > CW_VIEW) cwScroll = x + w - CW_VIEW;
+      cwStrip.style.webkitTransform = cwStrip.style.transform = cwScroll ? 'translateX(' + (-cwScroll) + 'px)' : '';
+    }
+    function drawContinue() {
+      var list = Store.continueList();
+      var sig = list.map(function (c) { return c.key + ':' + c.pos + ':' + (c.next || 0); }).join(',');
+      if (sig === cwShown) return;
+      cwShown = sig;
+      var hadKey = F.cur && cwStrip.contains(F.cur) ? F.cur._cwKey : null, back = null;
+      cwStrip.innerHTML = '';
+      cwScroll = 0;
+      cwStrip.style.webkitTransform = cwStrip.style.transform = '';
+      el.classList.toggle('cw', list.length > 0);
+      list.forEach(function (c) {
+        var card = U.el('div', 'cwc f', '<span class="pp">' + U.icon(c.ep ? 'series' : 'movie') + '<img alt=""></span>' +
+          '<span class="t"></span><span class="s"></span><span class="pb"><i></i></span><span class="nt">' + U.icon(c.next ? 'next' : 'play') + '<b></b></span>');
+        UI.setImg(card.querySelector('img'), c.img);
+        card.querySelector('.t').textContent = c.t;
+        card.querySelector('.s').textContent = c.s;
+        card.querySelector('.pb i').style.width = (c.dur > 0 && !c.next ? Math.max(2, Math.min(100, Math.round(c.pos * 100 / c.dur))) : 0) + '%';
+        card.querySelector('.nt b').textContent = cwNote(c);
+        card._cwKey = c.key;
+        card._ok = function () { playContinue(c, false); };
+        card._long = function () { continueMenu(c); };
+        card._focus = function () { cwScrollTo(card); };
+        cwStrip.appendChild(card);
+        if (c.key === hadKey) back = card;
+      });
+      // The focus was in the row: it stays there (on the same card, else the newest one).
+      if (hadKey !== null) F.set(back || cwStrip.firstChild || liveTile);
+    }
+    function continueMenu(c) {
+      UI.dialog({
+        title: c.t, html: '<div class="dim" style="font-size:30px;line-height:1.5">' + (c.s ? U.esc(c.s) + '<br>' : '') + U.esc(cwNote(c)) + '</div>',
+        width: 1100,
+        buttons: [
+          { label: 'Remove from the row', icon: 'del', ok: function () { Store.removeContinue(c.key); drawContinue(); } },
+          { label: 'Play from the start', icon: 'replay', ok: function () { playContinue(c, true); } },
+          { label: 'Continue', icon: 'play', pri: true, ok: function () { playContinue(c, false); } }
+        ],
+        focus: 2
+      });
+    }
+    /** Plays a card where it stopped (or from the start). An episode plays with the rest of its
+     *  season after it, as from the series page. */
+    function playContinue(c, fromStart) {
+      if (cwBusy) return;
+      if (fromStart) Store.setResume(c.key, 0);
+      var start = fromStart || c.next ? 0 : c.pos;
+      App.log('continue watching ' + (c.ep ? 'episode' : 'film') + ' start=' + start);
+      if (!c.ep) {
+        Nav.push(new Screens.Player({
+          src: src, kind: 'vod', urls: src.vodUrls ? src.vodUrls(c.item) : [src.vodUrl(c.item)], title: c.t, sub: c.s,
+          poster: c.img, resumeKey: c.key, start: start, item: c.item
+        }));
+        return;
+      }
+      cwBusy = true;
+      UI.toast('Opening "' + c.t + '"…', 9000);
+      var done = false;
+      function go(eps, i) {
+        if (done) return;
+        done = true;
+        cwBusy = false;
+        U.$('toast').innerHTML = '';
+        if (Nav.top() !== self || UI.topDialog()) return; // the customer went somewhere else meanwhile
+        Nav.push(new Screens.Player({ src: src, kind: 'episode', episodes: eps, index: i, title: c.t, poster: c.img, start: start, series: c.item }));
+      }
+      var waited = setTimeout(function () { go([c.ep], 0); }, 8000);
+      src.seriesInfo(c.item.id).then(function (d) {
+        clearTimeout(waited);
+        var eps = [c.ep], idx = 0;
+        (d && d.order || []).forEach(function (s) {
+          var season = d.seasons[s] || [];
+          for (var i = 0; i < season.length; i++) if (season[i].id === c.ep.id) { eps = season; idx = i; }
+        });
+        go(eps, idx);
+      }, function () {
+        clearTimeout(waited);
+        go([c.ep], 0);
+      });
     }
 
     function appExpiry() {
@@ -529,10 +636,58 @@ var Screens = {};
     function onLicence() { if (Nav.top() === self) drawInfo(); }
     function onReload() { App.log('reload asked by the admin panel'); reload(); }
 
+    // ---------------------------------------------------------------- start with the last channel
+    /** Settings → "Start with the last channel" (as in the Android app): the channel watched last
+     *  plays by itself when the app starts, with the other channels of its category around it
+     *  (Up / Down go on from there); Back leaves it on the home screen. The home screen shows for
+     *  a moment first, and a key pressed meanwhile means the customer goes somewhere else. */
+    var keyEarly = false;
+    function noteKey() { if (!App.blocked) keyEarly = true; }
+    function startLastChannel() {
+      var it = Store.recents('live')[0];
+      if (!it) return;
+      document.addEventListener('keydown', noteKey, true);
+      function done() { document.removeEventListener('keydown', noteKey, true); }
+      var cat = it.c || '';
+      Promise.all([
+        cat ? src.items('live', cat).then(null, function () { return null; }) : Promise.resolve(null),
+        cat ? src.categories('live').then(null, function () { return []; }) : Promise.resolve([])
+      ]).then(function (r) {
+        var items = r[0], name = '', idx = -1, i;
+        (r[1] || []).forEach(function (c) { if (c.id === cat) name = c.name; });
+        if (items) for (i = 0; i < items.length; i++) if (items[i].id === it.id) { idx = i; break; }
+        if (idx < 0) {
+          // Its category came but the channel is not in it any more: nothing to start.
+          if (items && items.length) { App.log('last channel: no longer on the server'); done(); return; }
+          items = [it];
+          idx = 0;
+        }
+        // The start screen, a message or another window may be up first: wait for the home screen.
+        var calm = 0, waited = 0;
+        (function wait() {
+          if (keyEarly || Nav.top() !== self) { done(); return; }
+          if (App.blocked || UI.topDialog()) calm = 0; else calm += 250;
+          waited += 250;
+          if (calm < 750) { if (waited < 12000) setTimeout(wait, 250); else done(); return; }
+          done();
+          App.log('start with the last channel');
+          Nav.push(new Screens.Player({
+            src: src, kind: 'live', items: items, index: idx, title: name,
+            onClose: function () { Player.stop(); Player.layout('off'); }
+          }));
+        })();
+      });
+    }
+
     this.show = function (first) {
       drawInfo();
       drawClock();
       drawSvc();
+      drawContinue();
+      if (first && boot && !lastChannelTried) {
+        lastChannelTried = true;
+        if (S.get('start_last_channel', false)) startLastChannel();
+      }
       if (first) {
         F.set(liveTile);
         if (!acc) refreshAccount();
@@ -591,6 +746,14 @@ var Screens = {};
         });
       });
     }
+    // As in the Android app (Settings › Live Player): off by default.
+    function onOff(v) { return v ? 'On' : 'Off'; }
+    row('replay', 'Start with the last channel', onOff(S.get('start_last_channel', false)), function (r) {
+      var v = !S.get('start_last_channel', false);
+      S.set('start_last_channel', v);
+      r.querySelector('.vl2').textContent = onOff(v);
+      UI.toast(v ? 'When the app starts, the channel you watched last plays by itself' : 'The app starts on the home screen', 3000);
+    });
     row('tv', 'My device', U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
     row('person', 'Account', U.icon('chevR'), function () { App.accountDialog(App.account, false); });
     function svcCount() { var n = Streaming.enabled().length; return (n ? n + ' on' : 'Off') + U.icon('chevR'); }

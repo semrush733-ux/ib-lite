@@ -5,7 +5,7 @@
   'use strict';
 
   /** o: {src, kind: live|vod|episode|rec, items, index, adopt, urls, title, sub, poster, resumeKey,
-   *      start, episodes, onClose(index)} */
+   *      start, episodes, onClose(index), item (the film), series (of the episodes)} */
   Screens.Player = function (o) {
     var self = this;
     this.name = 'player';
@@ -320,12 +320,21 @@
         seekTarget = null;
       }, 700);
     }
+    /** What the Continue Watching row on the home screen shows for this film or episode. */
+    function cwWhat() {
+      if (episodes) {
+        var e = epNow();
+        return o.series ? { key: 'ep:' + e.id, t: o.title, s: Store.epLabel(e), img: o.poster, item: o.series, ep: e } : null;
+      }
+      return o.kind === 'vod' && o.item && o.resumeKey ? { key: o.resumeKey, t: o.title, s: o.sub, img: o.poster, item: o.item } : null;
+    }
     function saveResume() {
       var key = resumeKey();
       if (!key || o.kind === 'rec') return;
       var p = Player.pos(), d = Player.dur();
       if (!d || p < 5) return;
       Store.setResume(key, p > 30 && p < d - 60 ? p : 0);
+      Store.noteContinue(cwWhat(), p, d);
     }
     function openVod(start) {
       setDead(false);
@@ -337,11 +346,12 @@
       Player.open(urls, { live: false, start: s > 30 ? s : 0 });
       if (osdOn) drawTop();
     }
-    function step(d) {
+    /** finished: the episode was watched to the end (its place is not kept). */
+    function step(d, finished) {
       if (!episodes) return;
       var to = ep + d;
       if (to < 0 || to >= episodes.length) return;
-      saveResume();
+      if (!finished) saveResume();
       ep = to;
       openVod();
       drawButtons();
@@ -421,8 +431,10 @@
         showPoster();
         setDead(true);
       } else if (d.state === 'ended') {
-        if (episodes && ep + 1 < episodes.length) { Store.setResume(resumeKey(), 0); step(1); }
-        else { Store.setResume(resumeKey(), 0); leave(true); }
+        var more = episodes && ep + 1 < episodes.length;
+        Store.setResume(resumeKey(), 0);
+        Store.finishContinue(cwWhat(), more ? episodes[ep + 1] : null);
+        if (more) step(1, true); else leave(true);
       }
       if (buttons.length && !live && mainBtn) mainBtn.innerHTML = U.icon(Player.state() === 'paused' ? 'play' : 'pause');
     }

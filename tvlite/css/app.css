@@ -236,6 +236,40 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .hm-svc.compact .svcbox .ic { display: none; }
 .hm-svc.compact .svcbox .nm { font-size: 25px; }
 .hm-svc.compact .svcbox .sb { font-size: 20px; overflow: hidden; text-overflow: ellipsis; }
+/* Continue Watching under the tiles (the tiles get shorter to make room; with the streaming boxes
+   too, both rows fit and the tiles turn wide) */
+.hm-cw { position: absolute; left: 77px; right: 77px; top: 632px; height: 198px; display: none; }
+.screen.cw .hm-cw { display: block; }
+.hm-cw .cwh { height: 40px; line-height: 40px; font-size: 30px; font-weight: 800; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+.hm-cw .cws { position: absolute; left: 0; top: 48px; height: 150px; white-space: nowrap; font-size: 0; will-change: transform;
+  -webkit-transition: -webkit-transform 200ms ease-out; transition: transform 200ms ease-out; }
+.cwc { display: inline-block; vertical-align: top; position: relative; width: 420px; height: 150px; margin-right: 24px; border-radius: 24px;
+  background: rgba(26,13,16,0.9); border: 3px solid rgba(255,255,255,0.18); box-sizing: border-box; white-space: nowrap;
+  -webkit-transition: -webkit-transform 140ms ease-out; transition: transform 140ms ease-out; will-change: transform; }
+.cwc:last-child { margin-right: 0; }
+.cwc .pp { position: absolute; left: 10px; top: 10px; width: 84px; height: 124px; border-radius: 12px; overflow: hidden; background: #2A1A1D; text-align: center; }
+.cwc .pp .ic { font-size: 46px; line-height: 124px; color: #6B5A5D; }
+.cwc .pp img { position: absolute; left: 0; top: 0; width: 84px; height: 124px; object-fit: cover; }
+.cwc .t { position: absolute; left: 112px; right: 18px; top: 16px; font-size: 27px; font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; }
+.cwc .s { position: absolute; left: 112px; right: 18px; top: 52px; font-size: 21px; color: #9BA3B2; overflow: hidden; text-overflow: ellipsis; }
+.cwc .pb { position: absolute; left: 112px; right: 18px; top: 90px; height: 7px; border-radius: 4px; background: rgba(255,255,255,0.18); overflow: hidden; }
+.cwc .pb i { display: block; height: 7px; background: #E3262F; border-radius: 4px; }
+.cwc .nt { position: absolute; left: 112px; right: 18px; top: 106px; font-size: 21px; font-weight: 700; color: #9BA3B2; overflow: hidden; text-overflow: ellipsis; }
+.cwc .nt .ic { font-size: 24px; vertical-align: middle; margin: -4px 6px 0 -2px; color: #E3262F; }
+.cwc.on { background: #5B1D22; border-color: #fff; -webkit-transform: scale(1.04); transform: scale(1.04); }
+.cwc.on .s, .cwc.on .nt { color: #E6D3D5; }
+.cwc.on .nt .ic { color: #fff; }
+.cwc.on .pb { background: rgba(255,255,255,0.3); }
+.cwc.on .pb i { background: #fff; }
+.screen.cw .hm-tiles, .screen.cw .tile { height: 392px; }
+.screen.cw .tile .ti { top: 80px; font-size: 128px; }
+.screen.cw .tile .tt { top: 244px; }
+.screen.cw.svc .hm-tiles, .screen.cw.svc .tile { height: 272px; }
+.screen.cw.svc .tile .ti { top: 30px; font-size: 100px; }
+.screen.cw.svc .tile .tt { top: 156px; font-size: 42px; }
+.screen.cw.svc .tile .bar { bottom: 16px; }
+.screen.cw.svc .hm-cw { top: 506px; }
+.screen.cw.svc .hm-svc { top: 726px; }
 .hm-bottom { position: absolute; left: 77px; right: 77px; bottom: 43px; display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: stretch; -webkit-align-items: stretch; align-items: stretch; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; }
 .infobox { position: relative; padding: 22px 36px; border-radius: 36px; background: rgba(11,6,7,0.85);

@@ -75,7 +75,7 @@
     function watch(start) {
       Nav.push(new Screens.Player({
         src: src, kind: 'vod', urls: src.vodUrls ? src.vodUrls(it) : [src.vodUrl(it)], title: it.n, sub: [info.year, info.genre].filter(function (s) { return s; }).join('  ·  '),
-        poster: info.cover || it.i, resumeKey: key, start: start
+        poster: info.cover || it.i, resumeKey: key, start: start, item: it
       }));
     }
 
@@ -147,7 +147,7 @@
     function play(i) {
       if (!eps[i]) return;
       Nav.push(new Screens.Player({
-        src: src, kind: 'episode', episodes: eps, index: i, title: it.n, poster: (info && info.cover) || it.i
+        src: src, kind: 'episode', episodes: eps, index: i, title: it.n, poster: (info && info.cover) || it.i, series: it
       }));
     }
 

@@ -19,7 +19,7 @@
     if (s) {
       var src = Src.fromSession(s);
       App.src = src;
-      return Promise.resolve(new Screens.Home(src, null));
+      return Promise.resolve(new Screens.Home(src, null, true));
     }
     // A new TV: register first (the QR code needs the MAC Address and Device Key), at most a few seconds.
     return Promise.race([
