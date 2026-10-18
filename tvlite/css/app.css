@@ -774,3 +774,37 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .stl img { width: 100%; height: 100%; object-fit: cover; }
 .stl.on { border-color: #fff; }
 .dt-credit { margin: 22px 0 40px 4px; font-size: 19px; color: #596070; }
+
+/* ---------- privacy: "Before you start" and the policy (js/privacy.js) ---------- */
+.cs-left { position: absolute; left: 116px; top: 96px; width: 1020px; }
+.cs-left h1 { margin: 56px 0 26px; font-size: 64px; font-weight: 800; letter-spacing: -1px; }
+.cs-left p { margin: 0 0 22px; font-size: 31px; line-height: 1.42; color: rgba(242,244,248,0.9); }
+.cs-left p b, .cs-left li b { color: #fff; font-weight: 800; }
+.cs-left ul { margin: 0 0 24px; padding-left: 44px; }
+.cs-left li { font-size: 31px; line-height: 1.5; color: rgba(242,244,248,0.9); }
+.cs-left .cs-no { color: #8B93A3; font-size: 27px; }
+.cs-acts { margin-top: 40px; white-space: nowrap; }
+.cs-acts .btn { margin-right: 22px; }
+.cs-right { position: absolute; left: 1240px; top: 230px; width: 560px; padding: 44px; border-radius: 44px; text-align: center;
+  background: rgba(11,6,7,0.9); border: 3px solid rgba(255,255,255,0.33); }
+.pp-qr { background: #fff; border-radius: 24px; padding: 20px; display: inline-block; line-height: 0; }
+.pp-cap { margin-top: 22px; font-size: 27px; color: #D5DAE3; }
+.pp-url { margin-top: 8px; font-size: 23px; font-weight: 700; color: #fff; word-break: break-all; }
+.pp-wrap { display: -webkit-box; display: -webkit-flex; display: flex; }
+.pp-text { position: relative; -webkit-flex: 1; flex: 1; min-width: 0; height: 640px; overflow: hidden; padding: 6px 30px 6px 6px; border-radius: 18px;
+  border: 3px solid transparent; }
+.pp-text.on { border-color: rgba(227,38,47,0.7); }
+.pp-text .pp-in { font-size: 26px; line-height: 1.45; color: #D5DAE3; }
+.pp-text h3 { margin: 22px 0 6px; font-size: 28px; font-weight: 800; color: #fff; }
+.pp-text p { margin: 0 0 10px; }
+.pp-text ul { margin: 0 0 10px; padding-left: 36px; }
+.pp-text li { margin-bottom: 8px; }
+.pp-text b { color: #fff; }
+.pp-side { width: 380px; margin-left: 40px; text-align: center; -webkit-flex-shrink: 0; flex-shrink: 0; padding-top: 30px; }
+.st-head .ver { right: 340px; }
+.st-head .pp-head { position: absolute; right: 0; top: 14px; height: 76px; line-height: 68px; font-size: 26px; padding: 0 28px; }
+.st-head .pp-head .ic { font-size: 34px; }
+.cn-pp { position: absolute; right: 116px; top: 52px; height: 76px; line-height: 68px; font-size: 26px; padding: 0 28px;
+  background: rgba(35,26,28,0.85); border: 2px solid rgba(255,255,255,0.2); }
+.cn-pp .ic { font-size: 34px; }
+.cn-pp.on { background: #5B1D22; border: 4px solid #E3262F; }

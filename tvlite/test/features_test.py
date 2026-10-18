@@ -25,7 +25,7 @@ def start(b, fake, extra=''):
     page = b.new_page(viewport={'width': 1920, 'height': 1080})
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    init = ("try { localStorage.setItem('lt_session', %s); localStorage.setItem('lt_samsung_player', JSON.stringify('avplay')); } catch (e) {}\n"
+    init = ("try { localStorage.setItem('lt_privacy_ok', '1'); localStorage.setItem('lt_session', %s); localStorage.setItem('lt_samsung_player', JSON.stringify('avplay')); } catch (e) {}\n"
             % json.dumps(json.dumps(SESSION))) + extra + '\n' + fake
     page.add_init_script(init)
     page.goto('http://127.0.0.1:%d/index.html' % PORT)
@@ -72,7 +72,7 @@ def main():
             b = p.chromium.launch(args=['--disable-web-security'])
             # ---------------- the start: the name is written letter by letter, the app loads after it
             pg = b.new_page(viewport={'width': 1920, 'height': 1080})
-            pg.add_init_script("try { localStorage.setItem('lt_session', %s); } catch (e) {}" % json.dumps(json.dumps(SESSION)))
+            pg.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); localStorage.setItem('lt_session', %s); } catch (e) {}" % json.dumps(json.dumps(SESSION)))
             pg.goto('http://127.0.0.1:%d/index.html' % PORT, wait_until='domcontentloaded')
             T.wait_for(pg, "/go/.test(document.getElementById('intro').className)", 3)
             letters = pg.evaluate("document.querySelectorAll('#intro .ch').length")

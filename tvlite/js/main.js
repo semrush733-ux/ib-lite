@@ -125,6 +125,7 @@
 
   // Messages from the provider (Admin Panel) and the "reload" command.
   function inbox() {
+    if (!App.consented()) return;
     Backend.pollInbox().then(function (msgs) {
       msgs.forEach(function (m) { UI.message(m.title || 'Message', m.body); });
     });
@@ -177,17 +178,26 @@
 
   // ---------------------------------------------------------------- go
   App.blocked = true;
-  Backend.loadConfig();
-  firstScreen().then(function (s) {
-    Nav.reset(s);
+  function start() {
+    Backend.loadConfig();
+    firstScreen().then(function (s) {
+      Nav.reset(s);
+      closeIntro();
+      if (Backend.registered()) Backend.refreshStatus();
+      App.reminders.start(); // TV Guide reminders (js/guide.js)
+    }, function (e) {
+      App.log('ERROR start: ' + (e && e.message));
+      Nav.reset(new Screens.Connect());
+      closeIntro();
+    });
+  }
+  // The first time: "Before you start" (js/privacy.js); nothing about this TV is sent before that.
+  if (App.consented()) start();
+  else {
+    App.log('privacy: asking first');
+    Nav.reset(new Screens.Consent(start));
     closeIntro();
-    if (Backend.registered()) Backend.refreshStatus();
-    App.reminders.start(); // TV Guide reminders (js/guide.js)
-  }, function (e) {
-    App.log('ERROR start: ' + (e && e.message));
-    Nav.reset(new Screens.Connect());
-    closeIntro();
-  });
+  }
   setTimeout(inbox, 15000);
   setInterval(inbox, 3 * 60000);
 })();

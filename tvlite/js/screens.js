@@ -60,6 +60,7 @@ var Screens = {};
     demoBtn._ok = function () { if (!opening) App.openDemo(true); };
     el.querySelector('.demo').appendChild(demoBtn);
     el.querySelector('.demo').appendChild(U.el('span', 'dnote', 'No playlist yet? Try the player with built-in 4K channels, movies and series.'));
+    el.appendChild(App.privacyButton('cn-pp'));
 
     var shownId = '';
     function drawIds() {
@@ -851,6 +852,8 @@ var Screens = {};
       '<div class="ver"></div></div><div class="st-grid"></div>';
     el.querySelector('.ver').innerHTML = U.esc(CONFIG.appName) + '  ·  Version ' + U.esc(CONFIG.version || '') +
       (Backend.statusLine() ? '  ·  ' + U.esc(Backend.statusLine()) : '') + '<span class="tvinfo"></span>';
+    // The privacy policy at any time (Samsung's privacy guide): Up from the first row of boxes.
+    el.querySelector('.st-head').appendChild(App.privacyButton('pp-head'));
     var grid = el.querySelector('.st-grid');
     function rgba(hex, a) {
       var n = parseInt(hex.substring(1), 16);

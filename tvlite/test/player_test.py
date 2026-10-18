@@ -115,7 +115,7 @@ def main():
             page = b.new_page(viewport={'width': 1920, 'height': 1080})
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
-            page.add_init_script("try { localStorage.setItem('lt_session', %s); } catch (e) {}" % json.dumps(json.dumps(FT.SESSION)))
+            page.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); localStorage.setItem('lt_session', %s); } catch (e) {}" % json.dumps(json.dumps(FT.SESSION)))
             page.goto('http://127.0.0.1:%d/index.html' % FT.PORT)
             T.wait_for(page, "!document.getElementById('intro') && !!(window.Nav && Nav.top())", 15)
             check('standard player: Fit, Fill and Stretch', page.evaluate("Player.fits().join(',')") == 'fit,fill,stretch')

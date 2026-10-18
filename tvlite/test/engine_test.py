@@ -46,7 +46,7 @@ def main():
             page = ctx.new_page()
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
-            page.add_init_script("try { if (!localStorage.getItem('lt_session')) localStorage.setItem('lt_session', %s); } catch (e) {}\n%s"
+            page.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); if (!localStorage.getItem('lt_session')) localStorage.setItem('lt_session', %s); } catch (e) {}\n%s"
                                  % (json.dumps(json.dumps(FT.SESSION)), fake))
             # Film 10 is a file the standard player can play (WebM here); film 12 one it cannot.
             page.route('**/movie/demo/demo/10.mp4', lambda route: route.fulfill(path=webm, content_type='video/webm'))

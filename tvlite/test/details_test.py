@@ -46,7 +46,7 @@ def open_film(b, port, init=''):
     page = b.new_page(viewport={'width': 1920, 'height': 1080})
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    page.add_init_script("try { localStorage.setItem('lt_session', %s); } catch (e) {}\n%s" % (json.dumps(json.dumps(FT.SESSION)), init))
+    page.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); localStorage.setItem('lt_session', %s); } catch (e) {}\n%s" % (json.dumps(json.dumps(FT.SESSION)), init))
     page.goto('http://127.0.0.1:%d/index.html' % port)
     T.wait_for(page, "!document.getElementById('intro') && !!(window.Nav && Nav.top())", 15)
     page.evaluate("""App.src.categories('vod').then(function (c) { return App.src.items('vod', c[0].id); })

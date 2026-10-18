@@ -40,7 +40,7 @@ def open_home(b, locale=None, init=''):
     page = ctx.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    page.add_init_script("try { if (!localStorage.getItem('lt_session')) localStorage.setItem('lt_session', %s); } catch (e) {}\n%s"
+    page.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); if (!localStorage.getItem('lt_session')) localStorage.setItem('lt_session', %s); } catch (e) {}\n%s"
                          % (json.dumps(json.dumps(FT.SESSION)), init))
     page.goto('http://127.0.0.1:%d/index.html' % FT.PORT)
     T.wait_for(page, "!document.getElementById('intro') && !!(window.Nav && Nav.top()) && Nav.top().name === 'home'", 15)

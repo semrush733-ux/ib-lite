@@ -321,7 +321,8 @@
       box.innerHTML = r.map(function (x) { return '<div class="row2"><span class="k">' + U.esc(x[0]) + '</span><span class="v">' + U.esc(x[1]) + '</span></div>'; }).join('');
     }
     draw(null);
-    UI.dialog({ title: 'Application info', html: box, width: 1180, buttons: [{ label: 'Close', pri: true }] });
+    UI.dialog({ title: 'Application info', html: box, width: 1180,
+      buttons: [{ label: 'Privacy Policy', icon: 'shield', ok: function () { App.privacyDialog(); } }, { label: 'Close', pri: true }], focus: 1 });
     App.tvInfo().then(draw);
   };
   function licEnd() {

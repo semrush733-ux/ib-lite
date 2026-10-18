@@ -204,7 +204,7 @@ def main():
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
             sess = {'mode': 'm3u', 'url': 'http://127.0.0.1:8787/guide.m3u', 'epg': '', 'pid': 0, 'pname': 'M3U', 'psig': ''}
-            page.add_init_script("try { localStorage.setItem('lt_session', %s); localStorage.setItem('lt_samsung_player', JSON.stringify('avplay')); } catch (e) {}\n%s"
+            page.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); localStorage.setItem('lt_session', %s); localStorage.setItem('lt_samsung_player', JSON.stringify('avplay')); } catch (e) {}\n%s"
                                  % (json.dumps(json.dumps(sess)), fake))
             page.goto('http://127.0.0.1:%d/index.html' % FT.PORT)
             T.wait_for(page, "!document.getElementById('intro') && !!(window.Nav && Nav.top())", 15)
@@ -245,7 +245,7 @@ def main():
             page = b.new_page(viewport={'width': 1920, 'height': 1080})
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
-            page.add_init_script("try { localStorage.setItem('lt_session', JSON.stringify({mode: 'demo'})); } catch (e) {}")
+            page.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); localStorage.setItem('lt_session', JSON.stringify({mode: 'demo'})); } catch (e) {}")
             page.goto('http://127.0.0.1:%d/index.html' % FT.PORT)
             T.wait_for(page, "!document.getElementById('intro') && !!(window.Nav && Nav.top())", 15)
             open_live(page)

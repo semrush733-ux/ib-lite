@@ -133,7 +133,7 @@ def main():
             page = b.new_page(viewport={'width': 1920, 'height': 1080})
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
-            page.add_init_script("try { localStorage.setItem('lt_session', %s); } catch (e) {}" % json.dumps(json.dumps(FT.SESSION)))
+            page.add_init_script("try { localStorage.setItem('lt_privacy_ok', '1'); localStorage.setItem('lt_session', %s); } catch (e) {}" % json.dumps(json.dumps(FT.SESSION)))
             # Chromium here plays WebM, not the H.264 films of a real server: a small WebM stands in.
             webm = os.path.join(tmp, 'clip.webm')
             subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=320x180:rate=25', '-t', '20',
