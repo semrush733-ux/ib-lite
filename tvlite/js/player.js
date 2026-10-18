@@ -32,6 +32,7 @@ var Player = {};
   function setState(s, info) {
     if (st.state === s && !info) return;
     st.state = s;
+    if (s !== 'off') { st.lastState = s; if (info) st.lastInfo = info; }
     emit('state', { state: s, info: info || '' });
   }
   Player.state = function () { return st.state; };
@@ -263,6 +264,11 @@ var Player = {};
     applyFit();
   };
   Player.mode = function () { return st.mode; };
+  /** The last stream, for "Report a problem" (what it was, never its address). */
+  Player.lastStream = function () {
+    return { what: st.lastWhat || 'none', live: !!st.live, state: st.lastState || 'none', problem: st.lastInfo || '',
+      now: st.state, engine: Player.engine, picture: Player.size() };
+  };
 
   // ---------------------------------------------------------------- picture and speed (full screen)
   /** Picture: 'fit' (all of it, black bars where needed), 'fill' (the screen filled, the edges cut)
@@ -315,6 +321,8 @@ var Player = {};
     st.urls = (urls || []).slice();
     st.ui = 0;
     st.live = !!opts.live;
+    st.lastWhat = describe(st.urls[0]);
+    st.lastInfo = '';
     st.loop = !!opts.loop;
     st.start = opts.start || 0;
     st.retries = 0;

@@ -211,6 +211,84 @@ var Screens = {};
     UI.dialog({ title: 'My device', html: html, width: 1060, buttons: [{ label: 'Close', pri: true }] });
   };
 
+  /** This TV: maker, model and system (Samsung: Tizen version; LG: webOS version). Never fails. */
+  App.tvInfo = function () {
+    if (window.webapis && webapis.productinfo) {
+      var out = { manufacturer: 'Samsung', model: '', system: 'Tizen' };
+      try { var pi = webapis.productinfo; out.model = pi.getRealModel ? pi.getRealModel() : pi.getModel(); } catch (e) {}
+      try { out.system = 'Tizen ' + tizen.systeminfo.getCapability('http://tizen.org/feature/platform.version'); } catch (e1) {}
+      return Promise.resolve(out);
+    }
+    if (!window.PalmSystem) return Promise.resolve({ manufacturer: '', model: '', system: navigator.userAgent.slice(-60) });
+    return App.luna('luna://com.webos.service.tv.systemproperty/getSystemInfo', { keys: ['modelName', 'sdkVersion', 'firmwareVersion'] }, 1500).then(function (r) {
+      return { manufacturer: 'LG', model: (r && r.modelName) || '', system: r && r.sdkVersion ? 'webOS ' + r.sdkVersion : 'webOS', firmware: (r && r.firmwareVersion) || '' };
+    }, function () { return { manufacturer: 'LG', model: '', system: 'webOS' }; });
+  };
+
+  // ------------------------------------------------------------------ Report a problem (as in the Android app)
+  /** What went wrong goes to the website with the app's recent log, this TV's model and the last
+   *  channel or film (never a password or a stream address). The admin reads it in the Admin Panel
+   *  app (More → Problem reports) or in WordPress (Lite Player → Problem reports). */
+  var REASONS = ['A channel does not play', 'Picture freezes or buffers', 'No sound or wrong language', 'A film or series does not play',
+    'TV Guide is wrong or missing', 'The app is slow or closes', 'Something else'];
+  var reportSent = 0;
+  function hostOf(url) { var m = /^https?:\/\/([^\/?#]+)/i.exec(String(url || '')); return m ? m[1].replace(/^[^@]*@/, '') : ''; }
+  App.reportProblem = function () {
+    App.log('report dialog');
+    var reason = -1;
+    var wrap = U.el('div', 'rep');
+    wrap.innerHTML = '<div class="dim">What went wrong? The app sends its recent log, this TV\'s model and the last channel or film to the support team. No password is sent.</div><div class="chips"></div><div class="fl"></div><div class="pinerr"></div>';
+    var chips = wrap.querySelector('.chips'), err = wrap.querySelector('.pinerr');
+    REASONS.forEach(function (r, i) {
+      var c = U.el('span', 'chip f', U.esc(r));
+      c._ok = function () {
+        reason = i;
+        for (var k = 0; k < chips.childNodes.length; k++) chips.childNodes[k].classList.toggle('sel', k === i);
+      };
+      chips.appendChild(c);
+    });
+    var note = UI.field({ icon: 'edit', placeholder: 'A note for the support team (optional)', submit: function () {} });
+    note.input.maxLength = 300;
+    wrap.querySelector('.fl').appendChild(note);
+    var sending = false;
+    var d = UI.dialog({
+      title: 'Report a problem', html: wrap, width: 1300,
+      buttons: [{ label: 'Cancel' }, { label: 'Send', icon: 'check', pri: true, keep: true, ok: send }],
+      focusEl: chips.firstChild
+    });
+    function send() {
+      if (sending) return;
+      if (Date.now() - reportSent < 60000) { err.textContent = 'A report was sent a moment ago. Please wait a minute.'; return; }
+      var text = U.str(note.value());
+      if (reason < 0 && !text) { err.textContent = 'Choose what went wrong (or write a note).'; return; }
+      sending = true;
+      err.textContent = '';
+      var btn = d.box.querySelector('.btn.pri');
+      btn.innerHTML = '<span class="spin"></span>';
+      var s = Store.session() || {};
+      App.tvInfo().then(function (tv) {
+        App.log('report send reason="' + (reason >= 0 ? REASONS[reason] : '') + '" note=' + text.length);
+        return Backend.sendReport({
+          reason: reason >= 0 ? REASONS[reason] : '', note: text,
+          app_version: (CONFIG.version || '?') + ' (' + (CONFIG.build || 0) + ')',
+          platform: CONFIG.platform || 'lg-tv', device: tv, stream: Player.lastStream(),
+          playlist: Store.playlistName() || App.title() || '', server: hostOf(s.mode === 'm3u' ? s.url : s.server),
+          language: 'en', profile: Store.profileId() + (Store.kidsMode() ? ' (kids)' : ''), log: App.logText()
+        });
+      }).then(function (answer) {
+        reportSent = Date.now();
+        d.close();
+        var n = U.int(answer && answer.report_id);
+        UI.message('Report sent', (n > 0 ? 'Thank you. Your report number is ' + n + '.' : 'Thank you.') + '\nThe support team can see what happened on this TV.');
+      }, function (e) {
+        sending = false;
+        btn.innerHTML = U.icon('check') + 'Send';
+        App.log('report failed: ' + (e && e.message));
+        err.textContent = (e && e.message) || 'Could not send the report. Check the internet and try again.';
+      });
+    }
+  };
+
   function fmtDate(d) { return d.getDate() + ' ' + U.months[d.getMonth()] + ' ' + d.getFullYear(); }
   App.accountDialog = function (account, offline) {
     var src = App.src;
@@ -774,8 +852,9 @@ var Screens = {};
       r.querySelector('.vl2').textContent = onOff(v);
       UI.toast(v ? 'When the app starts, the channel you watched last plays by itself' : 'The app starts on the home screen', 3000);
     });
-    var pinRow = row('pin', 'Parental PIN', Store.pin() ? 'On' : 'Off', function () {
-      App.pinMenu(function () { pinRow.querySelector('.vl2').textContent = Store.pin() ? 'On' : 'Off'; });
+    row('apps', 'Manage categories', U.icon('chevR'), function () { Nav.push(new Screens.CatChoice(App.src, 'hide')); });
+    var pinRow = row('lock', 'Parental control', (Store.pin() ? 'On' : 'Off') + U.icon('chevR'), function () {
+      Nav.push(new Screens.CatChoice(App.src, 'lock'));
     });
     row('tv', 'My device', U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
     row('person', 'Account', U.icon('chevR'), function () { App.accountDialog(App.account, false); });
@@ -783,6 +862,7 @@ var Screens = {};
     var svcRow = row('video', 'Streaming boxes', svcCount(), function () {
       Streaming.dialog(function () { svcRow.querySelector('.vl2').innerHTML = svcCount(); });
     });
+    row('error', 'Report a problem', U.icon('chevR'), function () { App.reportProblem(); });
     row('history', 'Clear watch history', '', function () {
       UI.confirm('Clear watch history?', 'Recently watched and the places where films were stopped are removed.', 'Clear', 'Cancel', function () {
         Store.clearHistory();
@@ -791,7 +871,7 @@ var Screens = {};
     });
     row('refresh', 'Restart the app', '', function () { App.restart(); });
     this.show = function (first) {
-      if (!first) return;
+      if (!first) { pinRow.querySelector('.vl2').innerHTML = (Store.pin() ? 'On' : 'Off') + U.icon('chevR'); return; }
       if (window.webapis && webapis.productinfo) { // Samsung TV: model and Tizen version
         try {
           var pi = webapis.productinfo, t0 = el.querySelector('.tvinfo');

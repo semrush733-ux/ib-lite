@@ -206,6 +206,14 @@ var Backend = {}, Store = {};
     return registering;
   };
 
+  /** "Report a problem": the report goes to the website (Admin Panel → Problem reports). */
+  Backend.sendReport = function (report) {
+    return Backend.ensureRegistered().then(function (ok) {
+      if (!ok) throw failure('This TV is not known to the website yet. Restart the app and try again.');
+      return call('POST', '/device/report', U.extend({ device_id: Backend.deviceId, pairing_code: Backend.pairing }, report));
+    });
+  };
+
   /** App look, the default server, a moved website, "clear cache". Never fails. */
   Backend.loadConfig = function () {
     return call('GET', '/app/config?platform=' + encodeURIComponent(CONFIG.platform || 'lg-tv') +
@@ -354,7 +362,7 @@ var Backend = {}, Store = {};
    *  and the categories for children: they belong to one playlist account. */
   function accountKey(k) {
     var base = k.replace(/^p_[^_]+_/, '');
-    return /^(fav_|recent_|catorder_|kids_)/.test(base) || base === 'resume' || base === 'continue';
+    return /^(fav_|recent_|catorder_|kids_|hidden_|locked_)/.test(base) || base === 'resume' || base === 'continue';
   }
   function switchAccount(identity) {
     if (S.get('identity', '') === identity) return;
@@ -364,6 +372,7 @@ var Backend = {}, Store = {};
     resumeCache = null;
     cwCache = null;
     kidsCache = null;
+    catCache = {};
     S.set('identity', identity);
   }
   Store.save = function (s, site) {
@@ -528,10 +537,12 @@ var Backend = {}, Store = {};
   Store.saveProfiles = function (list) { S.set('profiles', list); };
   Store.profileId = function () { return S.get('profile_active', 'main') || 'main'; };
   /** A Kids profile is in use: only categories for children are shown. */
-  Store.kidsMode = function () { return !!S.get('profile_kids', false); };
+  var kidsNow = null; // read once: the lists ask for every channel
+  Store.kidsMode = function () { if (kidsNow === null) kidsNow = !!S.get('profile_kids', false); return kidsNow; };
   Store.useProfile = function (id, kids) {
     S.set('profile_active', id || 'main');
     S.set('profile_kids', !!kids);
+    kidsNow = !!kids;
     // Locked choices ask for the PIN again in the new profile.
     Store.parentalUnlocked = false;
   };
@@ -550,8 +561,13 @@ var Backend = {}, Store = {};
 
   // ------------------------------------------------------------------ parental PIN
   /** The PIN that keeps children in the Kids profile (and out of Settings there); '' = none. */
-  Store.pin = function () { return S.get('parental_pin', '') || ''; };
-  Store.setPin = function (p) { if (p) S.set('parental_pin', String(p)); else S.del('parental_pin'); Store.parentalUnlocked = false; };
+  var pinNow = null;
+  Store.pin = function () { if (pinNow === null) pinNow = S.get('parental_pin', '') || ''; return pinNow; };
+  Store.setPin = function (p) {
+    pinNow = p ? String(p) : '';
+    if (p) S.set('parental_pin', pinNow); else S.del('parental_pin');
+    Store.parentalUnlocked = false;
+  };
   /** The PIN was typed since the app started (or the profile changed). */
   Store.parentalUnlocked = false;
 
@@ -607,9 +623,39 @@ var Backend = {}, Store = {};
     if (kidsCache) delete kidsCache[kind];
   };
   /** Left out of the app: in a Kids profile every category that is not for children. */
-  Store.isHidden = function (kind, catId) { return Store.kidsMode() && !Store.kidsAllowed(kind, catId); };
+  // ------------------------------------------------------------------ hidden and locked categories
+  // Settings → Manage categories (hidden everywhere) and Parental control (behind the PIN). Per account.
+  var catCache = {};
+  function catSet(name, kind) {
+    var k = acctNs() + name + '_' + kind;
+    if (!catCache[k]) {
+      var l = S.get(k, []) || [], m = {};
+      l.forEach(function (id) { m[id] = 1; });
+      catCache[k] = { l: l, m: m };
+    }
+    return catCache[k];
+  }
+  function setCat(name, kind, id, on) {
+    var k = acctNs() + name + '_' + kind;
+    var l = catSet(name, kind).l.filter(function (x) { return x !== id; });
+    if (on) l.push(id);
+    if (l.length) S.set(k, l); else S.del(k);
+    delete catCache[k];
+  }
+  Store.isHiddenSetting = function (kind, id) { return !!catSet('hidden', kind).m[id]; };
+  Store.setHidden = function (kind, id, v) { setCat('hidden', kind, id, v); };
+  Store.isLockMarked = function (kind, id) { return !!catSet('locked', kind).m[id]; };
+  Store.setLocked = function (kind, id, v) { setCat('locked', kind, id, v); };
+  /** Behind the PIN (only while a PIN is set). */
+  Store.isLocked = function (kind, id) { return !!Store.pin() && Store.isLockMarked(kind, id); };
+  /** Left out of the app: hidden in Manage categories, and in a Kids profile every category not for children. */
+  Store.isHidden = function (kind, catId) { return Store.isHiddenSetting(kind, catId) || (Store.kidsMode() && !Store.kidsAllowed(kind, catId)); };
   /** May this channel / film / series be listed? (its category is not hidden) */
-  Store.allowed = function (it) { return !it || !Store.kidsMode() || Store.kidsAllowed(it.k, it.c); };
+  Store.allowed = function (it) {
+    if (!it) return true;
+    if (Store.isHidden(it.k, it.c)) return false;
+    return Store.parentalUnlocked || !Store.isLocked(it.k, it.c);
+  };
 
   /** Movies / Series order: 'default' (as the server sends them), 'new', 'az', 'year', 'rating'. */
   Store.sortOrder = function (kind) { return S.get('sort_' + kind, 'default') || 'default'; };

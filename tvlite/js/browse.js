@@ -90,13 +90,17 @@
       make: function (r) { r.innerHTML = ''; },
       render: function (r, c) {
         var cnt = c.id === ALL && allCount != null ? '<span class="cnt">(' + allCount + ')</span>' : '';
-        r.innerHTML = (c.id === moving ? U.icon('drag') : (c.icon ? U.icon(c.icon) : '')) + U.esc(c.name) + cnt;
+        var lock = locked(c) ? '<span class="lk">' + U.icon('lock') + '</span>' : '';
+        r.innerHTML = (c.id === moving ? U.icon('drag') : (c.icon ? U.icon(c.icon) : '')) + U.esc(c.name) + cnt + lock;
         r.classList.toggle('mv', c.id === moving);
       },
       ok: function (i) {
         if (moving) { finishMove(); return; }
         var c = cats[i];
-        if (c.id === SEARCH) search(); else select(c.id, c.name);
+        if (c.id === SEARCH) { search(); return; }
+        // A locked category opens after the parental PIN (then all locked ones stay open until the app closes).
+        if (locked(c)) { App.askPin('Parental PIN', function () { catList.refresh(); select(c.id, c.name); }); return; }
+        select(c.id, c.name);
       },
       // Hold OK on a category: it can be moved (Up / Down, then OK).
       long: function (i) { if (!moving && i >= firstReal && cats[i]) startMove(i); },
@@ -105,7 +109,7 @@
         clearTimeout(focusTimer);
         if (moving) return;
         var c = cats[i];
-        if (!c || c.id === selected || c.id === ALL || c.id === SEARCH) return;
+        if (!c || c.id === selected || c.id === ALL || c.id === SEARCH || locked(c)) return;
         focusTimer = setTimeout(function () { select(c.id, c.name); }, 500);
       }
     });
@@ -141,6 +145,9 @@
       UI.toast('Category order saved', 1500);
     }
 
+    /** Behind the parental PIN right now. */
+    function locked(c) { return !!c && c.id.charAt(0) !== '*' && !Store.parentalUnlocked && Store.isLocked(kind, c.id); }
+
     function setTitle(name, n) {
       titleT.textContent = name;
       titleC.textContent = n == null ? '' : n + ' ' + COUNT[kind][n === 1 ? 0 : 1];
@@ -164,7 +171,9 @@
         }
         firstReal = cats.length;
         list.forEach(function (c) { cats.push({ id: c.id, name: c.name }); });
-        var start = list.length ? firstReal : (catchup ? 0 : 1);
+        // The first category that opens without the PIN (else All).
+        var start = catchup ? 0 : 1;
+        for (var k = firstReal; k < cats.length; k++) if (!locked(cats[k])) { start = k; break; }
         catList.set(cats, start);
         App.log('categories ' + kind + ': ' + list.length);
         select(cats[start].id, cats[start].name);

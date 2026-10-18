@@ -77,10 +77,11 @@ def main():
             page.evaluate("App.key('right')")
             check('options: opens on the right', T.wait_for(page, "!!document.querySelector('.optlist')", 2))
             heads = page.evaluate("[].slice.call(document.querySelectorAll('.optlist h3')).map(function (h) { return h.textContent; })")
-            check('options: Sound, Picture, Sleep timer', heads == ['Sound', 'Picture', 'Sleep timer'], heads)
+            check('options: Sound, Picture, Sleep timer, Help', heads == ['Sound', 'Picture', 'Sleep timer', 'Help'], heads)
+            check('options: Report a problem under Help', page.evaluate("[].slice.call(document.querySelectorAll('.optlist .opt')).some(function (o) { return /Report a problem/.test(o.textContent); })"))
             check('options: no speed for a live channel', 'Speed' not in heads)
             # Down from the sound tracks reaches the picture chips; Right moves along them
-            page.evaluate("var o = document.querySelectorAll('.optlist .opt'); F.set(o[o.length - 1]); App.key('down')")
+            page.evaluate("var o = [].slice.call(document.querySelectorAll('.optlist .opt')).filter(function (x) { return !/Report a problem/.test(x.textContent); }); F.set(o[o.length - 1]); App.key('down')")
             check('options: Down reaches the picture choices', page.evaluate("F.cur && F.cur.classList.contains('chip') && F.cur.textContent === 'Fit'"),
                   page.evaluate("F.cur && F.cur.textContent"))
             page.evaluate("App.key('right')")

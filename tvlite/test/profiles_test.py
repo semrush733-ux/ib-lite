@@ -109,7 +109,7 @@ def main():
             type_in(page, '1234')
             check('PIN: right one opens Settings', T.wait_for(page, "Nav.top().name === 'settings'", 3), FT.top(page))
             rows = page.evaluate("[].slice.call(document.querySelectorAll('.srow .lb')).map(function (r) { return r.textContent; })")
-            check('Settings: Profiles and Parental PIN rows', 'Profiles' in rows and 'Parental PIN' in rows, rows)
+            check('Settings: Profiles and Parental control rows', 'Profiles' in rows and 'Parental control' in rows, rows)
             # the last row can be reached: the list moves
             page.evaluate("var r = document.querySelectorAll('.srow'); F.set(r[r.length - 1])")
             time.sleep(0.5)

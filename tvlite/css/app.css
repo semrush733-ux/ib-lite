@@ -315,6 +315,9 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
   border: 4px solid transparent; font-size: 28px; font-weight: 500; color: #C9CFDA; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .crow .ic { color: #E3262F; font-size: 34px; vertical-align: middle; margin: -5px 14px 0 0; }
 .crow .cnt { color: #8B93A3; font-weight: 600; margin-left: 8px; }
+.crow .lk { float: right; }
+.crow .lk .ic { margin: 0; font-size: 30px; color: #8B93A3; }
+.crow.on .lk .ic { color: #fff; }
 .crow.sel { background: #2A1719; border-color: rgba(227,38,47,0.45); color: #F2F4F8; font-weight: 700; }
 .crow.on { background: #5B1D22; border-color: #E3262F; color: #fff; }
 /* a category being moved (hold OK, then Up / Down) */
@@ -594,3 +597,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .kcrow .how { position: absolute; right: 26px; top: 0; font-size: 24px; color: #8B93A3; font-weight: 600; }
 .kcrow.on { background: #5B1D22; border-color: #E3262F; }
 .kcrow.on .how { color: #E6D3D5; }
+/* ---------- Report a problem ---------- */
+.rep .dim { font-size: 26px; line-height: 1.45; margin-bottom: 22px; white-space: normal; }
+.rep .chips { white-space: normal; margin-bottom: 14px; }
+.rep .chips .chip { margin: 0 14px 14px 0; }

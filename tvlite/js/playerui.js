@@ -530,6 +530,8 @@
       inner.appendChild(note);
       var size = Player.size();
       if (size) inner.appendChild(U.el('div', 'pnote', 'Picture ' + U.esc(size)));
+      head('Help');
+      opt('Report a problem', false, function () { closePanel(); App.reportProblem(); }).innerHTML = U.icon('error') + 'Report a problem';
       F.set(inner.querySelector('.opt.sel') || inner.querySelector('.opt'));
     }
 

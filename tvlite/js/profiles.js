@@ -307,42 +307,82 @@ var Profiles = {};
     this.show = function (first) { if (first) draw(); else draw(F.cur && row.contains(F.cur) ? F.cur._pid : null); };
   };
 
-  // ================================================================== Kids categories
-  /** The categories children may see in a Kids profile: ticked by their names, changeable by hand. */
-  Screens.KidsCats = function (src) {
-    var self = this;
-    this.name = 'kids-categories';
+  // ================================================================== choosing categories
+  /** Category choices per kind (Live TV, Movies, Series), as in the Android app:
+   *  'kids' = the categories children may see in a Kids profile (ticked by their names, changeable),
+   *  'hide' = Settings → Manage categories (untick to hide everywhere),
+   *  'lock' = Settings → Parental control (locked ones ask for the PIN before they open). */
+  var CHOICE = {
+    kids: {
+      title: 'Kids categories', icons: ['boxOn', 'boxOff'],
+      note: 'A Kids profile shows only the ticked categories. Categories with Kids, Cartoons, Family, Disney… in their name are ticked by themselves; OK ticks or unticks any category by hand.',
+      on: function (k, id) { return Store.kidsAllowed(k, id); },
+      how: function (k, id, on) { return Store.kidsChoice(k, id) !== null ? 'chosen' : on ? 'by its name' : ''; },
+      flip: function (k, id, on, done) { Store.setKidsChoice(k, id, !on); done(); },
+      count: function (n, all) { return n + ' of ' + all + ' for children'; },
+      extra: [{ name: 'By name only', icon: 'undo', run: function (k, done) {
+        Store.resetKidsChoices(k); UI.toast('Back to the categories found by their names', 2200); done();
+      } }]
+    },
+    hide: {
+      title: 'Manage categories', icons: ['boxOn', 'boxOff'],
+      note: 'Untick a category to hide it everywhere in the app; tick it again to bring it back. To move a category, hold OK on it in Live TV, Movies or Series.',
+      on: function (k, id) { return !Store.isHiddenSetting(k, id); },
+      how: function (k, id, on) { return on ? '' : 'hidden'; },
+      flip: function (k, id, on, done) { Store.setHidden(k, id, on); done(); },
+      count: function (n, all) { return n + ' of ' + all + ' shown'; },
+      extra: [{ name: 'Original order', icon: 'undo', run: function (k, done) {
+        Store.setCatOrder(k, []); UI.toast('Categories back in the playlist\'s own order', 2200); done();
+      } }]
+    },
+    lock: {
+      title: 'Parental control', icons: ['lock', 'unlock'],
+      note: 'Locked categories ask for the parental PIN before they open, and their channels and titles are left out of All and Search until the PIN is typed.',
+      on: function (k, id) { return Store.isLockMarked(k, id); },
+      how: function (k, id, on) { return on ? (Store.pin() ? 'locked' : 'locked (no PIN set)') : ''; },
+      flip: function (k, id, on, done) {
+        function go() { Store.setLocked(k, id, !on); done(); }
+        if (!Store.pin()) {
+          UI.toast('Set a parental PIN first', 2200);
+          App.newPin(function (pin) { Store.setPin(pin); Store.parentalUnlocked = true; go(); });
+        } else App.askPin('Parental PIN', go);
+      },
+      count: function (n) { return (Store.pin() ? 'Parental control is ON' : 'No PIN set') + '  ·  ' + n + ' locked'; },
+      extra: [{ name: 'Parental PIN', icon: 'pin', run: function (k, done) { App.pinMenu(done); } }]
+    }
+  };
+
+  Screens.CatChoice = function (src, mode) {
+    var self = this, M = CHOICE[mode] || CHOICE.kids;
+    this.name = mode + '-categories';
     var el = this.el = U.el('div', 'screen');
     el.style.background = '#0E0A0B';
     el.innerHTML =
-      '<div class="br-cats wide"><div class="br-head">' + UI.symbol(58) + '<span class="t">Kids categories</span></div>' +
-      '<div class="vl cats"></div><div class="kc-note">A Kids profile shows only the ticked categories. Categories with Kids, Cartoons, Family, Disney… in their name are ticked by themselves; OK ticks or unticks any category by hand.</div></div>' +
+      '<div class="br-cats wide"><div class="br-head">' + UI.symbol(58) + '<span class="t">' + U.esc(M.title) + '</span></div>' +
+      '<div class="vl cats"></div><div class="kc-note">' + U.esc(M.note) + '</div></div>' +
       '<div class="br-main wide"><div class="br-title"><span class="t"></span><span class="c"></span></div><div class="content"></div></div>';
     var content = el.querySelector('.content');
     var titleT = el.querySelector('.br-title .t'), titleC = el.querySelector('.br-title .c');
     var kinds = [{ id: 'live', name: 'Live TV', icon: 'live' }, { id: 'vod', name: 'Movies', icon: 'movie' }, { id: 'series', name: 'Series', icon: 'series' }];
+    var items = kinds.concat(M.extra);
     var kind = '', cats = [], list = null, req = 0;
     var catBox = el.querySelector('.cats');
-    catBox.style.height = (4 * 84) + 'px';
+    catBox.style.height = (items.length * 84) + 'px';
     var tabs = new UI.VList(catBox, {
-      rowH: 84, rows: 4, cls: 'crow', margin: 0,
+      rowH: 84, rows: items.length, cls: 'crow', margin: 0,
       make: function (r) { r.innerHTML = ''; },
       render: function (r, t) { r.innerHTML = U.icon(t.icon) + U.esc(t.name); },
-      ok: function (i) { if (kinds[i]) { load(kinds[i].id); if (list && cats.length) list.focus(0); } else reset(); },
+      ok: function (i) {
+        if (kinds[i]) { load(kinds[i].id); if (list && cats.length) list.focus(0); return; }
+        if (items[i] && kind) items[i].run(kind, redraw);
+      },
       focus: function (i) { if (kinds[i]) load(kinds[i].id); }
     });
-    var items = kinds.concat([{ id: '*reset', name: 'By name only', icon: 'undo' }]);
-    function reset() {
-      if (!kind) return;
-      Store.resetKidsChoices(kind);
-      UI.toast('Back to the categories found by their names', 2200);
-      if (list) list.refresh();
-      count();
-    }
+    function redraw() { if (list) list.refresh(); count(); }
     function count() {
       var n = 0;
-      cats.forEach(function (c) { if (Store.kidsAllowed(kind, c.id)) n++; });
-      titleC.textContent = n + ' of ' + cats.length + ' for children';
+      cats.forEach(function (c) { if (M.on(kind, c.id)) n++; });
+      titleC.textContent = cats.length ? M.count(n, cats.length) : '';
     }
     function load(k) {
       if (k === kind) return;
@@ -356,9 +396,9 @@ var Profiles = {};
       src.categories(k).then(function (l) {
         if (r !== req) return;
         Store.noteCategories(k, l);
-        cats = l;
+        cats = Store.sortCats(k, l);
         content.innerHTML = '';
-        if (!l.length) { content.appendChild(U.el('div', 'empty', 'No categories.')); titleC.textContent = ''; return; }
+        if (!cats.length) { content.appendChild(U.el('div', 'empty', 'No categories.')); return; }
         var box = U.el('div', 'vl');
         box.style.cssText = 'position:absolute;left:0;top:0;width:1300px;height:' + (10 * 92) + 'px';
         content.appendChild(box);
@@ -366,21 +406,18 @@ var Profiles = {};
           rowH: 92, rows: 10, cls: 'kcrow', margin: 2,
           make: function (row) { row.innerHTML = '<span class="ck"></span><span class="nm"></span><span class="how"></span>'; },
           render: function (row, c) {
-            var on = Store.kidsAllowed(k, c.id), hand = Store.kidsChoice(k, c.id) !== null;
-            row.childNodes[0].innerHTML = U.icon(on ? 'boxOn' : 'boxOff');
+            var on = M.on(k, c.id);
+            row.childNodes[0].innerHTML = U.icon(on ? M.icons[0] : M.icons[1]);
             row.childNodes[0].className = 'ck' + (on ? ' on' : '');
             row.childNodes[1].textContent = c.name;
-            row.childNodes[2].textContent = hand ? 'chosen' : (on ? 'by its name' : '');
+            row.childNodes[2].textContent = M.how(k, c.id, on);
           },
           ok: function (i) {
             var c = cats[i];
-            if (!c) return;
-            Store.setKidsChoice(k, c.id, !Store.kidsAllowed(k, c.id));
-            list.refresh();
-            count();
+            if (c) M.flip(k, c.id, M.on(k, c.id), redraw);
           }
         });
-        list.set(l, 0);
+        list.set(cats, 0);
         count();
       }, function (e) {
         if (r !== req) return;
@@ -389,10 +426,12 @@ var Profiles = {};
       });
     }
     this.show = function (first) {
-      if (!first) return;
+      if (!first) { redraw(); return; }
       tabs.set(items, 0);
       tabs.focus(0);
       load('live');
     };
   };
+  /** The Kids categories (Profiles). */
+  Screens.KidsCats = function (src) { return new Screens.CatChoice(src, 'kids'); };
 })();

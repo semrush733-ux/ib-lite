@@ -120,6 +120,8 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     } catch (e) {}
     logPanel.textContent = prev + 'THIS RUN:\n' + LOG.slice(-40).join('\n');
   }
+  /** The recent log as text (for "Report a problem"; it never holds addresses or passwords). */
+  App.logText = function () { return LOG.join('\n'); };
   App.toggleLog = function () {
     if (logPanel) { logPanel.parentNode.removeChild(logPanel); logPanel = null; return; }
     logPanel = U.el('div');
