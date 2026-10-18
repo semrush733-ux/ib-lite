@@ -31,6 +31,10 @@ html, body {
 /* ---------- layers ---------- */
 #vlayer { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 1; }
 #vid { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #000; object-fit: contain; }
+/* Samsung: AVPlay draws the picture on the TV's own layer under the page; while it shows, the page
+   lets it through (no background behind the app's screens). */
+#avp { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 #screens { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 2; }
 .screen { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
 #dlg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 3; pointer-events: none; }

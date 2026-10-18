@@ -112,7 +112,7 @@
     }
     /** The picture size the stream really delivers (4K shows as 4K only when it is). */
     function drawQuality() {
-      var w = Player.v.videoWidth || 0, h = Player.v.videoHeight || 0, q = el.querySelector('.qb');
+      var vs = Player.videoSize(), w = vs.w || 0, h = vs.h || 0, q = el.querySelector('.qb');
       var label = !w || !h || Player.state() === 'error' ? '' : w >= 3200 || h >= 2000 ? '4K UHD' : w >= 1800 || h >= 1000 ? 'FULL HD' : w >= 1200 || h >= 700 ? 'HD' : 'SD';
       q.classList.toggle('hide', !label);
       if (label) q.innerHTML = '<b>' + label + '</b>' + w + ' × ' + h;
@@ -263,7 +263,7 @@
       Store.addRecent(it);
       setDead(false);
       if (!quietPoster) showPoster();
-      Player.v.muted = false;
+      Player.setMuted(false);
       pulse(true);
       Player.open(src.liveUrls(it), { live: true, loop: !!(src.loops && src.loops(it)) });
       loadEpg();
@@ -274,7 +274,7 @@
       if (items.length < 2) return;
       var from = target != null ? target : index;
       target = (from + step + items.length) % items.length;
-      Player.v.muted = true;
+      Player.setMuted(true);
       showPoster();
       setDead(false);
       showOsd(false);
@@ -511,7 +511,7 @@
       clearTimeout(digitTimer); clearTimeout(posterHideTimer);
       clearInterval(tick); clearInterval(saveTimer);
       Player.off(onPlayer);
-      Player.v.muted = false;
+      Player.setMuted(false);
       if (live) {
         if (target != null) { target = null; }
         if (Player.state() === 'error') Player.stop();

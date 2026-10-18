@@ -160,7 +160,8 @@ def main():
         for n in names:
             full = os.path.join(base, n)
             rel = os.path.relpath(full, SRC).replace(os.sep, '/')
-            if rel in ('js/config.js',) or rel.startswith('test/') or n.startswith('.'):
+            # test/: browser tests; tools/: helpers for the PC (install-samsung.bat), not part of the app.
+            if rel in ('js/config.js',) or rel.startswith(('test/', 'tools/')) or n.startswith('.'):
                 continue
             with open(full, 'rb') as f:
                 files[rel] = f.read()
