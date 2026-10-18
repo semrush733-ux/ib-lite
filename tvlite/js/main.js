@@ -19,6 +19,8 @@
     if (s) {
       var src = Src.fromSession(s);
       App.src = src;
+      // Several profiles: "Who's watching?" first (Profiles → Ask when the app starts).
+      if (Profiles.askNow()) return Promise.resolve(new Screens.Profiles({ src: src, atStart: true }));
       return Promise.resolve(new Screens.Home(src, null, true));
     }
     // A new TV: register first (the QR code needs the MAC Address and Device Key), at most a few seconds.

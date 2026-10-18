@@ -339,15 +339,31 @@ var Backend = {}, Store = {};
   Store.session = function () { return sess; };
   Store.playlistName = function () { return (sess && sess.pname) || ''; };
 
+  /** Removes every stored value whose key (without "lt_") passes the test. */
+  function forget(test) {
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('lt_') === 0 && test(k.substring(3))) keys.push(k);
+      }
+      keys.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
+  }
+  /** Favourites, recent, resume points and Continue Watching (of any profile), the category order
+   *  and the categories for children: they belong to one playlist account. */
+  function accountKey(k) {
+    var base = k.replace(/^p_[^_]+_/, '');
+    return /^(fav_|recent_|catorder_|kids_)/.test(base) || base === 'resume' || base === 'continue';
+  }
   function switchAccount(identity) {
     if (S.get('identity', '') === identity) return;
-    ['live', 'vod', 'series'].forEach(function (k) { S.del('fav_' + k); S.del('recent_' + k); S.del('catorder_' + k); });
-    S.del('resume');
-    S.del('continue');
+    forget(function (k) { return k.indexOf('demo_') !== 0 && accountKey(k); });
     favCache = {};
     recentCache = {};
     resumeCache = null;
     cwCache = null;
+    kidsCache = null;
     S.set('identity', identity);
   }
   Store.save = function (s, site) {
@@ -365,8 +381,11 @@ var Backend = {}, Store = {};
   };
 
   var favCache = {}, recentCache = {}, resumeCache = null;
-  /** Demo content: its favourites and history are kept apart from the playlist's. */
-  function ns() { return sess && (sess.mode === 'demo' || sess.demo) ? 'demo_' : ''; }
+  /** Demo content: its lists are kept apart from the playlist's. */
+  function acctNs() { return sess && (sess.mode === 'demo' || sess.demo) ? 'demo_' : ''; }
+  /** Every profile has its own favourites, recently watched, resume points and Continue Watching;
+   *  the main profile keeps the keys the app always used. */
+  function ns() { var p = Store.profileId(); return acctNs() + (p === 'main' ? '' : 'p_' + p + '_'); }
   Store.favs = function (kind) {
     var k = ns() + 'fav_' + kind;
     if (!favCache[k]) favCache[k] = S.get(k, []) || [];
@@ -398,14 +417,16 @@ var Backend = {}, Store = {};
     if (l.length > 30) l.length = 30;
     S.set(ns() + 'recent_' + it.k, l);
   };
+  /** Settings → Clear watch history: of the profile in use. */
   Store.clearHistory = function () {
-    ['live', 'vod', 'series'].forEach(function (k) { S.del('recent_' + k); S.del('demo_recent_' + k); });
+    var pre = ns(), other = pre.indexOf('demo_') === 0 ? pre.substring(5) : 'demo_' + pre;
+    [pre, other].forEach(function (n) {
+      ['live', 'vod', 'series'].forEach(function (k) { S.del(n + 'recent_' + k); });
+      S.del(n + 'resume');
+      S.del(n + 'continue');
+    });
     recentCache = {};
-    S.del('resume');
-    S.del('demo_resume');
     resumeCache = null;
-    S.del('continue');
-    S.del('demo_continue');
     cwCache = null;
   };
   function resumes() {
@@ -488,8 +509,8 @@ var Backend = {}, Store = {};
     cwSave();
   };
   /** The customer's own order of categories (hold OK on a category and move it), per kind. */
-  Store.catOrder = function (kind) { return S.get(ns() + 'catorder_' + kind, []) || []; };
-  Store.setCatOrder = function (kind, ids) { S.set(ns() + 'catorder_' + kind, ids); };
+  Store.catOrder = function (kind) { return S.get(acctNs() + 'catorder_' + kind, []) || []; };
+  Store.setCatOrder = function (kind, ids) { S.set(acctNs() + 'catorder_' + kind, ids); };
   /** Categories in that order: the moved ones where they were put, new ones after them. */
   Store.sortCats = function (kind, list) {
     var order = Store.catOrder(kind);
@@ -500,6 +521,95 @@ var Backend = {}, Store = {};
     known.sort(function (a, b) { return rank[a.id] - rank[b.id]; });
     return known.concat(list.filter(function (c) { return !rank.hasOwnProperty(c.id); }));
   };
+
+  // ------------------------------------------------------------------ profiles (as in the Android app)
+  /** The profiles of this TV: [{id, n: name, c: colour number, k: 1 for Kids}]; "main" is always there. */
+  Store.profileList = function () { return S.get('profiles', []) || []; };
+  Store.saveProfiles = function (list) { S.set('profiles', list); };
+  Store.profileId = function () { return S.get('profile_active', 'main') || 'main'; };
+  /** A Kids profile is in use: only categories for children are shown. */
+  Store.kidsMode = function () { return !!S.get('profile_kids', false); };
+  Store.useProfile = function (id, kids) {
+    S.set('profile_active', id || 'main');
+    S.set('profile_kids', !!kids);
+    // Locked choices ask for the PIN again in the new profile.
+    Store.parentalUnlocked = false;
+  };
+  /** Ask "Who's watching?" when the app starts (only with more than one profile). */
+  Store.askProfile = function () { return S.get('profile_ask', true) !== false; };
+  Store.setAskProfile = function (v) { S.set('profile_ask', !!v); };
+  /** Forgets everything a deleted profile had saved. */
+  Store.forgetProfile = function (id) {
+    if (!id || id === 'main') return;
+    forget(function (k) { return k.indexOf('p_' + id + '_') === 0 || k.indexOf('demo_p_' + id + '_') === 0; });
+    favCache = {};
+    recentCache = {};
+    resumeCache = null;
+    cwCache = null;
+  };
+
+  // ------------------------------------------------------------------ parental PIN
+  /** The PIN that keeps children in the Kids profile (and out of Settings there); '' = none. */
+  Store.pin = function () { return S.get('parental_pin', '') || ''; };
+  Store.setPin = function (p) { if (p) S.set('parental_pin', String(p)); else S.del('parental_pin'); Store.parentalUnlocked = false; };
+  /** The PIN was typed since the app started (or the profile changed). */
+  Store.parentalUnlocked = false;
+
+  // ------------------------------------------------------------------ categories for the Kids profile
+  // Found by their names (Kids, Cartoons, Family, Disney…) whenever the categories load; the parent
+  // can switch any category on or off for children by hand (Profiles → Kids categories). Per account.
+  var KIDS = /(^|[^a-z0-9])(kids?|child|children|childrens|cartoons?|toons?|junior|jr|family|families|disney|pixar|dreamworks|nick|nickelodeon|nickjr|cbeebies|cbbc|boomerang|baby|babies|kinder|kinderen|enfants?|infantil|infantiles|bambini|dzieci|cocuk|çocuk|animation|animated|animados?|animación|animacion|dibujos)($|[^a-z0-9])/i;
+  var ADULT = /(adult|xxx|18\+|\+18|porn|sex|erot|for adults)/i;
+  Store.looksForKids = function (name) { name = String(name || ''); return KIDS.test(name) && !ADULT.test(name); };
+  var kidsCache = null;
+  function kidsSets(kind) {
+    var n = acctNs();
+    if (!kidsCache || kidsCache.n !== n) kidsCache = { n: n };
+    if (!kidsCache[kind]) {
+      kidsCache[kind] = { auto: S.get(n + 'kids_auto_' + kind, []) || [], on: S.get(n + 'kids_on_' + kind, []) || [], off: S.get(n + 'kids_off_' + kind, []) || [] };
+    }
+    return kidsCache[kind];
+  }
+  function has(list, id) { return list.indexOf(id) >= 0; }
+  /** Called whenever a category list arrives: the categories for children are noted by name. */
+  Store.noteCategories = function (kind, cats) {
+    var auto = cats.filter(function (c) { return Store.looksForKids(c.name); }).map(function (c) { return c.id; });
+    var sets = kidsSets(kind);
+    if (auto.join('\n') === sets.auto.join('\n')) return;
+    sets.auto = auto;
+    S.set(acctNs() + 'kids_auto_' + kind, auto);
+  };
+  /** May children see this category? The parent's choice first, else its name. */
+  Store.kidsAllowed = function (kind, id) {
+    var s = kidsSets(kind);
+    if (has(s.off, id)) return false;
+    if (has(s.on, id)) return true;
+    return has(s.auto, id);
+  };
+  /** true / false: chosen by hand; null: follows its name. */
+  Store.kidsChoice = function (kind, id) {
+    var s = kidsSets(kind);
+    return has(s.on, id) ? true : has(s.off, id) ? false : null;
+  };
+  Store.setKidsChoice = function (kind, id, v) {
+    var s = kidsSets(kind), n = acctNs();
+    s.on = s.on.filter(function (x) { return x !== id; });
+    s.off = s.off.filter(function (x) { return x !== id; });
+    if (v === true) s.on.push(id);
+    if (v === false) s.off.push(id);
+    S.set(n + 'kids_on_' + kind, s.on);
+    S.set(n + 'kids_off_' + kind, s.off);
+  };
+  Store.resetKidsChoices = function (kind) {
+    var n = acctNs();
+    S.del(n + 'kids_on_' + kind);
+    S.del(n + 'kids_off_' + kind);
+    if (kidsCache) delete kidsCache[kind];
+  };
+  /** Left out of the app: in a Kids profile every category that is not for children. */
+  Store.isHidden = function (kind, catId) { return Store.kidsMode() && !Store.kidsAllowed(kind, catId); };
+  /** May this channel / film / series be listed? (its category is not hidden) */
+  Store.allowed = function (it) { return !it || !Store.kidsMode() || Store.kidsAllowed(it.k, it.c); };
 
   /** Live stream format: 'auto' (TV's own HLS first, MPEG-TS as fallback), 'm3u8' or 'ts'. */
   Store.liveFormat = function () { return S.get('live_format', 'auto'); };

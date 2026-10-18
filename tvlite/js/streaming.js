@@ -171,7 +171,7 @@ var Streaming = {};
       rowH: 84, rows: 2, cls: 'crow', margin: 0,
       make: function (r) { r.innerHTML = ''; },
       render: function (r, t) {
-        var n = res ? (t.id === 'vod' ? res.movies : res.series).length : null;
+        var n = res ? (t.id === 'vod' ? res.movies : res.series).filter(Store.allowed).length : null;
         r.innerHTML = U.icon(t.icon) + U.esc(t.name) + (n == null ? '' : '<span class="cnt">(' + n + ')</span>');
       },
       ok: function (i) { show(tabs[i].id); },
@@ -182,7 +182,7 @@ var Streaming = {};
       if (!res || (k === kind && grid)) return;
       kind = k;
       tabList.setSel(k === 'vod' ? 0 : 1);
-      items = k === 'vod' ? res.movies : res.series;
+      items = (k === 'vod' ? res.movies : res.series).filter(Store.allowed);
       titleT.textContent = k === 'vod' ? 'Movies' : 'Series';
       titleC.textContent = items.length + (k === 'vod' ? (items.length === 1 ? ' movie' : ' movies') : ' series');
       content.innerHTML = '';

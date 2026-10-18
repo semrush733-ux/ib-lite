@@ -70,7 +70,7 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     aspect: 'f581', hq: 'f7e9', undo: 'f0261', keyboard: 'f833', radioOn: 'f00d7', radioOff: 'f00d8',
     power: 'f00b8', shield: 'f016b', dns: 'f6c1', link: 'f85a', pub: 'f00c6', smart: 'f0198', memory: 'f8b3',
     wifi: 'f02bf', image: 'f80d', more: 'f8dc', chevR: 'e15f', chevL: 'e15e', down: 'e246', clean: 'f643',
-    drag: 'e206', boxOn: 'f633', boxOff: 'f632'
+    drag: 'e206', boxOn: 'f633', boxOff: 'f632', pin: 'f009c', kids: 'f733', unlock: 'f887', edit: 'e21a'
   };
   U.icon = function (name) { return '<i class="ic">&#x' + (ICONS[name] || 'f816') + ';</i>'; };
 

@@ -222,10 +222,9 @@ var Screens = {};
       (a && a.note ? row('Note', a.note) : '') +
       (a && a.maxConnections ? row('Connections', String(a.maxConnections)) : '') +
       row('App', Backend.statusLine() || '—');
-    UI.dialog({
-      title: App.title() || 'Account', html: html, width: 1060,
-      buttons: [{ label: 'Change playlist', icon: 'playlist', ok: App.choosePlaylist }, { label: 'Close', pri: true }], focus: 1
-    });
+    var buttons = [{ label: 'Close', pri: true }];
+    if (!Store.kidsMode()) buttons.unshift({ label: 'Change playlist', icon: 'playlist', ok: App.choosePlaylist });
+    UI.dialog({ title: App.title() || 'Account', html: html, width: 1060, buttons: buttons, focus: buttons.length - 1 });
   };
 
   /** Playlists added on the website for this TV. */
@@ -322,6 +321,9 @@ var Screens = {};
     // One opaque picture (photo + wash + vignette made in advance: tvlite/tools/make_tv_backgrounds.py).
     el.querySelector('.hm-bg').style.backgroundImage = 'url(img/home_full.webp)';
 
+    // A Kids profile: no playlist change and no Catch Up (it lists every channel), as in the Android app.
+    var kids = Store.kidsMode(), profile = Profiles.active();
+    el.classList.toggle('kids', kids);
     var pills = el.querySelector('.hm-pills');
     function pill(icon, label, ok) {
       var p = U.el('span', 'pill f', '<span class="pi">' + U.icon(icon) + '</span><span class="pl">' + U.esc(label) + '</span>');
@@ -329,8 +331,15 @@ var Screens = {};
       pills.appendChild(p);
       return p;
     }
-    var plPill = pill('playlist', shortName(App.title(), 'Change Playlist'), App.choosePlaylist);
-    pill('settings', 'Settings', function () { Nav.push(new Screens.Settings()); });
+    // The profile in use (its colour and letter): "Who's watching?".
+    var profBtn = U.el('span', 'pill prof f', Profiles.avatar(profile, 84));
+    profBtn._ok = function () { Nav.push(new Screens.Profiles({ src: src })); };
+    pills.appendChild(profBtn);
+    var plPill = kids ? null : pill('playlist', shortName(App.title(), 'Change Playlist'), App.choosePlaylist);
+    pill('settings', 'Settings', function () {
+      if (kids) App.askPin('Parental PIN', function () { Nav.push(new Screens.Settings()); });
+      else Nav.push(new Screens.Settings());
+    });
 
     var icons = el.querySelector('.hm-icons');
     function sq(icon, ok) {
@@ -354,7 +363,7 @@ var Screens = {};
     var liveTile = tile('live', 'Live TV', function () { Nav.push(new Screens.Browse(src, 'live')); });
     tile('movie', 'Movies', function () { Nav.push(new Screens.Browse(src, 'vod')); });
     tile('series', 'TV Series', function () { Nav.push(new Screens.Browse(src, 'series')); });
-    tile('catchup', 'Catch Up', function () {
+    if (!kids) tile('catchup', 'Catch Up', function () {
       if (src.type !== 'xtream') {
         UI.message('Catch Up', 'Catch Up works with Xtream Codes playlists, where the server keeps recordings of past programmes. ' +
           (src.type === 'demo' ? 'The demo content has no recordings.' : 'An M3U playlist link does not carry recordings.'));
@@ -410,7 +419,8 @@ var Screens = {};
       cwStrip.style.webkitTransform = cwStrip.style.transform = cwScroll ? 'translateX(' + (-cwScroll) + 'px)' : '';
     }
     function drawContinue() {
-      var list = Store.continueList();
+      // A Kids profile: only what its categories allow (they may have changed since).
+      var list = Store.continueList().filter(function (c) { return Store.allowed(c.item); });
       var sig = list.map(function (c) { return c.key + ':' + c.pos + ':' + (c.next || 0); }).join(',');
       if (sig === cwShown) return;
       cwShown = sig;
@@ -500,7 +510,7 @@ var Screens = {};
         'MAC Address: ' + U.esc(Backend.deviceId || '—') + '<br>Device Key: ' + U.esc(Backend.pairing || '—') +
         '<br>Application Expiry: ' + U.esc(appExpiry());
       drawPlaylistBox();
-      plPill.querySelector('.pl').textContent = shortName(App.title(), 'Change Playlist');
+      if (plPill) plPill.querySelector('.pl').textContent = shortName(App.title(), 'Change Playlist');
     }
     /** Whole calendar days from today to the day the playlist ends (negative: ended). */
     function daysLeft(end) {
@@ -645,7 +655,7 @@ var Screens = {};
     function noteKey() { if (!App.blocked) keyEarly = true; }
     function startLastChannel() {
       var it = Store.recents('live')[0];
-      if (!it) return;
+      if (!it || !Store.allowed(it)) return;
       document.addEventListener('keydown', noteKey, true);
       function done() { document.removeEventListener('keydown', noteKey, true); }
       var cat = it.c || '';
@@ -714,18 +724,28 @@ var Screens = {};
   Screens.Settings = function () {
     this.name = 'settings';
     var el = this.el = screenEl();
-    el.innerHTML = '<div class="br-bg"></div><div class="st-side">' + UI.logo(46) + '<h1>Settings</h1><div class="ver"></div></div><div class="st-main"></div>';
+    el.innerHTML = '<div class="br-bg"></div><div class="st-side">' + UI.logo(46) + '<h1>Settings</h1><div class="ver"></div></div>' +
+      '<div class="st-main"><div class="st-rows"></div></div>';
     el.querySelector('.ver').innerHTML = U.esc(CONFIG.appName) + '<br>Version ' + U.esc(CONFIG.version || '') +
       '<br>' + U.esc(Backend.statusLine() || '') + '<br><span class="tvinfo"></span>';
-    var main = el.querySelector('.st-main');
+    var main = el.querySelector('.st-rows'), scroll = 0;
     var FORMATS = { auto: 'Automatic (TV player, HLS first)', m3u8: 'HLS (m3u8)', ts: 'MPEG-TS (ts)' };
+    /** More rows than the screen holds: the list moves with the focus. */
+    function keepInView(r) {
+      var top = r.offsetTop, bottom = top + r.offsetHeight, view = 1080 - 70 - 40;
+      if (top - scroll < 0) scroll = Math.max(0, top - 20);
+      else if (bottom - scroll > view) scroll = bottom - view;
+      main.style.webkitTransform = main.style.transform = scroll ? 'translateY(' + (-scroll) + 'px)' : '';
+    }
     function row(icon, label, value, ok) {
       var r = U.el('div', 'srow f', U.icon(icon) + '<span class="lb">' + U.esc(label) + '</span><span class="vl2">' + (value || '') + '</span>');
       r._ok = function () { ok(r); };
+      r._focus = function () { keepInView(r); };
       main.appendChild(r);
       return r;
     }
     row('playlist', 'Playlists', U.esc(shortName(App.title(), '')) + U.icon('chevR'), function () { App.choosePlaylist(); });
+    row('person', 'Profiles', U.esc(Profiles.active().n) + U.icon('chevR'), function () { Nav.push(new Screens.Profiles({ src: App.src })); });
     row('live', 'Live stream format', U.esc(FORMATS[Store.liveFormat()] || FORMATS.auto), function (r) {
       var order = ['auto', 'm3u8', 'ts'];
       var next = order[(order.indexOf(Store.liveFormat()) + 1) % order.length];
@@ -753,6 +773,9 @@ var Screens = {};
       S.set('start_last_channel', v);
       r.querySelector('.vl2').textContent = onOff(v);
       UI.toast(v ? 'When the app starts, the channel you watched last plays by itself' : 'The app starts on the home screen', 3000);
+    });
+    var pinRow = row('pin', 'Parental PIN', Store.pin() ? 'On' : 'Off', function () {
+      App.pinMenu(function () { pinRow.querySelector('.vl2').textContent = Store.pin() ? 'On' : 'Off'; });
     });
     row('tv', 'My device', U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
     row('person', 'Account', U.icon('chevR'), function () { App.accountDialog(App.account, false); });

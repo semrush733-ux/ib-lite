@@ -99,7 +99,9 @@
       content.innerHTML = '';
       content.appendChild(UI.pulse('loading'));
       src.categories(kind).then(function (list) {
-        list = Store.sortCats(kind, list);
+        // Categories for children are noted by their names; a Kids profile shows only those.
+        Store.noteCategories(kind, list);
+        list = Store.sortCats(kind, list).filter(function (c) { return !Store.isHidden(kind, c.id); });
         cats = [];
         if (!catchup) cats.push({ id: SEARCH, name: 'Search', icon: 'search' });
         cats.push({ id: ALL, name: catchup ? 'All with Catch Up' : ALL_TITLES[kind], icon: 'apps' });
@@ -138,13 +140,14 @@
       selectedName = name;
       catList.setSel(cats.map(function (c) { return c.id; }).indexOf(id));
       setTitle(name, null);
-      var ready = id === FAV ? Store.favs(kind).slice() : id === RECENT ? Store.recents(kind).slice() : null;
+      var ready = id === FAV ? Store.favs(kind).filter(Store.allowed) : id === RECENT ? Store.recents(kind).filter(Store.allowed) : null;
       if (ready) { show(ready); return; }
       busy();
-      var p = id === ALL ? src.all(kind).then(function (l) { allCount = l.length; catList.refresh(); return l; }) : src.items(kind, id);
+      var p = id === ALL ? src.all(kind).then(function (l) { l = l.filter(Store.allowed); allCount = l.length; catList.refresh(); return l; }) : src.items(kind, id);
       p.then(function (list) {
         if (r !== req) return;
         if (catchup) list = list.filter(function (it) { return it.a === 1; });
+        if (Store.kidsMode()) list = list.filter(Store.allowed);
         show(list);
       }, function (e) {
         if (r !== req) return;
@@ -174,7 +177,8 @@
       if (!list.length) {
         var text = selected === FAV ? 'No favourites yet.\nHold OK on a ' + (live ? 'channel' : 'title') + ' to add it here.' :
           selected === RECENT ? 'Nothing watched yet.\nWhat you open appears here.' :
-          selected === SEARCH ? 'Nothing found.' : catchup ? 'No channel in this category keeps recordings.' : 'This category is empty.';
+          selected === SEARCH ? 'Nothing found.' : catchup ? 'No channel in this category keeps recordings.' :
+          Store.kidsMode() && selected === ALL ? 'No categories for children were found.\nA parent can choose them in Profiles → Kids categories.' : 'This category is empty.';
         view.box.appendChild(U.el('div', 'empty', U.esc(text).replace(/\n/g, '<br>')));
       }
       if (live && list.length) focusChannel(view.list.idx);
@@ -494,7 +498,7 @@
       UI.toast(added ? 'Added to Favourites' : 'Removed from Favourites', 1400);
       if (selected === FAV) {
         var keep = view.list.idx;
-        items = Store.favs(kind).slice();
+        items = Store.favs(kind).filter(Store.allowed);
         view.list.set(items, Math.min(keep, items.length - 1));
         setTitle(selectedName, items.length);
       } else if (view) view.list.refresh();
@@ -513,6 +517,7 @@
         busy();
         src.all(kind).then(function (all) {
           if (r !== req) return;
+          if (Store.kidsMode()) all = all.filter(Store.allowed);
           allCount = all.length;
           catList.refresh();
           var words = U.norm(q).split(' ').filter(function (w) { return w; });
@@ -545,7 +550,7 @@
       returnIdx = -1;
       if (selected === RECENT || selected === FAV) {
         var cur = view ? view.list.idx : 0;
-        items = selected === FAV ? Store.favs(kind).slice() : Store.recents(kind).slice();
+        items = (selected === FAV ? Store.favs(kind) : Store.recents(kind)).filter(Store.allowed);
         if (view) view.list.set(items, Math.min(cur, Math.max(0, items.length - 1)), live && pvItem ? indexOf(pvItem) : -1);
         setTitle(selectedName, items.length);
       }
