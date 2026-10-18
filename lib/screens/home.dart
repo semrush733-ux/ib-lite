@@ -605,14 +605,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (update != null) showUpdateDialog(context, update);
   }
 
-  String get _playlistExpiry {
-    final a = _account;
-    if (a == null) return _offline ? 'Playlist: no connection' : 'Playlist: checking…';
-    final e = a.expires;
-    if (e == null) return 'Playlist Expiry: Unlimited';
-    return 'Playlist Expiry: ${_days[e.weekday - 1]} ${e.day}, ${_months[e.month - 1]} ${e.year}';
-  }
-
   String get _appExpiry {
     if (Backend.licType == 'lifetime') return 'Lifetime';
     final e = Backend.licExpiry;
@@ -809,37 +801,42 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
             SizedBox(height: box.maxHeight * 0.045),
-            // ---- information along the bottom ----
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _InfoBox(
-                  lines: [
-                    'MAC Address: ${Backend.deviceId.isEmpty ? '—' : Backend.deviceId}',
-                    'Device Key: ${Backend.pairingCode.isEmpty ? '—' : Backend.pairingCode}',
-                    'Application Expiry: $_appExpiry',
-                  ],
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xCC0B0607),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0x66FFFFFF), width: 1.4),
+            // ---- information along the bottom: device, playlist, date and weather (same height) ----
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _InfoBox(
+                    lines: [
+                      'MAC Address: ${Backend.deviceId.isEmpty ? '—' : Backend.deviceId}',
+                      'Device Key: ${Backend.pairingCode.isEmpty ? '—' : Backend.pairingCode}',
+                      'Application Expiry: $_appExpiry',
+                    ],
                   ),
-                  child: Text(
-                    _playlistExpiry,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: _offline && _account == null ? C.danger : C.text,
+                  SizedBox(width: gap),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Flexible(
+                          child: SizedBox(
+                            width: 440,
+                            child: PlaylistInfoBox(
+                              name: widget.demo ? widget.api.label : playlistTitle(widget.api),
+                              account: _account,
+                              offline: _offline,
+                              m3u: widget.api is M3uSource,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const Spacer(),
-                const _WeatherBox(),
-              ],
+                  SizedBox(width: gap),
+                  const _WeatherBox(),
+                ],
+              ),
             ),
           ],
         )),
@@ -1358,6 +1355,101 @@ class _InfoBox extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 1.5),
               child: Text(l, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The playlist in use, between the device box and the clock (same look and height): its name
+/// with a coloured dot (green fine, amber ends within a week, red ended / no connection), when it
+/// ends, and the days left with the number of connections (screens at once) the line allows.
+class PlaylistInfoBox extends StatelessWidget {
+  const PlaylistInfoBox(
+      {super.key, required this.name, required this.account, required this.offline, required this.m3u});
+
+  final String name;
+  final XAccount? account;
+  final bool offline;
+  final bool m3u;
+
+  static const _green = Color(0xFF2ECC71);
+  static const _amber = Color(0xFFFFC94A);
+
+  /// Whole days from today to the day the playlist ends (negative: ended). Counted on calendar
+  /// days (UTC dates), so a clock change (summer time) never makes it one day short.
+  static int _daysLeft(DateTime end) {
+    final now = DateTime.now();
+    return DateTime.utc(end.year, end.month, end.day).difference(DateTime.utc(now.year, now.month, now.day)).inDays;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = account;
+    var dot = _green;
+    final lines = <(String, Color)>[];
+    if (a == null) {
+      dot = offline ? C.danger : C.dim;
+      lines.add(offline ? ('No connection to the server', C.danger) : ('Checking the playlist…', C.text));
+      lines.add((offline ? 'Press Reload to try again' : 'One moment please', C.dim));
+    } else if (m3u) {
+      // M3U links carry no end date: what the list holds instead.
+      final holds = a.note.replaceFirst(RegExp(r'^M3U playlist\s*·\s*'), '').trim();
+      lines.add(('Playlist Expiry: not given (M3U link)', C.text));
+      lines.add((holds.isEmpty ? 'M3U playlist' : holds, C.text));
+    } else {
+      final e = a.expires;
+      final parts = <String>[if (a.isTrial) 'Trial'];
+      var color = C.text;
+      if (e == null) {
+        lines.add(('Playlist Expiry: Unlimited', C.text));
+        if (!a.isTrial) parts.add('Active');
+      } else {
+        lines.add(('Playlist Expiry: ${_days[e.weekday - 1]} ${e.day}, ${_months[e.month - 1]} ${e.year}', C.text));
+        final d = _daysLeft(e);
+        parts.add(d < 0 ? 'Ended' : (d == 0 ? 'Ends today' : (d == 1 ? '1 day left' : '$d days left')));
+        if (d < 0) {
+          color = C.danger;
+          dot = C.danger;
+        } else if (d <= 7) {
+          color = _amber;
+          dot = _amber;
+        }
+      }
+      if (a.maxConnections > 0) {
+        parts.add(a.maxConnections == 1 ? '1 connection' : '${a.maxConnections} connections');
+      }
+      lines.add((parts.join('  ·  '), color));
+    }
+    Widget line(String text, Color color) => FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(text, maxLines: 1, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: color)),
+        );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xD90B0607),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x66FFFFFF), width: 1.4),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 1.5),
+            child: Row(
+              children: [
+                Container(width: 9, height: 9, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+                const SizedBox(width: 8),
+                Flexible(child: line('Playlist: ${name.isEmpty ? '—' : name}', C.text)),
+              ],
+            ),
+          ),
+          for (final l in lines)
+            Padding(padding: const EdgeInsets.symmetric(vertical: 1.5), child: line(l.$1, l.$2)),
         ],
       ),
     );
