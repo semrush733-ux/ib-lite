@@ -56,14 +56,18 @@ jobs:
       - name: Build the IPK
         id: build
         continue-on-error: true
+        env:
+          # Film details (cast photos, stills, trailer): the same optional secret as the Android app.
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           set -o pipefail
           mkdir -p out
           python3 tools/build_tvlite.py --out out --name "$APP_NAME" --site "$WEBSITE" --id "$APP_ID" \
-            --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APK_NAME.ipk" --folder out/app 2>&1 | tee out/build.log
+            --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APK_NAME.ipk" --folder out/app --tmdb "$TMDB_API_KEY" 2>&1 | tee out/build.log
+          if [ -n "$TMDB_API_KEY" ]; then echo "TMDB key: set (cast photos on)"; else echo "TMDB key: not set (cast photos off)"; fi
           # The same app for Full HD TVs (1280x720 graphics): LG Seller Lounge takes one package per resolution.
           python3 tools/build_tvlite.py --out out --name "$APP_NAME" --site "$WEBSITE" --id "$APP_ID" --resolution 1280x720 \
-            --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APK_NAME-720p.ipk" 2>&1 | tee -a out/build.log
+            --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APK_NAME-720p.ipk" --tmdb "$TMDB_API_KEY" 2>&1 | tee -a out/build.log
           # The package must hold everything the TV needs.
           python3 - <<'PY' 2>&1 | tee -a out/build.log
           import io, json, os, sys, tarfile

@@ -16,13 +16,18 @@
     el.style.background = '#0E0A0B';
     var info = {}, loading = true;
     var key = 'vod:' + it.id;
-    el.innerHTML = '<div class="dt-bg"></div><div class="dt-wash"></div>' +
+    el.innerHTML = '<div class="dt-bg"></div><div class="dt-wash"></div><div class="dt-page">' +
       '<div class="dt"><h1 class="cl2"></h1><div class="meta"></div><div class="genre"></div><div class="plot"></div>' +
-      '<div class="acts"></div><div class="more"></div></div>';
+      '<div class="acts"></div><div class="more"></div></div><div class="dt-rows"></div></div>';
     el.querySelector('h1').textContent = it.n;
+    var page = el.querySelector('.dt-page'), rowsBox = el.querySelector('.dt-rows'), extra = null, picked = '';
+    /** The page moves up while the focus is in the rows under the buttons (cast, pictures). */
+    function pageTo(y) { page.style.webkitTransform = page.style.transform = y ? 'translateY(' + (-y) + 'px)' : ''; }
 
+    function pick(a, b) { return a || b || ''; }
     function draw() {
-      var bg = info.backdrop || info.cover || it.i;
+      var x = extra || {};
+      var bg = picked || pick(info.backdrop, x.backdrop) || info.cover || it.i;
       var bgEl = el.querySelector('.dt-bg');
       if (bg && bgEl._bg !== bg) {
         bgEl._bg = bg;
@@ -31,21 +36,73 @@
         pre.src = bg;
       }
       var rating = info.rating > 0 ? info.rating : U.num(it.r);
-      var meta = '';
+      if (!(rating > 0)) rating = x.rating || 0;
+      var meta = '', duration = pick(info.duration, x.duration), year = pick(info.year, x.year);
       if (rating > 0) meta += '<span class="stars">' + stars(rating) + '</span><span class="m">' + (Math.round(rating * 10) / 10) + '/10</span>';
-      if (info.duration) meta += '<span class="m">' + U.esc(info.duration) + '</span>';
-      if (info.year) meta += '<span class="m">' + U.esc(info.year) + '</span>';
+      if (duration) meta += '<span class="m">' + U.esc(duration) + '</span>';
+      if (year) meta += '<span class="m">' + U.esc(year) + '</span>';
       if (info.country) meta += '<span class="m">' + U.esc(info.country) + '</span>';
       el.querySelector('.meta').innerHTML = meta;
-      el.querySelector('.genre').textContent = info.genre || '';
-      var plot = el.querySelector('.plot');
-      plot.textContent = info.plot || (loading ? 'Loading details…' : 'There is no description for this title.');
-      plot.style.color = info.plot ? '' : '#8B93A3';
-      var more = '';
-      if (info.director) more += 'Director:  <b>' + U.esc(info.director) + '</b><br>';
-      if (info.cast) more += 'Cast:  <b>' + U.esc(info.cast.length > 160 ? info.cast.substring(0, 159) + '…' : info.cast) + '</b>';
-      el.querySelector('.more').innerHTML = more;
+      el.querySelector('.genre').textContent = pick(info.genre, x.genre);
+      var plot = el.querySelector('.plot'), text = pick(info.plot, x.plot);
+      plot.textContent = text || (loading ? 'Loading details…' : 'There is no description for this title.');
+      plot.style.color = text ? '' : '#8B93A3';
+      // The cast is in the row under the buttons (photos from TMDB, else the names).
+      el.querySelector('.more').innerHTML = info.director ? 'Director:  <b>' + U.esc(info.director) + '</b>' : '';
     }
+
+    // ---------------------------------------------------------------- cast and pictures (TMDB), as in the Android app
+    function strip(title, cls) {
+      var row = U.el('div', 'dt-row ' + cls, '<h3>' + U.esc(title) + '</h3><div class="strip"><div class="in"></div></div>');
+      rowsBox.appendChild(row);
+      return row;
+    }
+    function card(row, elx, onFocus) {
+      var inner = row.querySelector('.in'), box = row.querySelector('.strip');
+      elx._focus = function () {
+        // the row comes into view (the page moves up), and the card into the row
+        var bottom = row.offsetTop + row.offsetHeight + rowsBox.offsetTop + 40;
+        pageTo(Math.max(0, bottom - 1080));
+        var x = elx.offsetLeft, w = box.clientWidth, cur = inner._x || 0;
+        if (x - cur + elx.offsetWidth > w) cur = x + elx.offsetWidth - w + 8;
+        if (x - cur < 0) cur = Math.max(0, x - 8);
+        inner._x = cur;
+        inner.style.webkitTransform = inner.style.transform = cur ? 'translateX(' + (-cur) + 'px)' : '';
+        if (onFocus) onFocus();
+      };
+      inner.appendChild(elx);
+    }
+    function drawRows() {
+      rowsBox.innerHTML = '';
+      var x = extra || {};
+      if (x.cast && x.cast.length) {
+        var c = strip('Cast', 'cast');
+        x.cast.forEach(function (p) {
+          var e = U.el('span', 'pc f', '<span class="ph">' + (p.photo ? '<img alt="">' : U.icon('person')) + '</span><b></b><span class="rl"></span>');
+          if (p.photo) UI.setImg(e.querySelector('img'), p.photo);
+          e.querySelector('b').textContent = p.name;
+          e.querySelector('.rl').textContent = p.role;
+          card(c, e);
+        });
+      } else if (info.cast) {
+        var names = info.cast.split(',').map(function (s) { return U.str(s); }).filter(function (s) { return s; }).slice(0, 8);
+        if (names.length) {
+          var r = strip('Cast', 'cast names');
+          names.forEach(function (n) { card(r, U.el('span', 'pc nm f', U.icon('person') + '<b>' + U.esc(n) + '</b>')); });
+        }
+      }
+      if (x.stills && x.stills.length > 1) {
+        var m = strip('Pictures', 'media');
+        x.stills.forEach(function (s) {
+          var e = U.el('span', 'stl f', '<img alt="">');
+          UI.setImg(e.firstChild, s.small);
+          // A picture in focus is shown big behind the page (as in the Android app).
+          card(m, e, function () { if (picked !== s.big) { picked = s.big; draw(); } });
+        });
+      }
+      if (extra) rowsBox.appendChild(U.el('div', 'dt-credit', 'Cast photos and pictures: TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.'));
+    }
+
 
     var acts = el.querySelector('.acts');
     function buttons() {
@@ -63,11 +120,15 @@
       var first = btn('play', resume > 30 ? 'Resume from ' + U.time(resume) : 'Watch now', true, function () { watch(resume > 30 ? resume : 0); });
       if (resume > 30) btn('replay', 'From the start', false, function () { watch(0); });
       var fav = Store.isFav(it);
-      btn(fav ? 'fav' : 'favb', fav ? 'In Favourites' : 'Favourite', false, function () {
+      btn(fav ? 'fav' : 'favb', fav ? 'In Favourites' : App.t('Favourite'), false, function () {
         var added = Store.toggleFav(it);
         UI.toast(added ? 'Added to Favourites' : 'Removed from Favourites', 1400);
         buttons();
       });
+      // The trailer in the TV's YouTube app (the server's, else TMDB's).
+      var trailer = info.trailer || (extra && extra.trailer);
+      if (trailer && Tmdb.canOpenTrailer()) btn('smart', 'Trailer', false, function () { Tmdb.openTrailer(trailer); });
+      [].forEach.call(acts.childNodes, function (b) { b._focus = function () { pageTo(0); }; });
       if (hadFocus) F.set(acts.childNodes[Math.min(focusIdx, acts.childNodes.length - 1)]);
       return first;
     }
@@ -84,7 +145,20 @@
       var b = buttons();
       if (first) {
         F.set(b);
-        src.vodInfo(it).then(function (i) { info = i || {}; loading = false; draw(); }, function () { loading = false; draw(); });
+        src.vodInfo(it).then(function (i) { info = i || {}; }, function () {}).then(function () {
+          loading = false;
+          draw();
+          drawRows();
+          buttons();
+          // TMDB: cast photos, pictures and the trailer (when the build has a key).
+          return Tmdb.movie(it.n, info.tmdbId, info.year).then(function (x) {
+            if (!x || Nav.top() !== self) return;
+            extra = x;
+            draw();
+            drawRows();
+            buttons();
+          });
+        });
       } else if (!F.cur || !el.contains(F.cur)) F.set(acts.firstChild);
     };
   };

@@ -147,6 +147,9 @@ def main():
     p.add_argument('--target', default='webos', choices=['webos', 'tizen'], help='webos: LG .ipk, tizen: Samsung .wgt')
     p.add_argument('--tizen-pkg', default='', help='Samsung package id (10 letters/digits); made from --id when empty')
     p.add_argument('--tizen-app', default='', help='Samsung application name part (letters/digits); made from --name when empty')
+    p.add_argument('--tmdb', default='', help='TMDB API key (film details: cast photos, stills, trailer); none = those stay off')
+    p.add_argument('--tmdb-base', default='', help='TMDB API address (tests)')
+    p.add_argument('--tmdb-images', default='', help='TMDB pictures address (tests)')
     a = p.parse_args()
     tizen = a.target == 'tizen'
 
@@ -170,6 +173,12 @@ def main():
         'appName': a.name, 'apiBase': api, 'platform': 'samsung-tv' if tizen else 'lg-tv', 'version': a.version,
         'build': a.build, 'appId': app_id,
     }
+    if a.tmdb.strip():
+        config['tmdbKey'] = a.tmdb.strip()
+        if a.tmdb_base:
+            config['tmdbBase'] = a.tmdb_base.rstrip('/')
+        if a.tmdb_images:
+            config['tmdbImages'] = a.tmdb_images.rstrip('/')
     files['js/config.js'] = ('/* Written by tools/build_tvlite.py */\nvar CONFIG = %s;\n' % json.dumps(config, indent=2)).encode('utf-8')
     files['index.html'] = files['index.html'].replace(b'<title>Lite Player</title>', ('<title>%s</title>' % a.name).encode('utf-8'))
     if tizen:

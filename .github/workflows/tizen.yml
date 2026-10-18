@@ -59,11 +59,16 @@ jobs:
       - name: Build the WGT
         id: build
         continue-on-error: true
+        env:
+          # Film details (cast photos, stills): the same optional secret as the Android app.
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           set -o pipefail
           mkdir -p out
           python3 tools/build_tvlite.py --target tizen --out out --name "$APP_NAME" --site "$WEBSITE" --id "$APP_ID" \
-            --tizen-app "$APPN" --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APPN.wgt" --folder out/app 2>&1 | tee out/build.log
+            --tizen-app "$APPN" --version "2.0.$BUILD_NUMBER" --build "$BUILD_NUMBER" --file "$APPN.wgt" --folder out/app \
+            --tmdb "$TMDB_API_KEY" 2>&1 | tee out/build.log
+          if [ -n "$TMDB_API_KEY" ]; then echo "TMDB key: set (cast photos on)"; else echo "TMDB key: not set (cast photos off)"; fi
           # The package must hold everything the TV needs, with a valid Samsung description.
           python3 - <<'PY' 2>&1 | tee -a out/build.log
           import os, re, zipfile

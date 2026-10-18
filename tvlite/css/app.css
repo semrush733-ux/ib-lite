@@ -405,7 +405,8 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .dt-wash { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
   background: linear-gradient(to bottom, rgba(14,10,11,0) 50%, #0E0A0B 92%),
     linear-gradient(to right, #0E0A0B 0%, #0E0A0B 38%, rgba(10,12,16,0.7) 72%, rgba(10,12,16,0.2) 100%); }
-.dt { position: absolute; left: 88px; top: 72px; width: 1080px; }
+.dt-page { position: absolute; left: 0; top: 0; width: 1920px; -webkit-transition: -webkit-transform 220ms ease-out; transition: transform 220ms ease-out; }
+.dt { position: relative; margin-left: 88px; padding-top: 72px; width: 1080px; }
 .dt h1 { margin: 0; font-size: 64px; line-height: 1.15; font-weight: 800; letter-spacing: -0.5px; }
 .dt .meta { margin-top: 20px; font-size: 29px; color: #D5DAE3; white-space: nowrap; }
 .dt .meta .stars { color: #E3262F; font-size: 38px; vertical-align: middle; letter-spacing: -2px; margin-right: 12px; }
@@ -750,3 +751,26 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .lg2.sel .ic { color: #E3262F; }
 .lg2 .en { font-size: 21px; font-weight: 600; color: #8B93A3; margin-left: 12px; }
 .lg2.on { background: #5B1D22; border-color: #E3262F; }
+/* ---------- film page: cast and pictures (TMDB) ---------- */
+.dt-rows { position: relative; margin: 30px 0 0 88px; width: 1744px; }
+.dt-row { margin-top: 26px; }
+.dt-row h3 { margin: 0 0 12px 4px; font-size: 30px; font-weight: 800; }
+.dt-row .strip { overflow: hidden; padding: 8px 6px; margin: -8px -6px; }
+.dt-row .in { white-space: nowrap; font-size: 0; -webkit-transition: -webkit-transform 200ms ease-out; transition: transform 200ms ease-out; }
+.pc { display: inline-block; vertical-align: top; width: 176px; margin-right: 16px; padding: 12px 8px 10px; border-radius: 18px; border: 3px solid transparent;
+  text-align: center; white-space: normal; }
+.pc .ph { display: block; width: 128px; height: 128px; margin: 0 auto; border-radius: 50%; overflow: hidden; background: #231A1C; }
+.pc .ph img { width: 100%; height: 100%; object-fit: cover; }
+.pc .ph .ic { font-size: 72px; line-height: 128px; color: #5A4E52; }
+.pc b { display: block; margin-top: 10px; font-size: 22px; font-weight: 700; line-height: 1.2; height: 53px; overflow: hidden; color: #fff; }
+.pc .rl { display: block; font-style: normal; font-size: 19px; color: #8B93A3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc.on { border-color: #E3262F; background: rgba(91,29,34,0.65); }
+.pc.nm { width: auto; padding: 12px 24px; border-radius: 30px; background: rgba(26,30,40,0.7); white-space: nowrap; }
+.pc.nm .ic { font-size: 30px; vertical-align: middle; margin: -4px 10px 0 0; color: #8B93A3; }
+.pc.nm b { display: inline; font-size: 24px; height: auto; }
+.pc.nm.on { background: #5B1D22; }
+.stl { display: inline-block; vertical-align: top; width: 320px; height: 180px; margin-right: 18px; border-radius: 14px; overflow: hidden;
+  border: 4px solid transparent; background: #231A1C; }
+.stl img { width: 100%; height: 100%; object-fit: cover; }
+.stl.on { border-color: #fff; }
+.dt-credit { margin: 22px 0 40px 4px; font-size: 19px; color: #596070; }

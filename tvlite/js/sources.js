@@ -236,6 +236,12 @@ var Src = {};
     var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
     return h > 0 ? h + ' h ' + m + ' min' : m + ' min';
   }
+  /** The YouTube id of a trailer ("abc123", ".../watch?v=abc123", "youtu.be/abc123"); '' when none. */
+  function trailerId(s) {
+    var m = /(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{6,})/.exec(s);
+    if (m) return m[1];
+    return /^[A-Za-z0-9_-]{6,20}$/.test(s) ? s : '';
+  }
   Xtream.prototype.vodInfo = function (it) {
     return this.api('&action=get_vod_info&vod_id=' + encodeURIComponent(it.id)).then(function (data) {
       var info = (data && data.info) || {};
@@ -247,7 +253,8 @@ var Src = {};
         director: firstText([info.director]), genre: firstText([info.genre]), year: y ? y[0] : '',
         rating: U.num(firstText([info.rating, info.rating_5based])), duration: readableLength(info),
         backdrop: firstText([info.backdrop_path, info.backdrop]), cover: firstText([info.movie_image, info.cover_big, info.cover]),
-        country: firstText([info.country])
+        country: firstText([info.country]), trailer: trailerId(firstText([info.youtube_trailer, info.trailer])),
+        tmdbId: U.int(info.tmdb_id) > 0 ? String(U.int(info.tmdb_id)) : ''
       };
     });
   };
