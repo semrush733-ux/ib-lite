@@ -24,6 +24,25 @@ var Src = {};
     return [];
   }
 
+  /** Year of a film or series: the server's year / release date, else the name ("Title (2021)",
+   *  "Title [2021]", "Title - 2021"); 0 when none is found. */
+  var ANY_YEAR = /(?:19|20)\d{2}/, YEAR_BRACKETS = /[(\[]\s*((?:19|20)\d{2})\s*[)\]]/, YEAR_DASH = /\s[-–|]\s*((?:19|20)\d{2})\s*$/;
+  function plausible(y) { return y >= 1900 && y <= new Date().getFullYear() + 1; }
+  function yearInName(name) {
+    var m = YEAR_BRACKETS.exec(name) || YEAR_DASH.exec(name);
+    var y = m ? parseInt(m[1], 10) : 0;
+    return plausible(y) ? y : 0;
+  }
+  Src.yearInName = yearInName;
+  function yearOf(m, name) {
+    var keys = ['year', 'releaseDate', 'release_date', 'releasedate'];
+    for (var i = 0; i < keys.length; i++) {
+      var hit = ANY_YEAR.exec(U.str(m[keys[i]]));
+      if (hit && plausible(parseInt(hit[0], 10))) return parseInt(hit[0], 10);
+    }
+    return yearInName(name);
+  }
+
   function itemFrom(kind, m) {
     var id = U.str(kind === 'series' ? m.series_id : m.stream_id);
     if (!id) return null;
@@ -34,6 +53,13 @@ var Src = {};
     if (kind === 'vod') it.e = U.str(m.container_extension);
     var r = U.str(m.rating);
     if (r && r !== '0') it.r = r;
+    if (kind !== 'live') {
+      // When the server added it ("Recently Added", the Newest sort) and its year (the Year sort).
+      var ad = U.int(kind === 'series' ? m.last_modified : m.added);
+      if (ad > 0) it.ad = ad;
+      var y = yearOf(m, it.n);
+      if (y) it.y = y;
+    }
     if (kind === 'live' && U.int(m.tv_archive) === 1) it.a = 1;
     return it;
   }
@@ -380,6 +406,7 @@ var Src = {};
       var kind = kindOf(line), l = items[kind];
       var it = { k: kind, id: line, n: name || 'No name', i: logo, c: group || 'Other', num: l.length + 1, u: line };
       if (kind === 'live' && tvg) it.g = tvg;
+      if (kind !== 'live') { var yr = yearInName(it.n); if (yr) it.y = yr; }
       l.push(it);
       total++;
       name = null; logo = ''; group = ''; tvg = '';
@@ -396,9 +423,10 @@ var Src = {};
   M3U.prototype.login = function () {
     return this.load().then(function (d) {
       var parts = [];
-      if (d.items.live.length) parts.push(d.items.live.length + ' channels');
-      if (d.items.vod.length) parts.push(d.items.vod.length + ' movies');
-      if (d.items.series.length) parts.push(d.items.series.length + ' episodes');
+      function count(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+      if (d.items.live.length) parts.push(count(d.items.live.length, 'channel', 'channels'));
+      if (d.items.vod.length) parts.push(count(d.items.vod.length, 'movie', 'movies'));
+      if (d.items.series.length) parts.push(count(d.items.series.length, 'episode', 'episodes'));
       return { status: 'Active', expires: null, note: 'M3U playlist · ' + parts.join(', ') };
     });
   };

@@ -326,6 +326,11 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .br-title { height: 64px; white-space: nowrap; padding-left: 8px; }
 .br-title .t { display: inline-block; max-width: 1000px; font-size: 34px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
 .br-title .c { float: right; font-size: 28px; color: #8B93A3; padding-top: 4px; }
+.br-title .srt { float: right; height: 54px; line-height: 46px; margin: -4px 0 0 28px; padding: 0 24px; border-radius: 27px;
+  border: 4px solid rgba(255,255,255,0.14); background: #231A1C; font-size: 24px; font-weight: 700; color: #D5DAE3; }
+.br-title .srt .ic { font-size: 30px; vertical-align: middle; margin: -4px 10px 0 -4px; color: #E3262F; }
+.br-title .srt.on { border-color: #fff; background: #5B1D22; color: #fff; }
+.br-title .srt.on .ic { color: #fff; }
 .chrow { position: absolute; left: 0; right: 0; height: 88px; border-radius: 18px; background: #231A1C; border: 4px solid transparent;
   white-space: nowrap; overflow: hidden; }
 .chrow .no { position: absolute; left: 16px; top: 0; width: 64px; line-height: 80px; font-size: 25px; font-weight: 700; color: #8B93A3; }
@@ -491,9 +496,19 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .zapnum { position: absolute; right: 80px; top: 70px; padding: 14px 32px; border-radius: 20px; background: rgba(0,0,0,0.75); font-size: 64px; font-weight: 800; color: #fff; }
 .chlist { position: absolute; left: 0; top: 0; bottom: 0; width: 720px; padding: 40px 30px 0; background: rgba(14,10,11,0.94); }
 .chlist h3 { margin: 0 0 18px 10px; font-size: 32px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.optlist { position: absolute; right: 60px; bottom: 210px; width: 560px; padding: 22px; border-radius: 26px; background: rgba(20,14,16,0.96);
-  border: 2px solid rgba(255,255,255,0.14); }
-.optlist h3 { margin: 4px 10px 16px; font-size: 28px; color: #8B93A3; font-weight: 700; }
+/* the player's options on the right: sound, picture, speed, sleep timer (moves with the focus) */
+.optlist { position: absolute; right: 60px; bottom: 60px; max-height: 960px; width: 780px; padding: 22px 26px; border-radius: 26px; background: rgba(20,14,16,0.96);
+  border: 2px solid rgba(255,255,255,0.14); overflow: hidden; }
+.optlist .opin { -webkit-transition: -webkit-transform 180ms ease-out; transition: transform 180ms ease-out; will-change: transform; }
+.optlist h3 { margin: 18px 10px 12px; font-size: 26px; color: #8B93A3; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.optlist h3:first-child { margin-top: 4px; }
+.optlist .chips { white-space: nowrap; padding: 4px 4px 6px; }
+.chip { display: inline-block; vertical-align: middle; height: 68px; line-height: 60px; padding: 0 22px; margin: 0 12px 0 0; border-radius: 34px;
+  border: 4px solid rgba(255,255,255,0.14); background: #231A1C; font-size: 26px; font-weight: 700; color: #D5DAE3; }
+.chip.sel { background: #E3262F; border-color: #E3262F; color: #fff; }
+.chip.on { border-color: #fff; background: #5B1D22; color: #fff; }
+.chip.sel.on { background: #F03C45; }
+.optlist .pnote { margin: 10px 10px 2px; font-size: 23px; line-height: 1.4; color: #8B93A3; white-space: normal; }
 .opt { height: 76px; line-height: 68px; padding: 0 22px; border-radius: 16px; border: 4px solid transparent; font-size: 28px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .opt .ic { font-size: 34px; vertical-align: middle; margin: -4px 14px 0 0; color: #8B93A3; }
 .opt.sel .ic { color: #E3262F; }

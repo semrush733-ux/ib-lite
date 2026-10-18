@@ -70,7 +70,7 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     aspect: 'f581', hq: 'f7e9', undo: 'f0261', keyboard: 'f833', radioOn: 'f00d7', radioOff: 'f00d8',
     power: 'f00b8', shield: 'f016b', dns: 'f6c1', link: 'f85a', pub: 'f00c6', smart: 'f0198', memory: 'f8b3',
     wifi: 'f02bf', image: 'f80d', more: 'f8dc', chevR: 'e15f', chevL: 'e15e', down: 'e246', clean: 'f643',
-    drag: 'e206', boxOn: 'f633', boxOff: 'f632', pin: 'f009c', kids: 'f733', unlock: 'f887', edit: 'e21a'
+    drag: 'e206', boxOn: 'f633', boxOff: 'f632', pin: 'f009c', kids: 'f733', unlock: 'f887', edit: 'e21a', added: 'e122'
   };
   U.icon = function (name) { return '<i class="ic">&#x' + (ICONS[name] || 'f816') + ';</i>'; };
 
@@ -185,7 +185,7 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 461: 'back', 27: 'back', 10009: 'back', 8: 'back',
     415: 'play', 19: 'pause', 413: 'stop', 417: 'ff', 412: 'rw', 179: 'playpause', 10252: 'playpause',
     33: 'chup', 34: 'chdown', 427: 'chup', 428: 'chdown', 403: 'red', 404: 'green', 405: 'yellow', 406: 'blue',
-    457: 'info', 1056: 'info',
+    457: 'info', 1056: 'info', 10190: 'last', // Samsung PRE-CH
     65376: 'ok', 65385: 'back' // Samsung's on-screen keyboard: Done, Cancel
   };
   /** Samsung TVs (Tizen) pass on only the keys an app asks for: play / pause, channel, numbers, red, info. */
@@ -193,7 +193,7 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     var dev = window.tizen && tizen.tvinputdevice, got = [];
     if (!dev) return got;
     var want = ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind',
-      'ChannelUp', 'ChannelDown', 'ColorF0Red', 'Info', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      'ChannelUp', 'ChannelDown', 'PreviousChannel', 'ColorF0Red', 'Info', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     for (var i = 0; i < want.length; i++) {
       try { dev.registerKey(want[i]); got.push(want[i]); } catch (e) {}
     }
@@ -251,12 +251,12 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     }
     return false;
   };
-  /** Moves to the nearest element in that direction on the screen. */
-  F.move = function (dir, from) {
+  /** Moves to the nearest element in that direction on the screen (or inside rootEl). */
+  F.move = function (dir, from, rootEl) {
     from = from || F.cur;
-    var root = F.root();
+    var root = rootEl || F.root();
     if (!root) return false;
-    if (!from || !root.contains(from) || !F.visible(from)) return F.first(root);
+    if (!from || !root.contains(from) || !F.visible(from)) return rootEl ? false : F.first(root);
     var list = root.querySelectorAll('.f');
     var c = from.getBoundingClientRect();
     var ccx = (c.left + c.right) / 2, ccy = (c.top + c.bottom) / 2;

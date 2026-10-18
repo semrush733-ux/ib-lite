@@ -611,6 +611,10 @@ var Backend = {}, Store = {};
   /** May this channel / film / series be listed? (its category is not hidden) */
   Store.allowed = function (it) { return !it || !Store.kidsMode() || Store.kidsAllowed(it.k, it.c); };
 
+  /** Movies / Series order: 'default' (as the server sends them), 'new', 'az', 'year', 'rating'. */
+  Store.sortOrder = function (kind) { return S.get('sort_' + kind, 'default') || 'default'; };
+  Store.setSortOrder = function (kind, v) { S.set('sort_' + kind, v); };
+
   /** Live stream format: 'auto' (TV's own HLS first, MPEG-TS as fallback), 'm3u8' or 'ts'. */
   Store.liveFormat = function () { return S.get('live_format', 'auto'); };
   Store.setLiveFormat = function (v) { S.set('live_format', v); };

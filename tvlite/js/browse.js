@@ -3,7 +3,25 @@
 (function () {
   'use strict';
 
-  var ALL = '*all', FAV = '*fav', RECENT = '*recent', SEARCH = '*search';
+  var ALL = '*all', FAV = '*fav', RECENT = '*recent', SEARCH = '*search', NEW = '*new';
+  /** The orders Movies / Series can be shown in (remembered per kind), as in the Android app. */
+  var SORTS = [['default', 'Default order'], ['new', 'Newest added'], ['az', 'A–Z'], ['year', 'Year (newest first)'], ['rating', 'Rating (best first)']];
+  function sortName(order) { for (var i = 0; i < SORTS.length; i++) if (SORTS[i][0] === order) return SORTS[i][1]; return SORTS[0][1]; }
+  var LEAD = /^[^0-9a-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff\u0590-\u06ff]+/;
+  /** A stable sort (equal ones keep the server's order); titles without a date / year / rating go last. */
+  function sorted(list, order) {
+    if (!order || order === 'default' || list.length < 2) return list;
+    var keys = list.map(function (it) {
+      if (order === 'az') return String(it.n || '').toLowerCase().replace(LEAD, '');
+      return -(order === 'new' ? U.int(it.ad) : order === 'year' ? U.int(it.y) : (U.num(it.r) || 0));
+    });
+    var idx = list.map(function (x, i) { return i; });
+    idx.sort(function (a, b) {
+      var ka = keys[a], kb = keys[b], c = order === 'az' ? (ka < kb ? -1 : ka > kb ? 1 : 0) : ka - kb;
+      return c || a - b;
+    });
+    return idx.map(function (i) { return list[i]; });
+  }
   var TITLES = { live: 'Live TV', vod: 'Movies', series: 'Series' };
   var ALL_TITLES = { live: 'All Live Channels', vod: 'All Movies', series: 'All Series' };
   var COUNT = { live: ['channel', 'channels'], vod: ['movie', 'movies'], series: ['series', 'series'] };
@@ -28,6 +46,39 @@
     var main = el.querySelector('.br-main');
     var content = el.querySelector('.content');
     var titleT = el.querySelector('.br-title .t'), titleC = el.querySelector('.br-title .c');
+    // Movies and series: Sort (A–Z, newest added, year, rating), up from the first row of covers.
+    var sortBtn = null;
+    if (!live && !catchup) {
+      sortBtn = U.el('span', 'srt f hide', '');
+      titleT.parentNode.insertBefore(sortBtn, titleC);
+      sortBtn._ok = chooseSort;
+      sortBtn._key = function (k) { if (k === 'down' && view && items.length) { view.list.focus(view.list.idx || 0); return true; } return false; };
+    }
+    function sortApplies() { return !!sortBtn && selected !== RECENT && selected !== NEW; }
+    function drawSort() {
+      if (!sortBtn) return;
+      var order = Store.sortOrder(kind);
+      sortBtn.innerHTML = U.icon('list') + U.esc(order === 'default' ? 'Sort' : sortName(order));
+      sortBtn.classList.toggle('hide', !sortApplies());
+    }
+    function chooseSort() {
+      var current = Store.sortOrder(kind), box = U.el('div');
+      var d = UI.dialog({ title: 'Sort', html: box, width: 900, buttons: [{ label: 'Close' }] });
+      SORTS.forEach(function (o) {
+        var r = U.el('div', 'opt f' + (o[0] === current ? ' sel' : ''), U.icon(o[0] === current ? 'radioOn' : 'radioOff') + U.esc(o[1]));
+        r._ok = function () {
+          d.close();
+          if (o[0] === current) return;
+          Store.setSortOrder(kind, o[0]);
+          App.log('browse ' + kind + ' sort=' + o[0]);
+          drawSort();
+          if (raw.length) show(raw);
+        };
+        box.appendChild(r);
+        if (o[0] === current) F.set(r);
+      });
+      box.appendChild(U.el('div', 'dim', '<div style="font-size:24px;margin:14px 10px 0">Titles without that information go to the end.</div>'));
+    }
 
     // ---------------------------------------------------------------- categories
     var catBox = el.querySelector('.cats');
@@ -108,6 +159,8 @@
         if (!catchup) {
           cats.push({ id: FAV, name: 'Favourites', icon: 'star' });
           cats.push({ id: RECENT, name: 'Recent', icon: 'history' });
+          // Movies / series of an Xtream server: the newest titles by the date the server added them.
+          if (!live && src.type === 'xtream') cats.push({ id: NEW, name: 'Recently Added', icon: 'added' });
         }
         firstReal = cats.length;
         list.forEach(function (c) { cats.push({ id: c.id, name: c.name }); });
@@ -143,7 +196,12 @@
       var ready = id === FAV ? Store.favs(kind).filter(Store.allowed) : id === RECENT ? Store.recents(kind).filter(Store.allowed) : null;
       if (ready) { show(ready); return; }
       busy();
-      var p = id === ALL ? src.all(kind).then(function (l) { l = l.filter(Store.allowed); allCount = l.length; catList.refresh(); return l; }) : src.items(kind, id);
+      var p = id === ALL ? src.all(kind).then(function (l) { l = l.filter(Store.allowed); allCount = l.length; catList.refresh(); return l; }) :
+        id === NEW ? src.all(kind).then(function (l) {
+          var dated = l.filter(function (it) { return it.ad > 0 && Store.allowed(it); });
+          dated.sort(function (a, b) { return b.ad - a.ad; });
+          return dated.slice(0, 200);
+        }) : src.items(kind, id);
       p.then(function (list) {
         if (r !== req) return;
         if (catchup) list = list.filter(function (it) { return it.a === 1; });
@@ -164,8 +222,12 @@
       view.busy = p;
     }
 
+    var raw = []; // the list as the server sent it (Sort works on it)
     function show(list) {
-      items = list;
+      raw = list;
+      items = sortApplies() ? sorted(list, Store.sortOrder(kind)) : list;
+      list = items;
+      drawSort();
       buildView();
       if (view.busy) { view.busy.parentNode.removeChild(view.busy); view.busy = null; }
       var e = view.box.querySelector('.empty');
@@ -178,6 +240,7 @@
         var text = selected === FAV ? 'No favourites yet.\nHold OK on a ' + (live ? 'channel' : 'title') + ' to add it here.' :
           selected === RECENT ? 'Nothing watched yet.\nWhat you open appears here.' :
           selected === SEARCH ? 'Nothing found.' : catchup ? 'No channel in this category keeps recordings.' :
+          selected === NEW ? 'The server does not say when these titles were added.' :
           Store.kidsMode() && selected === ALL ? 'No categories for children were found.\nA parent can choose them in Profiles → Kids categories.' : 'This category is empty.';
         view.box.appendChild(U.el('div', 'empty', U.esc(text).replace(/\n/g, '<br>')));
       }
@@ -467,7 +530,7 @@
       box.style.cssText = 'position:absolute;left:0;top:0;width:' + (cols * w + (cols - 1) * gap + 8) + 'px;height:' + (rows * h + (rows - 1) * gap + 4) + 'px';
       content.appendChild(box);
       var grid = new UI.VGrid(box, {
-        w: w, h: h, gap: gap, cols: cols, rows: rows, fullRows: rows, cls: 'poster',
+        w: w, h: h, gap: gap, cols: cols, rows: rows, fullRows: rows, cls: 'poster', upOut: true,
         make: function (t) {
           t.innerHTML = '<span class="ph">' + U.icon(kind === 'vod' ? 'movie' : 'series') + '</span><img alt=""><div class="cap cl2"></div><span class="fav"></span>';
           t._img = t.childNodes[1]; t._cap = t.childNodes[2]; t._fav = t.childNodes[3];
@@ -498,7 +561,8 @@
       UI.toast(added ? 'Added to Favourites' : 'Removed from Favourites', 1400);
       if (selected === FAV) {
         var keep = view.list.idx;
-        items = Store.favs(kind).filter(Store.allowed);
+        raw = Store.favs(kind).filter(Store.allowed);
+        items = sortApplies() ? sorted(raw, Store.sortOrder(kind)) : raw;
         view.list.set(items, Math.min(keep, items.length - 1));
         setTitle(selectedName, items.length);
       } else if (view) view.list.refresh();
@@ -550,7 +614,8 @@
       returnIdx = -1;
       if (selected === RECENT || selected === FAV) {
         var cur = view ? view.list.idx : 0;
-        items = (selected === FAV ? Store.favs(kind) : Store.recents(kind)).filter(Store.allowed);
+        raw = (selected === FAV ? Store.favs(kind) : Store.recents(kind)).filter(Store.allowed);
+        items = sortApplies() ? sorted(raw, Store.sortOrder(kind)) : raw;
         if (view) view.list.set(items, Math.min(cur, Math.max(0, items.length - 1)), live && pvItem ? indexOf(pvItem) : -1);
         setTitle(selectedName, items.length);
       }

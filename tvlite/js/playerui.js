@@ -4,6 +4,48 @@
 (function () {
   'use strict';
 
+  // ---------------------------------------------------------------- sleep timer (as in the Android app)
+  /** After the chosen time the video stops and the app goes back to the home screen (the TV can
+   *  then go to sleep by itself). A minute before, a message asks whether to keep watching. Set in
+   *  the player's options panel; not kept across starts. */
+  var Sleep = App.sleep = { choices: [0, 15, 30, 60, 90, 120], labels: ['Off', '15 min', '30 min', '1 h', '1 h 30', '2 h'], mins: 0, ends: 0 };
+  var sleepWarn = null, sleepEnd = null, sleepDialog = null;
+  Sleep.set = function (min) {
+    clearTimeout(sleepWarn);
+    clearTimeout(sleepEnd);
+    if (sleepDialog) { var d = sleepDialog; sleepDialog = null; d.close(); }
+    Sleep.mins = min;
+    Sleep.ends = min ? Date.now() + min * 60000 : 0;
+    App.log(min ? 'sleep timer ' + min + ' min' : 'sleep timer off');
+    if (!min) return;
+    if (min * 60 > 75) sleepWarn = setTimeout(warnSleep, min * 60000 - 60000);
+    sleepEnd = setTimeout(endSleep, min * 60000);
+  };
+  /** "Stops at 23:45" */
+  Sleep.endsText = function () { return Sleep.ends ? 'Stops at ' + U.hm(new Date(Sleep.ends)) : ''; };
+  function warnSleep() {
+    sleepDialog = UI.dialog({
+      title: 'Still watching?', html: 'The video stops in one minute (sleep timer).', width: 1000,
+      buttons: [{ label: 'Stop now', ok: function () { sleepDialog = null; endSleep(); } },
+        { label: 'Keep watching (30 min more)', icon: 'play', pri: true, ok: function () { sleepDialog = null; Sleep.set(30); } }],
+      focus: 1, onClose: function () { sleepDialog = null; }
+    });
+  }
+  function endSleep() {
+    clearTimeout(sleepWarn);
+    clearTimeout(sleepEnd);
+    if (sleepDialog) { var d = sleepDialog; sleepDialog = null; d.close(); }
+    Sleep.mins = 0;
+    Sleep.ends = 0;
+    App.log('sleep timer: playback stopped');
+    UI.closeAll();
+    Player.stop();
+    Player.layout('off');
+    // Back on the home screen (the player and a channel preview close).
+    while (Nav.stack.length > 1 && Nav.top().name !== 'home') Nav.pop();
+    UI.toast('Sleep timer: the video was stopped', 5000);
+  }
+
   /** o: {src, kind: live|vod|episode|rec, items, index, adopt, urls, title, sub, poster, resumeKey,
    *      start, episodes, onClose(index), item (the film), series (of the episodes)} */
   Screens.Player = function (o) {
@@ -16,7 +58,7 @@
     var episodes = o.episodes || null, ep = o.index || 0;
     var osdTimer = null, osdOn = false, epg = [], epgTimer = null, tick = null, saveTimer = null;
     var seekTarget = null, seekTimer = null, seekStreak = 0, lastSeek = 0, digits = '', digitTimer = null;
-    var panel = null, dead = false;
+    var panel = null, dead = false, prevIndex = null;
 
     var el = this.el = U.el('div', 'screen pscr');
     el.innerHTML =
@@ -183,8 +225,12 @@
         if (many) mainBtn = button('list', 'Channel list', openList, { big: true });
         if (many) button('prev', 'Previous channel', function () { zap(-1); });
         if (many) button('next', 'Next channel', function () { zap(1); });
-        var b = button('audio', 'Sound', openOptions, { gap: true });
+        if (many && prevIndex != null && items[prevIndex]) {
+          button('history', function () { return items[prevIndex] ? 'Last channel (' + items[prevIndex].n + ')' : 'Last channel'; }, lastChannel);
+        }
+        var b = button('audio', 'Sound, picture and sleep timer', openOptions, { gap: true });
         if (!many) mainBtn = b;
+        button('aspect', fitLabel, cycleFit);
         var fav = cur() && Store.isFav(cur());
         button(fav ? 'star' : 'starb', function () { return cur() && Store.isFav(cur()) ? 'Remove from Favourites' : 'Add to Favourites'; }, function (bt) {
           var it = cur();
@@ -203,7 +249,8 @@
         }, { big: true });
         button('ff', 'Forward 10 seconds', function () { seekBy(1); });
         if (many) button('next', 'Next episode', function () { step(1); });
-        button('audio', 'Sound', openOptions, { gap: true });
+        button('audio', 'Sound, picture, speed and sleep timer', openOptions, { gap: true });
+        button('aspect', fitLabel, cycleFit);
       }
       button('back', 'Back', function () { leave(); });
     }
@@ -257,6 +304,7 @@
       }, 600);
     }
     function tune(i, quietPoster) {
+      if (i !== index && items[index]) prevIndex = index; // for "Last channel"
       index = i;
       target = null;
       var it = items[i];
@@ -280,6 +328,15 @@
       showOsd(false);
       clearTimeout(zapTimer);
       zapTimer = setTimeout(function () { var t = target; if (t != null) tune(t, true); }, 400);
+    }
+    /** "Last channel": back to the channel watched before this one (again = back and forth). */
+    function lastChannel() {
+      if (!live || prevIndex == null || prevIndex === index || !items[prevIndex]) { UI.toast('No previous channel yet', 1500); return; }
+      App.log('last channel');
+      target = prevIndex;
+      showPoster();
+      showOsd(false);
+      tune(prevIndex, true);
     }
     function digit(dgt) {
       if (!live) return;
@@ -394,27 +451,86 @@
       list.set(items, index, index);
       list.focus(index);
     }
+    // Picture: Fit / Fill / Stretch (the button goes round them; also in the options panel).
+    var FIT_NAMES = { fit: 'Fit', fill: 'Fill', stretch: 'Stretch' };
+    function fitLabel() { return 'Picture: ' + FIT_NAMES[Player.fit()] + '  (OK to change)'; }
+    function cycleFit() {
+      var l = Player.fits(), next = l[(l.indexOf(Player.fit()) + 1) % l.length];
+      Player.setFit(next);
+      lbl.textContent = fitLabel();
+    }
+    /** Sound tracks, picture, speed (films) and the sleep timer, on the right (as in the Android app). */
     function openOptions() {
       var tracks = Player.audioTracks();
       hideOsd();
       panel = U.el('div', 'optlist');
-      panel.innerHTML = '<h3>Sound</h3>';
-      if (tracks.length < 2) {
-        var only = U.el('div', 'opt f sel', U.icon('radioOn') + (tracks.length ? U.esc(tracks[0].label) : 'Standard sound'));
-        only._ok = closePanel;
-        panel.appendChild(only);
-      } else {
+      var inner = U.el('div', 'opin'), scroll = 0;
+      panel.appendChild(inner);
+      el.appendChild(panel);
+      function keep(e) {
+        var top = e.offsetTop, bottom = top + e.offsetHeight, view = panel.clientHeight - 44;
+        if (top - scroll < 0) scroll = Math.max(0, top - 60);
+        else if (bottom - scroll > view) scroll = bottom - view;
+        inner.style.webkitTransform = inner.style.transform = scroll ? 'translateY(' + (-scroll) + 'px)' : '';
+      }
+      function head(t) { inner.appendChild(U.el('h3', '', U.esc(t))); }
+      function opt(label, on, ok) {
+        var r = U.el('div', 'opt f' + (on ? ' sel' : ''), U.icon(on ? 'radioOn' : 'radioOff') + U.esc(label));
+        r._ok = ok;
+        r._focus = function () { keep(r); };
+        inner.appendChild(r);
+        return r;
+      }
+      function chips(labels, sel, pick) {
+        var row = U.el('div', 'chips');
+        labels.forEach(function (l, i) {
+          var c = U.el('span', 'chip f' + (i === sel ? ' sel' : ''), U.esc(l));
+          c._ok = function () {
+            for (var k = 0; k < row.childNodes.length; k++) row.childNodes[k].classList.toggle('sel', k === i);
+            pick(i);
+          };
+          c._focus = function () { keep(row); };
+          // Up / Down into the row lands on its choice; Left / Right move along it (Left at the start closes).
+          c._enter = function (dir) { F.set(dir === 'up' || dir === 'down' ? (row.querySelector('.chip.sel') || c) : c); };
+          c._key = function (k) {
+            if (k !== 'left' && k !== 'right') return false;
+            var sib = k === 'left' ? c.previousSibling : c.nextSibling;
+            if (sib) F.set(sib); else if (k === 'left') closePanel();
+            return true;
+          };
+          row.appendChild(c);
+        });
+        inner.appendChild(row);
+        return row;
+      }
+      head('Sound');
+      if (tracks.length < 2) opt(tracks.length ? tracks[0].label : 'Standard sound', true, closePanel);
+      else {
         tracks.forEach(function (t) {
-          var r = U.el('div', 'opt f' + (t.on ? ' sel' : ''), U.icon(t.on ? 'radioOn' : 'radioOff') + U.esc(t.label + (t.lang && t.label !== t.lang ? '  (' + t.lang + ')' : '')));
-          r._ok = function () { Player.setAudio(t.i); closePanel(); UI.toast('Sound: ' + t.label, 1500); };
-          panel.appendChild(r);
+          opt(t.label + (t.lang && t.label !== t.lang ? '  (' + t.lang + ')' : ''), t.on, function () {
+            Player.setAudio(t.i);
+            closePanel();
+            UI.toast('Sound: ' + t.label, 1500);
+          });
         });
       }
+      head('Picture');
+      var fits = Player.fits();
+      chips(fits.map(function (f) { return FIT_NAMES[f]; }), fits.indexOf(Player.fit()), function (i) { Player.setFit(fits[i]); });
+      var speeds = Player.speeds();
+      if (speeds.length) {
+        head('Speed');
+        chips(speeds.map(function (x) { return x + 'x'; }), speeds.indexOf(Player.speed()), function (i) { Player.setSpeed(speeds[i]); });
+      }
+      head('Sleep timer');
+      var note = U.el('div', 'pnote');
+      function drawNote() { note.textContent = Sleep.ends ? Sleep.endsText() + '. A minute before, you can keep watching.' : 'The video stops by itself after the time you pick.'; }
+      chips(Sleep.labels, Math.max(0, Sleep.choices.indexOf(Sleep.mins)), function (i) { Sleep.set(Sleep.choices[i]); drawNote(); });
+      drawNote();
+      inner.appendChild(note);
       var size = Player.size();
-      if (size) panel.appendChild(U.el('div', 'dim', '<div style="font-size:24px;margin:14px 10px 4px">Picture ' + U.esc(size) + '</div>'));
-      el.appendChild(panel);
-      var first = panel.querySelector('.opt.sel') || panel.querySelector('.opt');
-      F.set(first);
+      if (size) inner.appendChild(U.el('div', 'pnote', 'Picture ' + U.esc(size)));
+      F.set(inner.querySelector('.opt.sel') || inner.querySelector('.opt'));
     }
 
     // ---------------------------------------------------------------- player events
@@ -449,9 +565,15 @@
     this.onKey = function (k) {
       if (panel) {
         if (k === 'back') { closePanel(); return true; }
-        if (k === 'left' && panel.className === 'chlist') { closePanel(); return true; }
-        if (k === 'right' && panel.className === 'chlist') return true;
-        if ((k === 'left' || k === 'right') && panel.className === 'optlist') { closePanel(); return true; }
+        if (panel.className === 'chlist') {
+          if (k === 'left') { closePanel(); return true; }
+          return k === 'right';
+        }
+        // The options panel: the arrows stay inside it; Left at its left edge closes it.
+        if (k === 'up' || k === 'down' || k === 'left' || k === 'right') {
+          if (!F.move(k, F.cur, panel) && k === 'left') closePanel();
+          return true;
+        }
         return false;
       }
       if (k.length === 2 && k.charAt(0) === 'd') { digit(k.charAt(1)); return true; }
@@ -459,6 +581,8 @@
         if (k === 'up' || k === 'chup') { zap(1); return true; }
         if (k === 'down' || k === 'chdown') { zap(-1); return true; }
         if (k === 'info') { showOsd(true); return true; }
+        // The remote's PRE-CH (Samsung) or Fast-forward: back to the channel watched before.
+        if (k === 'last' || k === 'ff') { lastChannel(); return true; }
       } else {
         if (k === 'rw') { seekBy(-1); return true; }
         if (k === 'ff') { seekBy(1); return true; }

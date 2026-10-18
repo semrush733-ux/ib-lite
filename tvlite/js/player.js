@@ -152,7 +152,7 @@ var Player = {};
         });
       } catch (e1) {}
       AvEngine.show(st.mode !== 'off');
-      try { av.setDisplayMethod('PLAYER_DISPLAY_MODE_LETTER_BOX'); } catch (e2) {}
+      applyFit();
       // Live: give up a dead stream in good time, so the other format or a reconnect can follow.
       try { av.setTimeoutForBuffering(st.live ? 10 : 20); } catch (e3) {}
       try {
@@ -260,8 +260,41 @@ var Player = {};
     }
     st.rect = mode === 'full' ? { left: 0, top: 0, width: 1920, height: 1080 } : rect;
     E.show(true);
+    applyFit();
   };
   Player.mode = function () { return st.mode; };
+
+  // ---------------------------------------------------------------- picture and speed (full screen)
+  /** Picture: 'fit' (all of it, black bars where needed), 'fill' (the screen filled, the edges cut)
+   *  or 'stretch'. Kept for next time; the small preview always shows all of the picture. AVPlay has
+   *  no "fill": Fit and Stretch there. */
+  var FITS = { fit: 'contain', fill: 'cover', stretch: 'fill' };
+  Player.fits = function () { return av ? ['fit', 'stretch'] : ['fit', 'fill', 'stretch']; };
+  Player.fit = function () { var f = S.get('picture_fit', 'fit'); return Player.fits().indexOf(f) >= 0 ? f : 'fit'; };
+  function applyFit() {
+    var f = st.mode === 'full' ? Player.fit() : 'fit';
+    if (av) {
+      if (avState() === 'NONE') return;
+      try { av.setDisplayMethod(f === 'stretch' ? 'PLAYER_DISPLAY_MODE_FULL_SCREEN' : 'PLAYER_DISPLAY_MODE_LETTER_BOX'); } catch (e) {}
+      return;
+    }
+    v.style.objectFit = FITS[f];
+  }
+  Player.setFit = function (f) {
+    if (Player.fits().indexOf(f) < 0) return;
+    S.set('picture_fit', f);
+    App.log('picture ' + f);
+    applyFit();
+  };
+  /** Films: playback speed (the TV's standard player; not for live channels). */
+  Player.speeds = function () { return av || st.live ? [] : [0.5, 0.75, 1, 1.25, 1.5, 2]; };
+  Player.speed = function () { return st.speed || 1; };
+  Player.setSpeed = function (x) {
+    if (av || st.live) return;
+    st.speed = x;
+    try { v.defaultPlaybackRate = x; v.playbackRate = x; } catch (e) {} // kept when the stream reconnects
+    App.log('speed ' + x);
+  };
 
   // ---------------------------------------------------------------- open / stop
   function clearTimers() {
@@ -287,6 +320,8 @@ var Player = {};
     st.retries = 0;
     st.played = false;
     st.seekTo = -1;
+    st.speed = 1;
+    if (!av) { try { v.defaultPlaybackRate = 1; } catch (e) {} }
     setState('loading');
     if (!st.urls.length) { setState('error', 'no address'); return t; }
     // A moment for the TV's player to let go of the previous stream (one connection per account).
