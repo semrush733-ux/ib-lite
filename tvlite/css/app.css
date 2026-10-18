@@ -41,7 +41,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 #dlg > div { pointer-events: auto; }
 #toast { position: absolute; left: 0; right: 0; bottom: 70px; z-index: 4; text-align: center; pointer-events: none; }
 #intro { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 5; opacity: 1;
-  background: #0B0708; -webkit-transition: opacity 320ms ease-out; transition: opacity 320ms ease-out; }
+  background: #0B0708; -webkit-transition: opacity 280ms ease-out; transition: opacity 280ms ease-out; will-change: opacity; }
 #intro.out { opacity: 0; }
 #log { position: absolute; left: 20px; top: 20px; width: 900px; max-height: 1040px; overflow: hidden; z-index: 9;
   pointer-events: none; color: #fff; font: 18px/1.35 monospace; background: rgba(0,0,0,.85); padding: 14px 18px;
@@ -68,7 +68,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 
 /* ---------- soft pulse (the dot that breathes, as in the player) ---------- */
 .pulse { position: absolute; width: 96px; height: 96px; pointer-events: none; }
-.pulse i { position: absolute; left: 50%; top: 50%; border-radius: 50%; display: block; }
+.pulse i { position: absolute; left: 50%; top: 50%; border-radius: 50%; display: block; will-change: transform, opacity; }
 .pulse .ring { width: 96px; height: 96px; margin: -48px 0 0 -48px; border: 4px solid #E3262F;
   -webkit-animation: pring 1400ms linear infinite; animation: pring 1400ms linear infinite; }
 .pulse .glow { width: 76px; height: 76px; margin: -38px 0 0 -38px;
@@ -77,7 +77,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .pulse .dot { width: 40px; height: 40px; margin: -20px 0 0 -20px; background: #E3262F;
   -webkit-animation: pdot 1400ms ease-in-out infinite; animation: pdot 1400ms ease-in-out infinite; }
 .pulse .dot:after { content: ''; position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%;
-  background: #FFFFFF; opacity: 0; -webkit-animation: pshine 1400ms ease-in-out infinite; animation: pshine 1400ms ease-in-out infinite; }
+  background: #FFFFFF; opacity: 0; will-change: opacity; -webkit-animation: pshine 1400ms ease-in-out infinite; animation: pshine 1400ms ease-in-out infinite; }
 .pulse.s80 { -webkit-transform: scale(0.84); transform: scale(0.84); }
 .pulse.s40 { -webkit-transform: scale(0.5); transform: scale(0.5); }
 .pulse.late { opacity: 0; -webkit-animation: plate 220ms ease-out 500ms forwards; animation: plate 220ms ease-out 500ms forwards; }
@@ -94,30 +94,27 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 
 /* ---------- focus: soft red, white frame on bright buttons ---------- */
 .f { position: relative; }
-.card { background: #231A1C; border: 4px solid transparent; border-radius: 18px;
-  -webkit-transition: background-color 160ms ease-out, border-color 160ms ease-out;
-  transition: background-color 160ms ease-out, border-color 160ms ease-out; }
+.card { background: #231A1C; border: 4px solid transparent; border-radius: 18px; }
 .card.sel { background: #33191C; border-color: rgba(227,38,47,0.45); }
 .card.on { background: #5B1D22; border-color: #E3262F; }
 .card.on:before { content: ''; position: absolute; left: -4px; top: -4px; right: -4px; bottom: -4px; border-radius: 18px;
-  box-shadow: 0 0 28px rgba(227,38,47,0.38); pointer-events: none; }
+  box-shadow: 0 0 0 4px rgba(227,38,47,0.30); pointer-events: none; }
 
 .btn { display: inline-block; vertical-align: middle; height: 92px; line-height: 84px; padding: 0 40px; border-radius: 18px;
-  background: rgba(255,255,255,0.10); border: 4px solid transparent; font-weight: 700; font-size: 30px; white-space: nowrap;
-  -webkit-transition: background-color 160ms ease-out, border-color 160ms ease-out; transition: background-color 160ms ease-out, border-color 160ms ease-out; }
+  background: rgba(255,255,255,0.10); border: 4px solid transparent; font-weight: 700; font-size: 30px; white-space: nowrap; }
 .btn .ic { font-size: 42px; vertical-align: middle; margin: -6px 12px 0 -6px; color: #E3262F; }
 .btn.on { background: #5B1D22; border-color: #E3262F; }
 .btn.pri { background: #E3262F; color: #fff; }
 .btn.pri .ic { color: #fff; }
 .btn.pri.on { background: #F03C45; border-color: #FFFFFF; }
 .btn.on:before { content: ''; position: absolute; left: -4px; top: -4px; right: -4px; bottom: -4px; border-radius: 18px;
-  box-shadow: 0 0 30px rgba(227,38,47,0.45); pointer-events: none; }
+  box-shadow: 0 0 0 4px rgba(227,38,47,0.32); pointer-events: none; }
 
 /* ---------- dialogs and toasts ---------- */
 .veil { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: rgba(5,3,4,0.72); }
 .dialog { position: absolute; left: 50%; top: 50%; width: 1000px; margin-left: -500px; background: #181214;
   border: 2px solid rgba(255,255,255,0.12); border-radius: 28px; padding: 48px 56px 44px;
-  -webkit-transform: translateY(-50%); transform: translateY(-50%); box-shadow: 0 30px 80px rgba(0,0,0,0.6); }
+  -webkit-transform: translateY(-50%); transform: translateY(-50%); box-shadow: 0 18px 40px rgba(0,0,0,0.55); }
 .dialog h2 { margin: 0 0 18px; font-size: 44px; font-weight: 800; }
 .dialog .body { font-size: 30px; line-height: 1.45; color: #D5DAE3; }
 .dialog .acts { margin-top: 40px; text-align: right; white-space: nowrap; }
@@ -137,13 +134,11 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .errbox { margin-top: 22px; padding: 20px 26px; border-radius: 16px; background: rgba(255,107,107,0.14);
   border: 2px solid rgba(255,107,107,0.5); color: #FFB3B3; font-size: 29px; line-height: 1.4; }
 .toastmsg { display: inline-block; padding: 22px 40px; border-radius: 40px; background: rgba(24,18,20,0.96);
-  border: 2px solid rgba(255,255,255,0.14); font-size: 30px; font-weight: 700; box-shadow: 0 16px 50px rgba(0,0,0,0.5);
+  border: 2px solid rgba(255,255,255,0.14); font-size: 30px; font-weight: 700; box-shadow: 0 10px 24px rgba(0,0,0,0.45);
   -webkit-transition: opacity 200ms ease-out; transition: opacity 200ms ease-out; }
 
 /* ---------- connect (QR) ---------- */
 .cn-bg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background-size: cover; background-position: center; }
-.cn-wash { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
-  background: linear-gradient(135deg, rgba(64,10,16,0.95), rgba(26,6,8,0.9)); }
 .cn-left { position: absolute; left: 116px; top: 96px; width: 940px; }
 .cn-left h1 { margin: 62px 0 18px; font-size: 68px; font-weight: 800; letter-spacing: -1px; }
 .cn-left .sub { font-size: 32px; color: rgba(242,244,248,0.82); margin-bottom: 50px; }
@@ -152,7 +147,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .step .n { position: absolute; left: 0; top: -6px; width: 60px; height: 60px; border-radius: 50%; background: #E3262F;
   text-align: center; line-height: 60px; font-weight: 800; color: #fff; }
 .cn-right { position: absolute; left: 1140px; top: 150px; width: 664px; padding: 44px; border-radius: 44px;
-  background: rgba(11,6,7,0.9); border: 3px solid rgba(255,255,255,0.33); box-shadow: 0 20px 60px rgba(0,0,0,0.4); text-align: center; }
+  background: rgba(11,6,7,0.9); border: 3px solid rgba(255,255,255,0.33); box-shadow: 0 12px 30px rgba(0,0,0,0.4); text-align: center; }
 .qrbox { background: #fff; border-radius: 28px; padding: 24px; width: 576px; height: 576px; margin: 0 auto; }
 .qrbox { position: relative; }
 .qrbox canvas { position: absolute; left: 50%; top: 50%; -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); }
@@ -180,15 +175,10 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 
 /* ---------- home ---------- */
 .hm-bg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background-size: cover; background-position: center; }
-.hm-wash { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
-  background: linear-gradient(to bottom, rgba(44,11,15,0.92) 0%, rgba(54,16,22,0.82) 50%, rgba(20,6,8,0.94) 100%); }
-.hm-vig { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
-  background: radial-gradient(ellipse 1400px 1000px at 60% 35%, rgba(0,0,0,0), rgba(0,0,0,0.6)); }
 .hm-top { position: absolute; left: 77px; right: 77px; top: 54px; height: 108px; white-space: nowrap; }
 .hm-top .logo { margin-top: 10px; }
 .hm-pills { position: absolute; left: 560px; top: 8px; right: 360px; height: 100px; overflow: hidden; white-space: nowrap; }
-.pill { display: inline-block; vertical-align: top; height: 92px; margin-right: 28px; border-radius: 24px; border: 4px solid transparent;
-  -webkit-transition: border-color 140ms ease-out; transition: border-color 140ms ease-out; }
+.pill { display: inline-block; vertical-align: top; height: 92px; margin-right: 28px; border-radius: 24px; border: 4px solid transparent; }
 .pill .pi { display: inline-block; vertical-align: top; width: 84px; height: 84px; line-height: 84px; text-align: center; border-radius: 20px 0 0 20px;
   background: linear-gradient(135deg, #3A3D46, #26282F); }
 .pill .pi .ic { font-size: 44px; line-height: 84px; color: #fff; }
@@ -198,32 +188,31 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .pill.on .pi { background: linear-gradient(135deg, #8A1A20, #5A0E13); }
 .pill.on .pl { background: linear-gradient(to right, #FF4A52, #E3262F); }
 .pill.on:before { content: ''; position: absolute; left: -4px; top: -4px; right: -4px; bottom: -4px; border-radius: 24px;
-  box-shadow: 0 0 36px rgba(227,38,47,0.55); pointer-events: none; }
+  box-shadow: 0 0 0 5px rgba(227,38,47,0.38); pointer-events: none; }
 .hm-icons { position: absolute; right: 0; top: 0; white-space: nowrap; }
 .sq { display: inline-block; vertical-align: top; width: 108px; height: 108px; margin-left: 24px; border-radius: 28px; text-align: center;
-  background: linear-gradient(135deg, #34363F, #1E1F25); border: 2px solid rgba(255,255,255,0.2);
-  -webkit-transition: border-color 140ms ease-out; transition: border-color 140ms ease-out; }
+  background: linear-gradient(135deg, #34363F, #1E1F25); border: 2px solid rgba(255,255,255,0.2); }
 .sq .ic { font-size: 56px; line-height: 104px; color: #fff; }
 .sq.on { background: linear-gradient(135deg, #FF4A52, #B81E26); border: 4px solid #fff; }
 .sq.on .ic { line-height: 100px; }
 .sq.on:before { content: ''; position: absolute; left: -4px; top: -4px; right: -4px; bottom: -4px; border-radius: 28px;
-  box-shadow: 0 0 36px rgba(227,38,47,0.55); pointer-events: none; }
+  box-shadow: 0 0 0 5px rgba(227,38,47,0.38); pointer-events: none; }
 .hm-tiles { position: absolute; left: 77px; right: 77px; top: 216px; height: 560px; white-space: nowrap; font-size: 0; }
 .tile { display: inline-block; vertical-align: top; width: 418px; height: 560px; margin-right: 31px; position: relative; text-align: center; }
 .tile:last-child { margin-right: 0; }
 .tile .bgc { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 44px; border: 2px solid rgba(255,255,255,0.13);
   background: linear-gradient(to bottom, rgba(174,42,50,0.85) 0%, rgba(120,46,52,0.70) 45%, rgba(80,80,88,0.60) 100%);
-  box-shadow: 0 20px 36px rgba(0,0,0,0.33);
+  box-shadow: 0 12px 22px rgba(0,0,0,0.30);
   -webkit-transition: -webkit-transform 180ms ease-out; transition: transform 180ms ease-out; will-change: transform; }
 .tile .hi { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 44px; border: 6px solid #fff; opacity: 0;
   background: linear-gradient(to bottom, rgba(239,58,66,1) 0%, rgba(181,50,58,0.85) 45%, rgba(112,112,120,0.70) 100%);
-  box-shadow: 0 20px 68px rgba(227,38,47,0.6);
+  box-shadow: 0 12px 34px rgba(227,38,47,0.5);
   -webkit-transition: opacity 180ms ease-out, -webkit-transform 180ms ease-out; transition: opacity 180ms ease-out, transform 180ms ease-out; will-change: transform, opacity; }
 .tile .shine { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: 44px;
   background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0) 50%); }
 .tile .ti { position: absolute; left: 0; right: 0; top: 156px; font-size: 146px; color: #fff; }
 .tile .tt { position: absolute; left: 10px; right: 10px; top: 340px; font-size: 48px; font-weight: 700; color: #fff;
-  text-shadow: 0 2px 16px rgba(0,0,0,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  text-shadow: 0 2px 6px rgba(0,0,0,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile .bar { position: absolute; left: 50%; bottom: 22px; width: 126px; height: 16px; margin-left: -63px; border-radius: 12px; background: #fff;
   -webkit-transform: scaleX(0); transform: scaleX(0); -webkit-transition: -webkit-transform 180ms ease-out; transition: transform 180ms ease-out; }
 .tile.on .bgc, .tile.on .hi { -webkit-transform: scale(1.045); transform: scale(1.045); }
@@ -236,7 +225,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .hm-svc { position: absolute; left: 77px; right: 77px; top: 712px; height: 112px; white-space: nowrap; font-size: 0; }
 .svcbox { display: inline-block; vertical-align: top; position: relative; width: 330px; height: 112px; margin-right: 24px; border-radius: 28px;
   background: rgba(26,13,16,0.9); border: 3px solid rgba(255,255,255,0.22); padding: 20px 20px 0 96px; box-sizing: border-box;
-  -webkit-transition: -webkit-transform 140ms ease-out; transition: transform 140ms ease-out; }
+  -webkit-transition: -webkit-transform 140ms ease-out; transition: transform 140ms ease-out; will-change: transform; }
 .svcbox:last-child { margin-right: 0; }
 .svcbox .ic { position: absolute; left: 26px; top: 26px; font-size: 54px; color: #E3262F; }
 .svcbox .nm { display: block; font-size: 33px; font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -270,8 +259,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .vl { position: relative; overflow: hidden; }
 .vl .rows { position: absolute; left: 0; top: 0; right: 0; }
 .crow { position: absolute; left: 0; right: 0; height: 76px; line-height: 68px; padding: 0 20px; border-radius: 16px; background: #181214;
-  border: 4px solid transparent; font-size: 28px; font-weight: 500; color: #C9CFDA; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  -webkit-transition: background-color 140ms ease-out, border-color 140ms ease-out; transition: background-color 140ms ease-out, border-color 140ms ease-out; }
+  border: 4px solid transparent; font-size: 28px; font-weight: 500; color: #C9CFDA; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .crow .ic { color: #E3262F; font-size: 34px; vertical-align: middle; margin: -5px 14px 0 0; }
 .crow .cnt { color: #8B93A3; font-weight: 600; margin-left: 8px; }
 .crow.sel { background: #2A1719; border-color: rgba(227,38,47,0.45); color: #F2F4F8; font-weight: 700; }
@@ -286,8 +274,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .br-title .t { display: inline-block; max-width: 1000px; font-size: 34px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
 .br-title .c { float: right; font-size: 28px; color: #8B93A3; padding-top: 4px; }
 .chrow { position: absolute; left: 0; right: 0; height: 88px; border-radius: 18px; background: #231A1C; border: 4px solid transparent;
-  white-space: nowrap; overflow: hidden;
-  -webkit-transition: background-color 140ms ease-out, border-color 140ms ease-out; transition: background-color 140ms ease-out, border-color 140ms ease-out; }
+  white-space: nowrap; overflow: hidden; }
 .chrow .no { position: absolute; left: 16px; top: 0; width: 64px; line-height: 80px; font-size: 25px; font-weight: 700; color: #8B93A3; }
 .chrow .lg { position: absolute; left: 82px; top: 6px; width: 68px; height: 68px; object-fit: contain; }
 .chrow .nm { position: absolute; left: 166px; right: 44px; top: 0; height: 80px; display: -webkit-box; display: -webkit-flex; display: flex;
@@ -301,8 +288,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .pane { position: absolute; top: 64px; bottom: 28px; }
 .pbtns { height: 76px; white-space: nowrap; font-size: 0; }
 .pbtn { display: inline-block; vertical-align: top; height: 76px; line-height: 68px; border-radius: 18px; background: rgba(255,255,255,0.10);
-  border: 4px solid transparent; text-align: center; font-size: 26px; font-weight: 700; margin-right: 16px; overflow: hidden; white-space: nowrap;
-  -webkit-transition: background-color 140ms ease-out, border-color 140ms ease-out; transition: background-color 140ms ease-out, border-color 140ms ease-out; }
+  border: 4px solid transparent; text-align: center; font-size: 26px; font-weight: 700; margin-right: 16px; overflow: hidden; white-space: nowrap; }
 .pbtn:last-child { margin-right: 0; }
 .pbtn .ic { color: #E3262F; font-size: 34px; vertical-align: middle; margin: -4px 10px 0 0; }
 .pbtn.on { background: #5B1D22; border-color: #E3262F; }
@@ -329,8 +315,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .epg .hd .t { display: inline-block; max-width: 470px; font-size: 36px; font-weight: 800; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
 .epg .hd .clk { display: inline-block; vertical-align: middle; margin-left: 18px; padding: 4px 14px; border-radius: 12px; background: rgba(255,255,255,0.12);
   font-size: 26px; color: #D5DAE3; font-weight: 700; }
-.epg .bd { position: absolute; left: 36px; right: 36px; top: 112px; bottom: 20px; overflow: hidden;
-  -webkit-mask-image: linear-gradient(to bottom, #000 78%, rgba(0,0,0,0) 100%); }
+.epg .bd { position: absolute; left: 36px; right: 36px; top: 112px; bottom: 20px; overflow: hidden; }
 .epg .bd .in { position: relative; -webkit-transition: -webkit-transform 180ms ease-out; transition: transform 180ms ease-out; }
 .epg .now { font-size: 30px; font-weight: 800; color: #E3262F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prog { height: 8px; border-radius: 6px; background: rgba(255,255,255,0.15); margin: 12px 0 10px; overflow: hidden; }
@@ -339,10 +324,8 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .epg .nx { font-size: 26px; padding: 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .epg .nx .tm { display: inline-block; width: 210px; color: #D5DAE3; font-weight: 500; }
 .epg .msg { font-size: 26px; color: #8B93A3; }
-.poster { position: absolute; border-radius: 16px; overflow: hidden; background: #231A1C; border: 4px solid transparent;
-  -webkit-transition: border-color 140ms ease-out; transition: border-color 140ms ease-out; }
-.poster img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0;
-  -webkit-transition: opacity 160ms ease-out; transition: opacity 160ms ease-out; }
+.poster { position: absolute; border-radius: 16px; overflow: hidden; background: #231A1C; border: 4px solid transparent; }
+.poster img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
 .poster img.ok { opacity: 1; }
 .poster .ph { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font-size: 80px; color: #3D3033; }
 .poster .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 44px 14px 12px; font-size: 24px; font-weight: 600; line-height: 1.2;
@@ -354,10 +337,10 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 
 /* ---------- movie / series details ---------- */
 .dt-bg { position: absolute; right: 0; top: 0; width: 1190px; height: 1080px; background-size: cover; background-position: center top; }
+/* both washes in one layer (one blend per frame on the TV instead of two) */
 .dt-wash { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
-  background: linear-gradient(to right, #0E0A0B 0%, #0E0A0B 38%, rgba(10,12,16,0.7) 72%, rgba(10,12,16,0.2) 100%); }
-.dt-wash2 { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
-  background: linear-gradient(to bottom, rgba(14,10,11,0) 50%, #0E0A0B 92%); }
+  background: linear-gradient(to bottom, rgba(14,10,11,0) 50%, #0E0A0B 92%),
+    linear-gradient(to right, #0E0A0B 0%, #0E0A0B 38%, rgba(10,12,16,0.7) 72%, rgba(10,12,16,0.2) 100%); }
 .dt { position: absolute; left: 88px; top: 72px; width: 1080px; }
 .dt h1 { margin: 0; font-size: 64px; line-height: 1.15; font-weight: 800; letter-spacing: -0.5px; }
 .dt .meta { margin-top: 20px; font-size: 29px; color: #D5DAE3; white-space: nowrap; }
@@ -382,8 +365,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .sbtn.sel { background: #33191C; border-color: rgba(227,38,47,0.45); }
 .sbtn.on { background: #5B1D22; border-color: #E3262F; }
 .eprow { position: absolute; left: 0; right: 0; height: 92px; line-height: 84px; border-radius: 18px; background: #231A1C; border: 4px solid transparent;
-  padding: 0 28px; white-space: nowrap; overflow: hidden;
-  -webkit-transition: background-color 140ms ease-out, border-color 140ms ease-out; transition: background-color 140ms ease-out, border-color 140ms ease-out; }
+  padding: 0 28px; white-space: nowrap; overflow: hidden; }
 .eprow .en { display: inline-block; width: 70px; color: #E3262F; font-size: 32px; font-weight: 800; }
 .eprow .et { display: inline-block; max-width: 900px; font-size: 29px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; vertical-align: top; }
 .eprow .ex { float: right; font-size: 25px; color: #8B93A3; }
@@ -409,7 +391,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .pscr .dead .ic { font-size: 84px; color: #FF6B6B; }
 .pscr .dead .t1 { font-size: 36px; font-weight: 800; margin-top: 10px; }
 .pscr .dead .t2 { font-size: 26px; color: #8B93A3; margin-top: 12px; }
-.pscr .osd { opacity: 0; -webkit-transition: opacity 160ms ease-out; transition: opacity 160ms ease-out; }
+.pscr .osd { opacity: 0; -webkit-transition: opacity 160ms ease-out; transition: opacity 160ms ease-out; will-change: opacity; }
 .pscr .osd.show { opacity: 1; }
 .pscr .top { position: absolute; left: 0; right: 0; top: 0; height: 200px; padding: 36px 68px 0 56px; white-space: nowrap;
   background: linear-gradient(to bottom, rgba(0,0,0,0.85), rgba(0,0,0,0)); }
@@ -437,8 +419,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .pscr .bot .lbl { position: absolute; left: 0; top: 20px; width: 520px; font-size: 25px; color: #8B93A3; white-space: normal; line-height: 1.25; }
 .pscr .bot .btns { position: absolute; right: 0; top: 0; }
 .rb { display: inline-block; vertical-align: middle; width: 84px; height: 84px; margin-left: 18px; border-radius: 50%; text-align: center;
-  background: rgba(16,19,26,0.6); border: 4px solid transparent;
-  -webkit-transition: background-color 140ms ease-out, border-color 140ms ease-out; transition: background-color 140ms ease-out, border-color 140ms ease-out; }
+  background: rgba(16,19,26,0.6); border: 4px solid transparent; }
 .rb .ic { font-size: 44px; line-height: 76px; color: #fff; }
 .rb.big { width: 104px; height: 104px; }
 .rb.big .ic { font-size: 58px; line-height: 96px; }
@@ -470,8 +451,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .st-side h1 { font-size: 48px; font-weight: 800; margin: 50px 0 14px; }
 .st-side .ver { color: #8B93A3; font-size: 26px; line-height: 1.5; }
 .st-main { position: absolute; left: 580px; right: 80px; top: 70px; }
-.srow { height: 112px; border-radius: 22px; background: #231A1C; border: 4px solid transparent; margin-bottom: 18px; padding: 0 34px; white-space: nowrap; position: relative;
-  -webkit-transition: background-color 140ms ease-out, border-color 140ms ease-out; transition: background-color 140ms ease-out, border-color 140ms ease-out; }
+.srow { height: 112px; border-radius: 22px; background: #231A1C; border: 4px solid transparent; margin-bottom: 18px; padding: 0 34px; white-space: nowrap; position: relative; }
 .srow .ic { font-size: 50px; color: #E3262F; vertical-align: middle; margin-right: 26px; line-height: 104px; }
 .srow .lb { display: inline-block; vertical-align: middle; font-size: 31px; font-weight: 700; }
 .srow .vl2 { position: absolute; right: 34px; top: 0; line-height: 104px; font-size: 28px; color: #D5DAE3; font-weight: 600; }

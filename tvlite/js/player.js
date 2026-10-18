@@ -1,10 +1,10 @@
 /* The one video player of the app: the TV's own (hardware) player.
  *
  * Two engines behind the same functions:
- *  - Samsung (Tizen): AVPlay (webapis.avplay), Samsung's hardware player. It plays MPEG-TS, HLS
- *    and MP4 directly on the TV's video chip, on its own picture layer under the app, so live TV
- *    and films stay smooth and the app's menus never slow the picture down.
- *  - LG (webOS) and browsers: a single <video> element (the TV's media pipeline).
+ *  - a single <video> element (the TV's media pipeline): LG, browsers, and Samsung by default;
+ *  - Samsung (Tizen), when chosen in Settings: AVPlay (webapis.avplay), Samsung's hardware player.
+ *    It plays MPEG-TS, HLS and MP4 directly on the TV's video chip, on its own picture layer under
+ *    the app (for streams the standard player does not open).
  *
  * The same picture is the small preview and the full screen, so going full screen and back never
  * reloads the stream. Before a new address opens, the old one is let go (most IPTV accounts allow
@@ -54,7 +54,9 @@ var Player = {};
   }
 
   // ================================================================ the engines
-  var av = (window.webapis && webapis.avplay && typeof webapis.avplay.open === 'function') ? webapis.avplay : null;
+  // Samsung's AVPlay only when chosen in Settings (the TV's standard player is the default).
+  Player.avplayAvailable = !!(window.webapis && webapis.avplay && typeof webapis.avplay.open === 'function');
+  var av = Player.avplayAvailable && S.get('samsung_player', 'standard') === 'avplay' ? webapis.avplay : null;
   var avObj = null;
   Player.engine = av ? 'avplay' : 'video';
 

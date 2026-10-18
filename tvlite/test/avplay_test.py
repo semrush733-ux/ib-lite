@@ -77,11 +77,27 @@ def main():
     try:
         with sync_playwright() as p:
             b = p.chromium.launch()
-            # ---------------- Samsung: AVPlay
+            # ---------------- Samsung, standard player (default)
+            page0 = b.new_page(viewport={'width': 1920, 'height': 1080})
+            errors0 = []
+            page0.on('pageerror', lambda e: errors0.append(str(e)))
+            page0.add_init_script(fake)
+            page0.goto('http://127.0.0.1:8091/index.html')
+            check('Samsung default: app starts', wait_for(page0, '!!(window.Nav && Nav.top())', 12))
+            check('Samsung default: standard player, AVPlay offered in Settings',
+                  page0.evaluate('Player.engine') == 'video' and page0.evaluate('Player.avplayAvailable') is True)
+            check('start: first screen hidden behind the brand', page0.evaluate("document.getElementById('screens').style.visibility") in ('hidden', ''))
+            check('start: brand gone, first screen shown', wait_for(page0, "!document.getElementById('intro') && document.getElementById('screens').style.visibility === ''", 8))
+            check('start: one background layer', page0.evaluate("!document.querySelector('.hm-wash, .hm-vig, .cn-wash')"))
+            page0.screenshot(path=os.path.join(tmp, 'first-screen.png'))
+            print('screenshot:', os.path.join(tmp, 'first-screen.png'))
+            check('Samsung default: no script errors', not errors0, '; '.join(errors0[:3]))
+
+            # ---------------- Samsung: AVPlay (chosen in Settings)
             page = b.new_page(viewport={'width': 1920, 'height': 1080})
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
-            page.add_init_script(fake)
+            page.add_init_script("try { localStorage.setItem('lt_samsung_player', JSON.stringify('avplay')); } catch (e) {}\n" + fake)
             page.goto('http://127.0.0.1:8091/index.html')
             check('app starts (first screen shown)', wait_for(page, '!!(window.Nav && Nav.top())', 12))
             check('Samsung uses AVPlay', page.evaluate('Player.engine') == 'avplay')

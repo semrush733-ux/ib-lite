@@ -28,14 +28,22 @@
     ]).then(function () { return new Screens.Connect(); });
   }
 
-  /** The brand screen goes softly once the first screen is there (and was seen for a moment). */
+  /** The brand screen goes softly once the first screen is there (and was seen for a moment).
+   * While it shows, the first screen is built but not drawn (visibility hidden): the TV only has the
+   * brand and its pulse to draw, so the animation stays smooth on the cheapest TVs too. */
+  var screensEl = U.$('screens');
+  screensEl.style.visibility = 'hidden';
   function closeIntro(t0) {
     var intro = U.$('intro');
     var wait = Math.max(0, 1400 - (Date.now() - t0));
     setTimeout(function () {
       App.blocked = false;
-      intro.classList.add('out');
-      setTimeout(function () { if (intro.parentNode) intro.parentNode.removeChild(intro); }, 400);
+      screensEl.style.visibility = '';
+      // One frame for the first screen to be drawn, then the brand fades over it.
+      setTimeout(function () {
+        intro.classList.add('out');
+        setTimeout(function () { if (intro.parentNode) intro.parentNode.removeChild(intro); }, 360);
+      }, 40);
     }, wait);
   }
 

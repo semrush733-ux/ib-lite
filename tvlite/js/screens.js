@@ -35,7 +35,7 @@ var Screens = {};
     var el = this.el = screenEl();
     var tried = false, opening = false, lists = [], timer = null, error = message || '';
     el.innerHTML =
-      '<div class="cn-bg"></div><div class="cn-wash"></div>' +
+      '<div class="cn-bg"></div>' +
       '<div class="cn-left">' + UI.logo(80) +
       '<h1>Add your playlist</h1><div class="sub">Your playlist is added on our website — no typing with the remote.</div>' +
       '<div class="steps"></div><div class="demo"></div><div class="err"></div><div class="plchoice"></div></div>' +
@@ -43,7 +43,8 @@ var Screens = {};
       '<div class="idrow"><span class="k">MAC Address:</span><span class="v mac">—</span></div>' +
       '<div class="idrow"><span class="k">Device Key:</span><span class="v key">—</span></div>' +
       '<div class="waitline"><span class="wl"></span><span class="wt">Waiting for your playlist…</span></div></div>';
-    el.querySelector('.cn-bg').style.backgroundImage = 'url(img/home_bg.webp)';
+    // One opaque picture (photo + colour wash made in advance: tools/make_tv_backgrounds.py).
+    el.querySelector('.cn-bg').style.backgroundImage = 'url(img/connect_full.webp)';
     el.querySelector('.wl').appendChild(UI.pulse());
     var site = Backend.siteShort();
     el.querySelector('.steps').innerHTML =
@@ -310,11 +311,12 @@ var Screens = {};
     var acc = account || null, offline = false, timers = [], refreshing = false, pendingFollow = false;
     App.account = acc;
     el.innerHTML =
-      '<div class="hm-bg"></div><div class="hm-wash"></div><div class="hm-vig"></div>' +
+      '<div class="hm-bg"></div>' +
       '<div class="hm-top">' + UI.logo(60) + '<div class="hm-pills"></div><div class="hm-icons"></div></div>' +
       '<div class="hm-tiles"></div>' +
       '<div class="hm-bottom"><div class="infobox"></div><div class="expiry"></div><div class="wbox"></div></div>';
-    el.querySelector('.hm-bg').style.backgroundImage = 'url(img/home_bg.webp)';
+    // One opaque picture (photo + wash + vignette made in advance: tools/make_tv_backgrounds.py).
+    el.querySelector('.hm-bg').style.backgroundImage = 'url(img/home_full.webp)';
 
     var pills = el.querySelector('.hm-pills');
     function pill(icon, label, ok) {
@@ -546,6 +548,19 @@ var Screens = {};
       r.querySelector('.vl2').textContent = FORMATS[next];
       UI.toast('Live channels: ' + FORMATS[next]);
     });
+    // Samsung: the TV's standard player, or Samsung's AVPlay (for streams the standard one does not open).
+    if (Player.avplayAvailable) {
+      var PLAYERS = { standard: 'Standard (recommended)', avplay: 'Samsung AVPlay' };
+      row('play', 'Video player', U.esc(PLAYERS[S.get('samsung_player', 'standard')] || PLAYERS.standard), function () {
+        var next = S.get('samsung_player', 'standard') === 'avplay' ? 'standard' : 'avplay';
+        UI.confirm('Video player: ' + PLAYERS[next] + '?', 'The app starts again to switch the player.', 'Switch', 'Cancel', function () {
+          S.set('samsung_player', next);
+          App.log('video player: ' + next);
+          Player.stop();
+          location.reload();
+        });
+      });
+    }
     row('tv', 'My device', U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
     row('person', 'Account', U.icon('chevR'), function () { App.accountDialog(App.account, false); });
     function svcCount() { var n = Streaming.enabled().length; return (n ? n + ' on' : 'Off') + U.icon('chevR'); }

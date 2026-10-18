@@ -16,7 +16,7 @@
     el.style.background = '#0E0A0B';
     var info = {}, loading = true;
     var key = 'vod:' + it.id;
-    el.innerHTML = '<div class="dt-bg"></div><div class="dt-wash"></div><div class="dt-wash2"></div>' +
+    el.innerHTML = '<div class="dt-bg"></div><div class="dt-wash"></div>' +
       '<div class="dt"><h1 class="cl2"></h1><div class="meta"></div><div class="genre"></div><div class="plot"></div>' +
       '<div class="acts"></div><div class="more"></div></div>';
     el.querySelector('h1').textContent = it.n;
