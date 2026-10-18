@@ -164,7 +164,7 @@ var Streaming = {};
     var content = el.querySelector('.content');
     var titleT = el.querySelector('.br-title .t'), titleC = el.querySelector('.br-title .c');
     var res = null, kind = 'vod', grid = null, items = [];
-    var tabs = [{ id: 'vod', name: 'Movies', icon: 'movie' }, { id: 'series', name: 'Series', icon: 'series' }];
+    var tabs = [{ id: 'vod', name: App.t('Movies'), icon: 'movie' }, { id: 'series', name: App.t('Series'), icon: 'series' }];
     var catBox = el.querySelector('.cats');
     catBox.style.height = (2 * 84) + 'px';
     var tabList = new UI.VList(catBox, {
@@ -183,7 +183,7 @@ var Streaming = {};
       kind = k;
       tabList.setSel(k === 'vod' ? 0 : 1);
       items = (k === 'vod' ? res.movies : res.series).filter(Store.allowed);
-      titleT.textContent = k === 'vod' ? 'Movies' : 'Series';
+      titleT.textContent = k === 'vod' ? App.t('Movies') : App.t('Series');
       titleC.textContent = items.length + (k === 'vod' ? (items.length === 1 ? ' movie' : ' movies') : ' series');
       content.innerHTML = '';
       grid = null;

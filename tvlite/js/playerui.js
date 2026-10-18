@@ -99,7 +99,7 @@
     });
     wrap.appendChild(U.el('div', 'kc-note', 'Turn subtitles on while watching: OK, then the Sound button (or Right on a live channel), then Subtitles. ' +
       '"Higher" helps when the TV puts its own bar over them.'));
-    UI.dialog({ title: 'Subtitles', html: wrap, width: 1340, buttons: [{ label: 'Done', pri: true }], focusEl: first, onClose: done });
+    UI.dialog({ title: App.t('Subtitles'), html: wrap, width: 1340, buttons: [{ label: 'Done', pri: true }], focusEl: first, onClose: done });
     draw();
   };
 
@@ -291,14 +291,14 @@
       buttons = [];
       var many = live ? items.length > 1 : (episodes && episodes.length > 1);
       if (live) {
-        if (many) mainBtn = button('list', 'Channel list', openList, { big: true });
+        if (many) mainBtn = button('list', App.t('Channel list'), openList, { big: true });
         if (many) button('prev', 'Previous channel', function () { zap(-1); });
         if (many) button('next', 'Next channel', function () { zap(1); });
         if (many && prevIndex != null && items[prevIndex]) {
-          button('history', function () { return items[prevIndex] ? 'Last channel (' + items[prevIndex].n + ')' : 'Last channel'; }, lastChannel);
+          button('history', function () { return items[prevIndex] ? App.t('Last channel') + ' (' + items[prevIndex].n + ')' : App.t('Last channel'); }, lastChannel);
         }
-        button('guide', 'TV Guide', openGuide);
-        if (canStartOver()) button('replay', 'Start Over (the programme on now from its beginning)', startOver);
+        button('guide', App.t('TV Guide'), openGuide);
+        if (canStartOver()) button('replay', App.t('Start Over'), startOver);
         var b = button('audio', 'Sound, subtitles, picture and sleep timer', openOptions, { gap: true });
         if (!many) mainBtn = b;
         button('aspect', fitLabel, cycleFit);
@@ -314,16 +314,16 @@
       } else {
         if (many) button('prev', 'Previous episode', function () { step(-1); });
         button('rw', 'Back 10 seconds', function () { seekBy(-1); });
-        mainBtn = button(Player.state() === 'paused' ? 'play' : 'pause', function () { return Player.state() === 'paused' ? 'Play' : 'Pause'; }, function (bt) {
+        mainBtn = button(Player.state() === 'paused' ? 'play' : 'pause', function () { return Player.state() === 'paused' ? App.t('Play') : App.t('Pause'); }, function (bt) {
           Player.toggle();
-          setTimeout(function () { bt.innerHTML = U.icon(Player.state() === 'paused' ? 'play' : 'pause'); lbl.textContent = Player.state() === 'paused' ? 'Play' : 'Pause'; }, 50);
+          setTimeout(function () { bt.innerHTML = U.icon(Player.state() === 'paused' ? 'play' : 'pause'); lbl.textContent = Player.state() === 'paused' ? App.t('Play') : App.t('Pause'); }, 50);
         }, { big: true });
         button('ff', 'Forward 10 seconds', function () { seekBy(1); });
         if (many) button('next', 'Next episode', function () { step(1); });
         button('audio', 'Sound, subtitles, picture, speed and sleep timer', openOptions, { gap: true });
         button('aspect', fitLabel, cycleFit);
       }
-      button('back', 'Back', function () { leave(); });
+      button('back', App.t('Back'), function () { leave(); });
     }
     tl.classList.add('f');
     tl._focus = function () { lbl.textContent = 'Left / Right to jump back or forward, Down for the buttons'; touch(); };
@@ -444,9 +444,9 @@
     function startOver() {
       if (!live) return;
       var it = items[index];
-      if (!canStartOver()) { UI.toast('Start Over works on channels with catch-up (recordings on the server).', 2600); return; }
+      if (!canStartOver()) { UI.toast(App.t('Start Over works on channels with catch-up (recordings on the server).'), 2600); return; }
       var c = programmeNow();
-      if (!c) { UI.toast(epgFor === it ? 'The TV guide shows no programme on now.' : 'The TV guide of this channel is not loaded yet.', 2600); return; }
+      if (!c) { UI.toast(App.t(epgFor === it ? 'The TV guide shows no programme on now.' : 'The TV guide of this channel is not loaded yet.'), 2600); return; }
       App.log('start over');
       hideOsd();
       Nav.push(new Screens.Player({
@@ -631,7 +631,7 @@
           });
         });
       }
-      head('Subtitles');
+      head(App.t('Subtitles'));
       var subs = Player.subTracks();
       opt('Off', Player.sub() < 0, function () {
         Player.setSub(-1);
@@ -668,8 +668,8 @@
       inner.appendChild(note);
       var size = Player.size();
       if (size) inner.appendChild(U.el('div', 'pnote', 'Picture ' + U.esc(size)));
-      head('Help');
-      opt('Report a problem', false, function () { closePanel(); App.reportProblem(); }).innerHTML = U.icon('error') + 'Report a problem';
+      head(App.t('Help'));
+      opt(App.t('Report a problem'), false, function () { closePanel(); App.reportProblem(); }).innerHTML = U.icon('error') + U.esc(App.t('Report a problem'));
       F.set(inner.querySelector('.opt.sel') || inner.querySelector('.opt'));
     }
 

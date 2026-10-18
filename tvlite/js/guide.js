@@ -328,7 +328,7 @@
       info.querySelector('.clk').textContent = dayName(now) + '  ' + hm(now);
       var t = info.querySelector('.t'), l3 = info.querySelector('.l3'), d = info.querySelector('.d');
       if (!sel) {
-        t.textContent = l ? 'No programme information' : 'Loading the guide…';
+        t.textContent = l ? 'No programme information' : App.t('Loading the guide…');
         t.className = 't dim';
         l3.innerHTML = l ? '<span class="dim">OK = watch this channel</span>' : '';
         d.textContent = '';

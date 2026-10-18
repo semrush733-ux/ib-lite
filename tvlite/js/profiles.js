@@ -174,7 +174,7 @@ var Profiles = {};
     wrap.appendChild(dots);
     var kidRow = U.el('div', 'opt f pfkids');
     function drawKids() {
-      kidRow.innerHTML = U.icon(kids ? 'boxOn' : 'boxOff') + '<b>Kids profile</b><span class="dim">  Only categories for children (Kids, Cartoons, Family…)</span>';
+      kidRow.innerHTML = U.icon(kids ? 'boxOn' : 'boxOff') + '<b>' + U.esc(App.t('Kids profile')) + '</b><span class="dim">  Only categories for children (Kids, Cartoons, Family…)</span>';
       kidRow.classList.toggle('sel', kids);
     }
     drawKids();
@@ -189,7 +189,7 @@ var Profiles = {};
       d.close();
       done({ n: n, c: color, k: kids ? 1 : 0 });
     } });
-    var d = UI.dialog({ title: isNew ? 'Add profile' : 'Edit profile', html: wrap, width: 1180, buttons: buttons, focusEl: field });
+    var d = UI.dialog({ title: isNew ? App.t('Add profile') : App.t('Change profile', 'Edit profile'), html: wrap, width: 1180, buttons: buttons, focusEl: field });
     if (isNew) setTimeout(function () { if (F.cur === field) field._ok(); }, 60);
   }
 
@@ -214,7 +214,7 @@ var Profiles = {};
     this.name = 'profiles';
     var el = this.el = U.el('div', 'screen');
     el.innerHTML = '<div class="pf-bg"></div><div class="pf-top">' + UI.logo(52) + '</div>' +
-      '<h1 class="pf-h">Who\'s watching?</h1><div class="pf-row"></div><div class="pf-chips"></div>' +
+      '<h1 class="pf-h">' + U.esc(App.t("Who's watching?")) + '</h1><div class="pf-row"></div><div class="pf-chips"></div>' +
       '<div class="pf-hint">Every profile has its own favourites, recently watched and Continue Watching. Hold OK on a profile to change or delete it.</div>';
     var row = el.querySelector('.pf-row'), chips = el.querySelector('.pf-chips');
 
@@ -273,7 +273,7 @@ var Profiles = {};
       list.forEach(function (p) {
         var t = U.el('div', 'pft f' + (p.id === cur.id ? ' cur' : ''), Profiles.avatar(p, 200) + '<div class="pfn"></div><div class="pfs"></div>');
         t.querySelector('.pfn').textContent = p.n;
-        t.querySelector('.pfs').textContent = p.k ? 'Kids' : (p.id === cur.id ? 'In use' : '');
+        t.querySelector('.pfs').textContent = p.k ? App.t('Kids') : (p.id === cur.id ? App.t('In use') : '');
         if (p.k) t.querySelector('.pfs').className = 'pfs kid';
         t._pid = p.id;
         t._ok = function () { pick(p); };
@@ -290,16 +290,16 @@ var Profiles = {};
       }
       chips.innerHTML = '';
       if (list.length > 1) {
-        var ask = chip(Store.askProfile() ? 'boxOn' : 'boxOff', 'Ask when the app starts', function () {
+        var ask = chip(Store.askProfile() ? 'boxOn' : 'boxOff', App.t('Ask when the app starts'), function () {
           parentOk(function () {
             Store.setAskProfile(!Store.askProfile());
-            ask.innerHTML = U.icon(Store.askProfile() ? 'boxOn' : 'boxOff') + 'Ask when the app starts';
+            ask.innerHTML = U.icon(Store.askProfile() ? 'boxOn' : 'boxOff') + U.esc(App.t('Ask when the app starts'));
           });
         });
       }
-      chip('kids', 'Kids categories', function () { parentOk(function () { Nav.push(new Screens.KidsCats(o.src || App.src)); }); });
+      chip('kids', App.t('Kids categories'), function () { parentOk(function () { Nav.push(new Screens.KidsCats(o.src || App.src)); }); });
       chip('pin', Store.pin() ? 'Parental PIN: On' : 'Parental PIN: Off', function () { parentOk(function () { App.pinMenu(function () { draw(); }); }); });
-      if (!o.atStart) chip('back', 'Back', function () { home(false); });
+      if (!o.atStart) chip('back', App.t('Back'), function () { home(false); });
       if (F.cur && !el.contains(F.cur) && UI.topDialog()) return;
       F.set(focus || row.firstChild);
     }
@@ -314,7 +314,7 @@ var Profiles = {};
    *  'lock' = Settings → Parental control (locked ones ask for the PIN before they open). */
   var CHOICE = {
     kids: {
-      title: 'Kids categories', icons: ['boxOn', 'boxOff'],
+      title: App.t('Kids categories'), icons: ['boxOn', 'boxOff'],
       note: 'A Kids profile shows only the ticked categories. Categories with Kids, Cartoons, Family, Disney… in their name are ticked by themselves; OK ticks or unticks any category by hand.',
       on: function (k, id) { return Store.kidsAllowed(k, id); },
       how: function (k, id, on) { return Store.kidsChoice(k, id) !== null ? 'chosen' : on ? 'by its name' : ''; },
@@ -363,7 +363,7 @@ var Profiles = {};
       '<div class="br-main wide"><div class="br-title"><span class="t"></span><span class="c"></span></div><div class="content"></div></div>';
     var content = el.querySelector('.content');
     var titleT = el.querySelector('.br-title .t'), titleC = el.querySelector('.br-title .c');
-    var kinds = [{ id: 'live', name: 'Live TV', icon: 'live' }, { id: 'vod', name: 'Movies', icon: 'movie' }, { id: 'series', name: 'Series', icon: 'series' }];
+    var kinds = [{ id: 'live', name: App.t('Live TV'), icon: 'live' }, { id: 'vod', name: App.t('Movies'), icon: 'movie' }, { id: 'series', name: App.t('Series'), icon: 'series' }];
     var items = kinds.concat(M.extra);
     var kind = '', cats = [], list = null, req = 0;
     var catBox = el.querySelector('.cats');

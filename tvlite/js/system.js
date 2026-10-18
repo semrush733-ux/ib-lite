@@ -274,6 +274,31 @@
     });
   };
 
+  // ================================================================== main wallpaper
+  /** Settings › Main Wallpaper (as in the Android app): the standard picture or one of 20, each with
+   *  the home screen's own wash made into the picture beforehand (tvlite/tools/make_tv_backgrounds.py). */
+  App.wallpaper = function () { var n = U.int(S.get('wallpaper', 0)); return n >= 0 && n <= 20 ? n : 0; };
+  App.wallpaperUrl = function (n) { return n > 0 ? 'img/wall/wp' + U.two(n) + '.webp' : 'img/home_full.webp'; };
+  App.wallpaperDialog = function (done) {
+    var box = U.el('div', 'wpgrid'), cur = App.wallpaper(), first = null;
+    for (var i = 0; i <= 20; i++) {
+      (function (n) {
+        var t = U.el('span', 'wp f' + (n === cur ? ' sel' : ''), '<img alt="" src="img/wall/t' + U.two(n) + '.webp">' +
+          (n === 0 ? '<b>' + U.esc(App.t ? App.t('Default') : 'Default') + '</b>' : '') + '<i>' + U.icon('check') + '</i>');
+        t._ok = function () {
+          S.set('wallpaper', n);
+          [].forEach.call(box.querySelectorAll('.wp'), function (x) { x.classList.remove('sel'); });
+          t.classList.add('sel');
+          App.log('wallpaper ' + n);
+          App.emit('wallpaper', n);
+        };
+        box.appendChild(t);
+        if (n === cur) first = t;
+      })(i);
+    }
+    UI.dialog({ title: App.t ? App.t('Main Wallpaper') : 'Main Wallpaper', html: box, width: 1780, buttons: [{ label: 'Done', pri: true }], focusEl: first, onClose: done });
+  };
+
   // ================================================================== application info
   App.appInfo = function () {
     var rows = [

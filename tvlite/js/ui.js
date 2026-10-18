@@ -160,7 +160,7 @@ var UI = {}, Brand = {};
   UI.confirm = function (title, text, yes, no, ok) {
     return UI.dialog({
       title: title, html: U.esc(text),
-      buttons: [{ label: no || 'Cancel' }, { label: yes || 'OK', pri: true, ok: ok }], focus: 1
+      buttons: [{ label: no || App.t('Cancel') }, { label: yes || 'OK', pri: true, ok: ok }], focus: 1
     });
   };
 
@@ -192,7 +192,7 @@ var UI = {}, Brand = {};
     wrap.appendChild(field);
     var d = UI.dialog({
       title: title, html: wrap, width: 1000,
-      buttons: [{ label: 'Cancel' }, { label: title, pri: true, ok: function () { done(U.str(field.value())); } }],
+      buttons: [{ label: App.t('Cancel') }, { label: title, pri: true, ok: function () { done(U.str(field.value())); } }],
       focusEl: field
     });
     // Open the keyboard straight away.

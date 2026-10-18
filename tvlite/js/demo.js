@@ -215,7 +215,7 @@
     if (opening) return Promise.resolve();
     opening = true;
     function done() { opening = false; }
-    UI.toast('Loading the demo…', 20000);
+    UI.toast(App.t('Loading the demo…'), 20000);
     return websiteDemo().then(function (p) {
       if (!p) { U.$('toast').innerHTML = ''; return openBuiltIn(auto); }
       return Src.open(p).then(function (r) {

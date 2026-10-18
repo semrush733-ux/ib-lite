@@ -58,7 +58,15 @@
     }
 
     var INTRO = window.INTRO = { t0: Date.now(), written: 0 };
-    var APP = ['core', 'qr', 'ui', 'backend', 'xmltv', 'sources', 'demo', 'player', 'screens', 'system', 'profiles', 'browse', 'details', 'streaming', 'playerui', 'guide', 'main'];
+    var APP = ['core', 'i18n', 'qr', 'ui', 'backend', 'xmltv', 'sources', 'demo', 'player', 'screens', 'system', 'profiles', 'browse', 'details', 'streaming', 'playerui', 'guide', 'main'];
+    // The texts of the language in use (Settings › Language, else the TV's): only that one file loads.
+    var LANGS = 'ar bn de es fa fr hi id it ja ko mr nl pa pl pt ru ta te th tr ur vi zh';
+    (function () {
+      var c = 'auto';
+      try { var v = JSON.parse(localStorage.getItem('lt_ui_lang') || '"auto"'); if (typeof v === 'string' && v) c = v; } catch (e) {}
+      if (c === 'auto') c = String(navigator.language || 'en').toLowerCase().substring(0, 2);
+      if (c !== 'en' && (' ' + LANGS + ' ').indexOf(' ' + c + ' ') >= 0) APP.splice(2, 0, 'lang/' + c);
+    })();
     function loadApp() {
       for (var k = 0; k < APP.length; k++) {
         var js = document.createElement('script');

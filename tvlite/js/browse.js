@@ -6,7 +6,7 @@
   var ALL = '*all', FAV = '*fav', RECENT = '*recent', SEARCH = '*search', NEW = '*new';
   /** The orders Movies / Series can be shown in (remembered per kind), as in the Android app. */
   var SORTS = [['default', 'Default order'], ['new', 'Newest added'], ['az', 'A–Z'], ['year', 'Year (newest first)'], ['rating', 'Rating (best first)']];
-  function sortName(order) { for (var i = 0; i < SORTS.length; i++) if (SORTS[i][0] === order) return SORTS[i][1]; return SORTS[0][1]; }
+  function sortName(order) { for (var i = 0; i < SORTS.length; i++) if (SORTS[i][0] === order) return App.t(SORTS[i][1]); return App.t(SORTS[0][1]); }
   var LEAD = /^[^0-9a-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff\u0590-\u06ff]+/;
   /** A stable sort (equal ones keep the server's order); titles without a date / year / rating go last. */
   function sorted(list, order) {
@@ -22,8 +22,8 @@
     });
     return idx.map(function (i) { return list[i]; });
   }
-  var TITLES = { live: 'Live TV', vod: 'Movies', series: 'Series' };
-  var ALL_TITLES = { live: 'All Live Channels', vod: 'All Movies', series: 'All Series' };
+  var TITLES = { live: App.t('Live TV'), vod: App.t('Movies'), series: App.t('Series') };
+  var ALL_TITLES = { live: App.t('All Live Channels'), vod: App.t('All Movies'), series: App.t('All Series') };
   var COUNT = { live: ['channel', 'channels'], vod: ['movie', 'movies'], series: ['series', 'series'] };
 
   App.rect = function (e) {
@@ -37,7 +37,7 @@
     this.name = catchup ? 'catchup' : 'browse-' + kind;
     var el = this.el = U.el('div', 'screen');
     var wide = !live;
-    var title = catchup ? 'Catch Up' : TITLES[kind];
+    var title = catchup ? App.t('Catch Up') : TITLES[kind];
     el.innerHTML =
       '<div class="br-cats' + (wide ? ' wide' : '') + '"><div class="br-head">' + UI.symbol(58) + '<span class="t">' + U.esc(title) + '</span></div>' +
       '<div class="vl cats"></div></div>' +
@@ -58,14 +58,14 @@
     function drawSort() {
       if (!sortBtn) return;
       var order = Store.sortOrder(kind);
-      sortBtn.innerHTML = U.icon('list') + U.esc(order === 'default' ? 'Sort' : sortName(order));
+      sortBtn.innerHTML = U.icon('list') + U.esc(order === 'default' ? App.t('Sort') : sortName(order));
       sortBtn.classList.toggle('hide', !sortApplies());
     }
     function chooseSort() {
       var current = Store.sortOrder(kind), box = U.el('div');
-      var d = UI.dialog({ title: 'Sort', html: box, width: 900, buttons: [{ label: 'Close' }] });
+      var d = UI.dialog({ title: App.t('Sort'), html: box, width: 900, buttons: [{ label: 'Close' }] });
       SORTS.forEach(function (o) {
-        var r = U.el('div', 'opt f' + (o[0] === current ? ' sel' : ''), U.icon(o[0] === current ? 'radioOn' : 'radioOff') + U.esc(o[1]));
+        var r = U.el('div', 'opt f' + (o[0] === current ? ' sel' : ''), U.icon(o[0] === current ? 'radioOn' : 'radioOff') + U.esc(App.t(o[1])));
         r._ok = function () {
           d.close();
           if (o[0] === current) return;
@@ -77,7 +77,7 @@
         box.appendChild(r);
         if (o[0] === current) F.set(r);
       });
-      box.appendChild(U.el('div', 'dim', '<div style="font-size:24px;margin:14px 10px 0">Titles without that information go to the end.</div>'));
+      box.appendChild(U.el('div', 'dim', '<div style="font-size:24px;margin:14px 10px 0">' + U.esc(App.t('Titles without that information go to the end.')) + '</div>'));
     }
 
     // ---------------------------------------------------------------- categories
@@ -161,13 +161,13 @@
         Store.noteCategories(kind, list);
         list = Store.sortCats(kind, list).filter(function (c) { return !Store.isHidden(kind, c.id); });
         cats = [];
-        if (!catchup) cats.push({ id: SEARCH, name: 'Search', icon: 'search' });
+        if (!catchup) cats.push({ id: SEARCH, name: App.t('Search'), icon: 'search' });
         cats.push({ id: ALL, name: catchup ? 'All with Catch Up' : ALL_TITLES[kind], icon: 'apps' });
         if (!catchup) {
-          cats.push({ id: FAV, name: 'Favourites', icon: 'star' });
-          cats.push({ id: RECENT, name: 'Recent', icon: 'history' });
+          cats.push({ id: FAV, name: App.t('Favourites'), icon: 'star' });
+          cats.push({ id: RECENT, name: App.t('Recent'), icon: 'history' });
           // Movies / series of an Xtream server: the newest titles by the date the server added them.
-          if (!live && src.type === 'xtream') cats.push({ id: NEW, name: 'Recently Added', icon: 'added' });
+          if (!live && src.type === 'xtream') cats.push({ id: NEW, name: App.t('Recently Added'), icon: 'added' });
         }
         firstReal = cats.length;
         list.forEach(function (c) { cats.push({ id: c.id, name: c.name }); });
@@ -303,9 +303,9 @@
         return b;
       }
       // As in the Android app: Full screen, TV Guide, Favourite (Search is in the categories).
-      pbtn('full', 'Full screen', function () { var i = indexOf(focusItem || pvItem); if (i >= 0) fullScreen(i); });
-      pbtn('guide', 'TV Guide', openGuide);
-      var favBtn = pbtn('starb', 'Favourite', function () { var it = focusItem || pvItem; if (it) toggleFav(it); });
+      pbtn('full', App.t('Full screen'), function () { var i = indexOf(focusItem || pvItem); if (i >= 0) fullScreen(i); });
+      pbtn('guide', App.t('TV Guide'), openGuide);
+      var favBtn = pbtn('starb', App.t('Favourite'), function () { var it = focusItem || pvItem; if (it) toggleFav(it); });
       view.favBtn = favBtn;
       pv = U.el('div', 'pv');
       pv.style.cssText = 'width:848px;height:477px;top:96px';
@@ -334,7 +334,7 @@
       if (!pv) return;
       var box = pv.querySelector('.idle');
       box.classList.remove('hide');
-      box.innerHTML = (it && it.i ? '<img src="' + U.esc(it.i) + '" alt="">' : U.icon('live')) + '<div class="tx">Press OK to watch here</div>';
+      box.innerHTML = (it && it.i ? '<img src="' + U.esc(it.i) + '" alt="">' : U.icon('live')) + '<div class="tx">' + U.esc(App.t('Press OK to watch here')) + '</div>';
       var img = box.querySelector('img');
       if (img) img.onerror = function () { img.style.visibility = 'hidden'; };
     }
@@ -345,7 +345,7 @@
       if (catchup) return;
       if (focusItem && focusItem.id === it.id) return;
       focusItem = it;
-      if (view && view.favBtn) view.favBtn.innerHTML = U.icon(Store.isFav(it) ? 'star' : 'starb') + 'Favourite';
+      if (view && view.favBtn) view.favBtn.innerHTML = U.icon(Store.isFav(it) ? 'star' : 'starb') + U.esc(App.t('Favourite'));
       if (!pvItem) idle(it);
       var cached = epgCache[it.id];
       drawEpg(it, cached);
@@ -374,10 +374,10 @@
       var inner = epgBox.querySelector('.in');
       inner.style.webkitTransform = inner.style.transform = '';
       epgBox._scroll = 0;
-      if (!list) { inner.innerHTML = '<div class="msg">Loading the guide…</div>'; return; }
+      if (!list) { inner.innerHTML = '<div class="msg">' + U.esc(App.t('Loading the guide…')) + '</div>'; return; }
       var now = Date.now();
       var up = list.filter(function (e) { return e.end > now; }).slice(0, 10);
-      if (!up.length) { inner.innerHTML = '<div class="msg">No programme information for this channel.</div>'; return; }
+      if (!up.length) { inner.innerHTML = '<div class="msg">' + U.esc(App.t('No programme information for this channel.')) + '</div>'; return; }
       var cur = up[0].start <= now ? up[0] : null;
       var html = '';
       if (cur) {
@@ -593,11 +593,11 @@
         view.list.set(items, Math.min(keep, items.length - 1));
         setTitle(selectedName, items.length);
       } else if (view) view.list.refresh();
-      if (view && view.favBtn && focusItem && focusItem.id === it.id) view.favBtn.innerHTML = U.icon(added ? 'star' : 'starb') + 'Favourite';
+      if (view && view.favBtn && focusItem && focusItem.id === it.id) view.favBtn.innerHTML = U.icon(added ? 'star' : 'starb') + U.esc(App.t('Favourite'));
     }
 
     function search() {
-      UI.ask('Search', query, 'Name', 'search', function (q) {
+      UI.ask(App.t('Search'), query, 'Name', 'search', function (q) {
         if (!q) return;
         query = q;
         var r = ++req;

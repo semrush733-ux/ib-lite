@@ -208,7 +208,7 @@ var Screens = {};
       c.style.display = 'block';
       html.querySelector('.q').appendChild(c);
     }
-    UI.dialog({ title: 'My device', html: html, width: 1060, buttons: [{ label: 'Close', pri: true }] });
+    UI.dialog({ title: App.t('My device'), html: html, width: 1060, buttons: [{ label: 'Close', pri: true }] });
   };
 
   /** This TV: maker, model and system (Samsung: Tizen version; LG: webOS version). Never fails. */
@@ -231,16 +231,17 @@ var Screens = {};
    *  app (More → Problem reports) or in WordPress (Lite Player → Problem reports). */
   var REASONS = ['A channel does not play', 'Picture freezes or buffers', 'No sound or wrong language', 'A film or series does not play',
     'TV Guide is wrong or missing', 'The app is slow or closes', 'Something else'];
+  function reasonText(r) { return App.t(r); }
   var reportSent = 0;
   function hostOf(url) { var m = /^https?:\/\/([^\/?#]+)/i.exec(String(url || '')); return m ? m[1].replace(/^[^@]*@/, '') : ''; }
   App.reportProblem = function () {
     App.log('report dialog');
     var reason = -1;
     var wrap = U.el('div', 'rep');
-    wrap.innerHTML = '<div class="dim">What went wrong? The app sends its recent log, this TV\'s model and the last channel or film to the support team. No password is sent.</div><div class="chips"></div><div class="fl"></div><div class="pinerr"></div>';
+    wrap.innerHTML = '<div class="dim">' + U.esc(App.t("What went wrong? The app sends its recent log, this TV's model and the last channel or film to the support team. No password is sent.")) + '</div><div class="chips"></div><div class="fl"></div><div class="pinerr"></div>';
     var chips = wrap.querySelector('.chips'), err = wrap.querySelector('.pinerr');
     REASONS.forEach(function (r, i) {
-      var c = U.el('span', 'chip f', U.esc(r));
+      var c = U.el('span', 'chip f', U.esc(reasonText(r))); // the English reason goes to the website
       c._ok = function () {
         reason = i;
         for (var k = 0; k < chips.childNodes.length; k++) chips.childNodes[k].classList.toggle('sel', k === i);
@@ -252,15 +253,15 @@ var Screens = {};
     wrap.querySelector('.fl').appendChild(note);
     var sending = false;
     var d = UI.dialog({
-      title: 'Report a problem', html: wrap, width: 1300,
-      buttons: [{ label: 'Cancel' }, { label: 'Send', icon: 'check', pri: true, keep: true, ok: send }],
+      title: App.t('Report a problem'), html: wrap, width: 1300,
+      buttons: [{ label: App.t('Cancel') }, { label: App.t('Send'), icon: 'check', pri: true, keep: true, ok: send }],
       focusEl: chips.firstChild
     });
     function send() {
       if (sending) return;
-      if (Date.now() - reportSent < 60000) { err.textContent = 'A report was sent a moment ago. Please wait a minute.'; return; }
+      if (Date.now() - reportSent < 60000) { err.textContent = App.t('A report was sent a moment ago. Please wait a minute.'); return; }
       var text = U.str(note.value());
-      if (reason < 0 && !text) { err.textContent = 'Choose what went wrong (or write a note).'; return; }
+      if (reason < 0 && !text) { err.textContent = App.t('Choose what went wrong (or write a note).'); return; }
       sending = true;
       err.textContent = '';
       var btn = d.box.querySelector('.btn.pri');
@@ -279,12 +280,12 @@ var Screens = {};
         reportSent = Date.now();
         d.close();
         var n = U.int(answer && answer.report_id);
-        UI.message('Report sent', (n > 0 ? 'Thank you. Your report number is ' + n + '.' : 'Thank you.') + '\nThe support team can see what happened on this TV.');
+        UI.message(App.t('Report sent'), (n > 0 ? App.t('Thank you. Your report number is') + ' ' + n + '.' : App.t('Thank you.')) + '\n' + App.t('The support team can see what happened on this TV.'));
       }, function (e) {
         sending = false;
-        btn.innerHTML = U.icon('check') + 'Send';
+        btn.innerHTML = U.icon('check') + U.esc(App.t('Send'));
         App.log('report failed: ' + (e && e.message));
-        err.textContent = (e && e.message) || 'Could not send the report. Check the internet and try again.';
+        err.textContent = (e && e.message) || App.t('Could not send the report. Check the internet and try again.');
       });
     }
   };
@@ -307,7 +308,7 @@ var Screens = {};
 
   /** Playlists added on the website for this TV. */
   App.choosePlaylist = function () {
-    var d = UI.dialog({ title: 'Playlists', html: '<div class="pls"><span class="spin"></span>  Loading…</div>', width: 1000, buttons: [{ label: 'Close' }] });
+    var d = UI.dialog({ title: App.t('Playlists'), html: '<div class="pls"><span class="spin"></span>  Loading…</div>', width: 1000, buttons: [{ label: 'Close' }] });
     var demo = App.inDemo();
     function demoChoice(box, focus) {
       var label = Backend.demo ? U.esc(Backend.demo.name) + '  <span class="dim">(demo)</span>' : 'Demo 4K content  <span class="dim">(built into the app)</span>';
@@ -397,7 +398,9 @@ var Screens = {};
       '<div class="hm-tiles"></div>' +
       '<div class="hm-bottom"><div class="infobox"></div><div class="plbox"></div><div class="wbox"></div></div>';
     // One opaque picture (photo + wash + vignette made in advance: tvlite/tools/make_tv_backgrounds.py).
-    el.querySelector('.hm-bg').style.backgroundImage = 'url(img/home_full.webp)';
+    var bgEl = el.querySelector('.hm-bg');
+    function drawWallpaper() { bgEl.style.backgroundImage = 'url(' + App.wallpaperUrl(App.wallpaper()) + ')'; }
+    drawWallpaper(); // Settings › Main Wallpaper
 
     // A Kids profile: no playlist change and no Catch Up (it lists every channel), as in the Android app.
     var kids = Store.kidsMode(), profile = Profiles.active();
@@ -414,7 +417,7 @@ var Screens = {};
     profBtn._ok = function () { Nav.push(new Screens.Profiles({ src: src })); };
     pills.appendChild(profBtn);
     var plPill = kids ? null : pill('playlist', shortName(App.title(), 'Change Playlist'), App.choosePlaylist);
-    pill('settings', 'Settings', function () {
+    var setPill = pill('settings', App.t('Settings'), function () {
       if (kids) App.askPin('Parental PIN', function () { Nav.push(new Screens.Settings()); });
       else Nav.push(new Screens.Settings());
     });
@@ -430,13 +433,19 @@ var Screens = {};
     sq('speed', function () { App.speedTest(); }); // as in the Android app
     sq('tv', App.deviceDialog);
     sq('person', function () { App.accountDialog(acc, offline); });
-    /** A long playlist name: its pill gets shorter, so Settings always fits next to it. */
+    /** Long names (a playlist, "Settings" in some languages): the pills get tighter, then the
+     *  playlist's name shorter, then the Settings label, so everything stays in view. */
     function fitPills() {
+      var labels = [].slice.call(pills.querySelectorAll('.pl'));
+      pills.classList.remove('tight');
+      labels.forEach(function (l) { l.style.maxWidth = ''; });
+      function over() { return pills.scrollWidth - pills.clientWidth; }
+      if (over() <= 0) return;
+      pills.classList.add('tight');
       var pl = plPill && plPill.querySelector('.pl');
-      if (!pl) return;
-      pl.style.maxWidth = '';
-      var over = pills.scrollWidth - pills.clientWidth;
-      if (over > 0) pl.style.maxWidth = Math.max(150, pl.offsetWidth - over - 2) + 'px';
+      if (pl && over() > 0) pl.style.maxWidth = Math.max(110, pl.offsetWidth - over() - 2) + 'px';
+      var st = setPill && setPill.querySelector('.pl');
+      if (st && over() > 0) st.style.maxWidth = Math.max(110, st.offsetWidth - over() - 2) + 'px';
     }
 
     var tiles = el.querySelector('.hm-tiles');
@@ -447,12 +456,12 @@ var Screens = {};
       tiles.appendChild(t);
       return t;
     }
-    var liveTile = tile('live', 'Live TV', function () { Nav.push(new Screens.Browse(src, 'live')); });
-    tile('movie', 'Movies', function () { Nav.push(new Screens.Browse(src, 'vod')); });
-    tile('series', 'TV Series', function () { Nav.push(new Screens.Browse(src, 'series')); });
-    if (!kids) tile('catchup', 'Catch Up', function () {
+    var liveTile = tile('live', App.t('Live TV'), function () { Nav.push(new Screens.Browse(src, 'live')); });
+    tile('movie', App.t('Movies'), function () { Nav.push(new Screens.Browse(src, 'vod')); });
+    tile('series', App.t('Series', 'TV Series'), function () { Nav.push(new Screens.Browse(src, 'series')); });
+    if (!kids) tile('catchup', App.t('Catch Up'), function () {
       if (src.type !== 'xtream') {
-        UI.message('Catch Up', 'Catch Up works with Xtream Codes playlists, where the server keeps recordings of past programmes. ' +
+        UI.message(App.t('Catch Up'), 'Catch Up works with Xtream Codes playlists, where the server keeps recordings of past programmes. ' +
           (src.type === 'demo' ? 'The demo content has no recordings.' : 'An M3U playlist link does not carry recordings.'));
         return;
       }
@@ -486,7 +495,7 @@ var Screens = {};
     // between the tiles and the streaming boxes. OK plays on where it stopped; holding OK offers
     // "Play from the start" and "Remove from the row".
     var cwBox = U.el('div', 'hm-cw');
-    cwBox.innerHTML = '<div class="cwh">Continue Watching</div><div class="cws"></div>';
+    cwBox.innerHTML = '<div class="cwh">' + U.esc(App.t('Continue Watching')) + '</div><div class="cws"></div>';
     el.appendChild(cwBox);
     var cwStrip = cwBox.querySelector('.cws'), cwShown = null, cwScroll = 0, cwBusy = false;
     var CW_VIEW = 1766; // the row's visible width (screen less the margins)
@@ -788,6 +797,8 @@ var Screens = {};
       }
       if (first) {
         F.set(liveTile);
+        // The pills are measured again once the app's fonts are in (they are a little wider).
+        try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fitPills(); }); } catch (e) {}
         if (!acc) refreshAccount();
         timers.push(setTimeout(follow, 6000));
         timers.push(setInterval(follow, 5 * 60000));
@@ -796,6 +807,7 @@ var Screens = {};
         Weather.refresh().then(drawClock);
         App.on('licence', onLicence);
         App.on('reload', onReload);
+        App.on('wallpaper', drawWallpaper);
       } else if (pendingFollow) {
         pendingFollow = false;
         follow();
@@ -805,6 +817,7 @@ var Screens = {};
       timers.forEach(function (t) { clearTimeout(t); clearInterval(t); });
       App.off('licence', onLicence);
       App.off('reload', onReload);
+      App.off('wallpaper', drawWallpaper);
     };
   };
 
@@ -832,8 +845,8 @@ var Screens = {};
       main.appendChild(r);
       return r;
     }
-    row('playlist', 'Playlists', U.esc(shortName(App.title(), '')) + U.icon('chevR'), function () { App.choosePlaylist(); });
-    row('person', 'Profiles', U.esc(Profiles.active().n) + U.icon('chevR'), function () { Nav.push(new Screens.Profiles({ src: App.src })); });
+    row('playlist', App.t('Playlists'), U.esc(shortName(App.title(), '')) + U.icon('chevR'), function () { App.choosePlaylist(); });
+    row('person', App.t('Profiles'), U.esc(Profiles.active().n) + U.icon('chevR'), function () { Nav.push(new Screens.Profiles({ src: App.src })); });
     row('live', 'Live stream format', U.esc(FORMATS[Store.liveFormat()] || FORMATS.auto), function (r) {
       var order = ['auto', 'm3u8', 'ts'];
       var next = order[(order.indexOf(Store.liveFormat()) + 1) % order.length];
@@ -856,28 +869,39 @@ var Screens = {};
     }
     // As in the Android app (Settings › Live Player): off by default.
     function onOff(v) { return v ? 'On' : 'Off'; }
-    row('replay', 'Start with the last channel', onOff(S.get('start_last_channel', false)), function (r) {
+    row('replay', App.t('Start with the last channel'), onOff(S.get('start_last_channel', false)), function (r) {
       var v = !S.get('start_last_channel', false);
       S.set('start_last_channel', v);
       r.querySelector('.vl2').textContent = onOff(v);
       UI.toast(v ? 'When the app starts, the channel you watched last plays by itself' : 'The app starts on the home screen', 3000);
     });
     function subLook() { return U.esc(App.subLook.sizes[App.subLook.size()] + ', ' + App.subLook.colors[App.subLook.color()].toLowerCase()) + U.icon('chevR'); }
-    var subRow = row('subs', 'Subtitles', subLook(), function () { App.subtitleSettings(function () { subRow.querySelector('.vl2').innerHTML = subLook(); }); });
-    row('apps', 'Manage categories', U.icon('chevR'), function () { Nav.push(new Screens.CatChoice(App.src, 'hide')); });
-    var pinRow = row('lock', 'Parental control', (Store.pin() ? 'On' : 'Off') + U.icon('chevR'), function () {
+    var subRow = row('subs', App.t('Subtitles'), subLook(), function () { App.subtitleSettings(function () { subRow.querySelector('.vl2').innerHTML = subLook(); }); });
+    row('apps', App.t('Manage Categories', 'Manage categories'), U.icon('chevR'), function () { Nav.push(new Screens.CatChoice(App.src, 'hide')); });
+    var pinRow = row('lock', App.t('Parental Control', 'Parental control'), (Store.pin() ? 'On' : 'Off') + U.icon('chevR'), function () {
       Nav.push(new Screens.CatChoice(App.src, 'lock'));
     });
-    row('tv', 'My device', U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
+    row('tv', App.t('My device'), U.esc(Backend.deviceId || '') + U.icon('chevR'), App.deviceDialog);
     row('person', 'Account', U.icon('chevR'), function () { App.accountDialog(App.account, false); });
     function svcCount() { var n = Streaming.enabled().length; return (n ? n + ' on' : 'Off') + U.icon('chevR'); }
     var svcRow = row('video', 'Streaming boxes', svcCount(), function () {
       Streaming.dialog(function () { svcRow.querySelector('.vl2').innerHTML = svcCount(); });
     });
+    function langName() {
+      var c = App.uiLanguage();
+      if (c === 'auto') return U.esc(App.t('Automatic (TV language)')) + U.icon('chevR');
+      for (var i = 0; i < I18N.langs.length; i++) if (I18N.langs[i][0] === c) return U.esc(I18N.langs[i][2]) + U.icon('chevR');
+      return U.icon('chevR');
+    }
+    row('lang', App.t('Language'), langName(), function () { App.languageDialog(); });
+    function wallName() { return U.esc(App.wallpaper() ? '#' + App.wallpaper() : App.t('Default')) + U.icon('chevR'); }
+    var wallRow = row('wallpaper', App.t('Main Wallpaper'), wallName(), function () {
+      App.wallpaperDialog(function () { wallRow.querySelector('.vl2').innerHTML = wallName(); });
+    });
     row('wifi', 'Network and speed test', U.icon('chevR'), function () { App.networkDialog(); });
-    row('error', 'Report a problem', U.icon('chevR'), function () { App.reportProblem(); });
-    row('clean', 'Clear cache', '', function () { App.clearCache(); });
-    row('info', 'Application info', U.icon('chevR'), function () { App.appInfo(); });
+    row('error', App.t('Report a problem'), U.icon('chevR'), function () { App.reportProblem(); });
+    row('clean', App.t('Clear Cache', 'Clear cache'), '', function () { App.clearCache(); });
+    row('info', App.t('Application Info', 'Application info'), U.icon('chevR'), function () { App.appInfo(); });
     row('history', 'Clear watch history', '', function () {
       UI.confirm('Clear watch history?', 'Recently watched and the places where films were stopped are removed.', 'Clear', 'Cancel', function () {
         Store.clearHistory();
