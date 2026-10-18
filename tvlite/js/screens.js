@@ -427,8 +427,17 @@ var Screens = {};
       return s;
     }
     var reloadBtn = sq('sync', reload);
+    sq('speed', function () { App.speedTest(); }); // as in the Android app
     sq('tv', App.deviceDialog);
     sq('person', function () { App.accountDialog(acc, offline); });
+    /** A long playlist name: its pill gets shorter, so Settings always fits next to it. */
+    function fitPills() {
+      var pl = plPill && plPill.querySelector('.pl');
+      if (!pl) return;
+      pl.style.maxWidth = '';
+      var over = pills.scrollWidth - pills.clientWidth;
+      if (over > 0) pl.style.maxWidth = Math.max(150, pl.offsetWidth - over - 2) + 'px';
+    }
 
     var tiles = el.querySelector('.hm-tiles');
     function tile(icon, title, ok) {
@@ -589,6 +598,7 @@ var Screens = {};
         '<br>Application Expiry: ' + U.esc(appExpiry());
       drawPlaylistBox();
       if (plPill) plPill.querySelector('.pl').textContent = shortName(App.title(), 'Change Playlist');
+      fitPills();
     }
     /** Whole calendar days from today to the day the playlist ends (negative: ended). */
     function daysLeft(end) {
@@ -864,7 +874,10 @@ var Screens = {};
     var svcRow = row('video', 'Streaming boxes', svcCount(), function () {
       Streaming.dialog(function () { svcRow.querySelector('.vl2').innerHTML = svcCount(); });
     });
+    row('wifi', 'Network and speed test', U.icon('chevR'), function () { App.networkDialog(); });
     row('error', 'Report a problem', U.icon('chevR'), function () { App.reportProblem(); });
+    row('clean', 'Clear cache', '', function () { App.clearCache(); });
+    row('info', 'Application info', U.icon('chevR'), function () { App.appInfo(); });
     row('history', 'Clear watch history', '', function () {
       UI.confirm('Clear watch history?', 'Recently watched and the places where films were stopped are removed.', 'Clear', 'Cancel', function () {
         Store.clearHistory();

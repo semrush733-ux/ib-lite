@@ -193,7 +193,7 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .hm-bg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background-size: cover; background-position: center; }
 .hm-top { position: absolute; left: 77px; right: 77px; top: 54px; height: 108px; white-space: nowrap; }
 .hm-top .logo { margin-top: 10px; }
-.hm-pills { position: absolute; left: 560px; top: 8px; right: 360px; height: 100px; overflow: hidden; white-space: nowrap; }
+.hm-pills { position: absolute; left: 560px; top: 8px; right: 492px; height: 100px; overflow: hidden; white-space: nowrap; }
 .pill { display: inline-block; vertical-align: top; height: 92px; margin-right: 28px; border-radius: 24px; border: 4px solid transparent; }
 .pill .pi { display: inline-block; vertical-align: top; width: 84px; height: 84px; line-height: 84px; text-align: center; border-radius: 20px 0 0 20px;
   background: linear-gradient(135deg, #3A3D46, #26282F); }
@@ -685,3 +685,38 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .subset .subpv .subs { position: absolute; left: 30px; right: 30px; bottom: 30px; text-align: center; line-height: 1.32; }
 .subrow { height: 92px; white-space: nowrap; }
 .subrow .k { display: inline-block; vertical-align: middle; width: 230px; font-size: 28px; color: #8B93A3; font-weight: 700; }
+/* ---------- network, speed test, application info (js/system.js) ---------- */
+.netcard { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+  padding: 26px 30px; margin-bottom: 18px; border-radius: 22px; background: #231A1C; border: 3px solid rgba(46,204,113,0.35); }
+.netcard.off { border-color: rgba(255,107,107,0.4); }
+.netcard .ni { width: 96px; text-align: center; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.netcard .ni .ic { font-size: 64px; color: #2ECC71; }
+.netcard.off .ni .ic { color: #FF6B6B; }
+.netcard .nt { margin-left: 22px; min-width: 0; }
+.netcard .st { font-size: 22px; font-weight: 900; letter-spacing: 2px; color: #2ECC71; }
+.netcard.off .st { color: #FF6B6B; }
+.netcard .nm { font-size: 40px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bars { display: inline-block; height: 56px; white-space: nowrap; }
+.bars i { display: inline-block; vertical-align: bottom; width: 12px; margin: 0 3px; border-radius: 3px; background: rgba(255,255,255,0.18); }
+.bars i.on { background: #2ECC71; }
+.bars .b0 { height: 16px; } .bars .b1 { height: 28px; } .bars .b2 { height: 42px; } .bars .b3 { height: 56px; }
+.netbox .row2 .v, .infobox2 .row2 .v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dialog h2 .ic { color: #E3262F; font-size: 46px; vertical-align: middle; margin: -6px 16px 0 0; }
+.spd { text-align: center; }
+.spd .gauge { position: relative; width: 240px; height: 240px; margin: 0 auto 26px; }
+.spd .gauge svg { position: absolute; left: 0; top: 0; -webkit-transform: rotate(-90deg); transform: rotate(-90deg); }
+.spd .gauge circle { fill: none; stroke-width: 18; }
+.spd .gauge .bg { stroke: rgba(255,255,255,0.12); }
+.spd .gauge .fg { stroke: #E3262F; stroke-linecap: round; -webkit-transition: stroke-dashoffset 300ms ease-out; transition: stroke-dashoffset 300ms ease-out; }
+.spd .val { position: absolute; left: 0; right: 0; top: 62px; }
+.spd .val b { display: block; font-size: 64px; font-weight: 900; color: #fff; line-height: 1.1; }
+.spd .val span { display: block; font-size: 24px; color: #8B93A3; }
+.spd .val i { display: block; font-style: normal; font-size: 22px; font-weight: 800; color: #E3262F; margin-top: 4px; }
+.spd .stats { display: -webkit-box; display: -webkit-flex; display: flex; }
+.spd .sb { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; margin: 0 9px; padding: 18px 0; border-radius: 18px; background: #231A1C; }
+.spd .sb span { display: block; font-size: 22px; font-weight: 800; color: #8B93A3; letter-spacing: 1px; }
+.spd .sb b { display: block; font-size: 46px; font-weight: 900; margin: 6px 0 2px; }
+.spd .sb i { display: block; font-style: normal; font-size: 21px; color: #8B93A3; }
+.spd .sb.ping b { color: #35D6C4; } .spd .sb.down b { color: #FF5A61; } .spd .sb.up b { color: #B37BFF; }
+.spd .verdict { margin-top: 24px; font-size: 28px; min-height: 40px; }
+.spd .verdict.bad { color: #FF6B6B; }
