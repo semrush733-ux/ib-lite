@@ -852,6 +852,8 @@ var Screens = {};
       r.querySelector('.vl2').textContent = onOff(v);
       UI.toast(v ? 'When the app starts, the channel you watched last plays by itself' : 'The app starts on the home screen', 3000);
     });
+    function subLook() { return U.esc(App.subLook.sizes[App.subLook.size()] + ', ' + App.subLook.colors[App.subLook.color()].toLowerCase()) + U.icon('chevR'); }
+    var subRow = row('subs', 'Subtitles', subLook(), function () { App.subtitleSettings(function () { subRow.querySelector('.vl2').innerHTML = subLook(); }); });
     row('apps', 'Manage categories', U.icon('chevR'), function () { Nav.push(new Screens.CatChoice(App.src, 'hide')); });
     var pinRow = row('lock', 'Parental control', (Store.pin() ? 'On' : 'Off') + U.icon('chevR'), function () {
       Nav.push(new Screens.CatChoice(App.src, 'lock'));

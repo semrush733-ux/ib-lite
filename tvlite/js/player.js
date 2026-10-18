@@ -20,7 +20,7 @@ var Player = {};
   var st = {
     token: 0, urls: [], ui: 0, live: false, loop: false, start: 0, state: 'off', retries: 0,
     played: false, watch: null, stall: null, loadTimer: null, t0: 0, mode: 'off', seekTo: -1,
-    rect: { left: 0, top: 0, width: 1920, height: 1080 }
+    rect: { left: 0, top: 0, width: 1920, height: 1080 }, sub: -1
   };
   var subs = [];
   Player.on = function (fn) { subs.push(fn); return fn; };
@@ -97,6 +97,29 @@ var Player = {};
       for (var k = 0; k < a.length; k++) a[k].enabled = k === i;
     },
     size: function () { return { w: v.videoWidth || 0, h: v.videoHeight || 0 }; },
+    /** Subtitle tracks the stream has (HLS / the TV's player tell them as text tracks). */
+    subs: function () {
+      var out = [], tt = v.textTracks, n = 0;
+      if (!tt) return out;
+      for (var i = 0; i < tt.length; i++) {
+        if (tt[i].kind !== 'subtitles' && tt[i].kind !== 'captions') continue;
+        n++;
+        var lang = tt[i].language || '';
+        out.push({ i: i, label: tt[i].label || (lang ? lang.toUpperCase() : 'Subtitles ' + n), lang: lang, on: i === st.sub });
+      }
+      return out;
+    },
+    /** The chosen track stays "hidden": its cues come to the app, which draws them in its own look. */
+    setSub: function (i) {
+      var tt = v.textTracks;
+      if (!tt) return;
+      for (var k = 0; k < tt.length; k++) {
+        var tr = tt[k];
+        if (tr.kind !== 'subtitles' && tr.kind !== 'captions') continue;
+        try { tr.mode = k === i ? 'hidden' : 'disabled'; } catch (e) {}
+        tr.oncuechange = k === i ? cueChange : null;
+      }
+    },
     mute: function (m) { v.muted = !!m; },
     show: function (on) {
       if (!on) { v.classList.add('hide'); return; }
@@ -148,7 +171,9 @@ var Player = {};
           onevent: function (type, data) {
             if (type === 'PLAYER_MSG_RESOLUTION_CHANGED' && t === st.token) emit('meta');
           },
-          onsubtitlechange: function () {},
+          onsubtitlechange: function (duration, text) {
+            if (t === st.token && st.sub >= 0) emit('sub', { text: subText(text), ms: U.int(duration) });
+          },
           ondrmevent: function () {}
         });
       } catch (e1) {}
@@ -205,6 +230,24 @@ var Player = {};
       return out;
     },
     setTrack: function (i) { try { av.setSelectTrack('AUDIO', i); } catch (e) { App.log('sound track change refused: ' + (e && e.name || e)); } },
+    subs: function () {
+      var out = [], info = [], n = 0;
+      try { info = av.getTotalTrackInfo() || []; } catch (e) {}
+      for (var i = 0; i < info.length; i++) {
+        if (info[i].type !== 'TEXT' && info[i].type !== 'SUBTITLE') continue;
+        n++;
+        var x = extra(info[i].extra_info), lang = String(x.track_lang || x.language || x.lang || '');
+        out.push({ i: info[i].index, label: lang ? lang.toUpperCase() + ' (' + n + ')' : 'Subtitles ' + n, lang: lang, on: info[i].index === st.sub });
+      }
+      return out;
+    },
+    setSub: function (i) {
+      try {
+        if (i < 0) { av.setSilentSubtitle(true); return; }
+        av.setSelectTrack('TEXT', i);
+        av.setSilentSubtitle(false);
+      } catch (e) { App.log('subtitle change refused: ' + (e && e.name || e)); }
+    },
     size: function () {
       try {
         var now = av.getCurrentStreamInfo() || [];
@@ -329,6 +372,7 @@ var Player = {};
     st.played = false;
     st.seekTo = -1;
     st.speed = 1;
+    if (st.sub >= 0) { st.sub = -1; emit('sub', { text: '' }); }
     if (!av) { try { v.defaultPlaybackRate = 1; } catch (e) {} }
     setState('loading');
     if (!st.urls.length) { setState('error', 'no address'); return t; }
@@ -390,6 +434,7 @@ var Player = {};
     clearTimers();
     release();
     st.urls = [];
+    if (st.sub >= 0) { st.sub = -1; emit('sub', { text: '' }); }
     setState('off');
   };
 
@@ -489,6 +534,35 @@ var Player = {};
     sec = Math.max(0, Math.min(d - 3, sec));
     E.seek(sec);
   };
+
+  // ---------------------------------------------------------------- subtitles
+  /** Subtitles: the stream's own text tracks. The app draws the text (Settings › Subtitles: the look);
+   *  Player sends it as 'sub' events {text, ms (AVPlay: how long it shows)}. */
+  function subText(s) { return String(s == null ? '' : s).replace(/<[^>]*>/g, '').replace(/\r/g, '').replace(/^\s+|\s+$/g, ''); }
+  function cueChange() {
+    var c = this.activeCues, lines = [];
+    if (c) for (var j = 0; j < c.length; j++) { var x = subText(c[j].text); if (x) lines.push(x); }
+    emit('sub', { text: lines.join('\n') });
+  }
+  Player.subTracks = function () { return E.subs ? E.subs() : []; };
+  Player.sub = function () { return st.sub; };
+  Player.setSub = function (i) {
+    st.sub = i;
+    if (E.setSub) E.setSub(i);
+    emit('sub', { text: '' });
+    App.log(i < 0 ? 'subtitles off' : 'subtitles: track ' + i);
+  };
+  /** The subtitle language chosen last time comes on by itself (as in the Android app). */
+  function autoSub() {
+    var want = S.get('sub_lang', '');
+    if (!want || st.sub >= 0) return;
+    var l = Player.subTracks();
+    for (var k = 0; k < l.length; k++) if (l[k].lang === want) { Player.setSub(l[k].i); return; }
+  }
+  Player.on(function (ev) { if (ev === 'meta') autoSub(); });
+  if (E === VideoEngine && v.textTracks && v.textTracks.addEventListener) {
+    v.textTracks.addEventListener('addtrack', function () { emit('meta'); });
+  }
 
   /** The stream's sound tracks, when the TV tells them. */
   Player.audioTracks = function () { return E.tracks(); };

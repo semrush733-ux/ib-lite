@@ -677,3 +677,11 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .rmd .tx { margin-left: 30px; min-width: 0; }
 .rmd .t { font-size: 36px; font-weight: 800; line-height: 1.25; color: #fff; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .rmd .s { font-size: 27px; color: #8B93A3; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ---------- subtitles (drawn by the app, Settings › Subtitles) ---------- */
+.pscr .subs { position: absolute; left: 140px; right: 140px; bottom: 48px; text-align: center; pointer-events: none; line-height: 1.32; }
+.subs span { display: inline; border-radius: 6px; -webkit-box-decoration-break: clone; box-decoration-break: clone; color: #fff; }
+.subset .subpv { position: relative; height: 250px; border-radius: 18px; overflow: hidden; margin-bottom: 28px;
+  background: linear-gradient(135deg, #3B4A5E, #1C2330 55%, #443226); }
+.subset .subpv .subs { position: absolute; left: 30px; right: 30px; bottom: 30px; text-align: center; line-height: 1.32; }
+.subrow { height: 92px; white-space: nowrap; }
+.subrow .k { display: inline-block; vertical-align: middle; width: 230px; font-size: 28px; color: #8B93A3; font-weight: 700; }

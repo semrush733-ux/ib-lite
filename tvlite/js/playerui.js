@@ -46,6 +46,63 @@
     UI.toast('Sleep timer: the video was stopped', 5000);
   }
 
+  // ---------------------------------------------------------------- subtitle look (as in the Android app)
+  /** Settings › Subtitles: size, colour, background and height; the same look on both players. */
+  var Look = App.subLook = {
+    sizes: ['Small', 'Medium', 'Large', 'Extra large'], colors: ['White', 'Yellow', 'Cyan', 'Green'],
+    backgrounds: ['Shadow', 'Dark box', 'Outline'], positions: ['Bottom', 'Higher']
+  };
+  var SUB_PX = [45, 59, 73, 91], SUB_RGB = ['#FFFFFF', '#FFE14D', '#5CE1FF', '#7CFC6C'];
+  function pickNum(k, n, def) { var x = U.int(S.get(k, def)); return x >= 0 && x < n ? x : def; }
+  Look.size = function () { return pickNum('sub_size', 4, 1); };
+  Look.color = function () { return pickNum('sub_color', 4, 0); };
+  Look.bg = function () { return pickNum('sub_bg', 3, 0); };
+  Look.pos = function () { return pickNum('sub_pos', 2, 0); };
+  /** Draws the look on a subtitle box (scale 1: the full screen; box._lift: room for the bar). */
+  Look.apply = function (box, scale) {
+    scale = scale || 1;
+    var span = box.firstChild, px = Math.round(SUB_PX[Look.size()] * scale), bg = Look.bg();
+    var o = Math.max(1, Math.min(3, Math.round(px / 18)));
+    span.style.fontSize = px + 'px';
+    span.style.color = SUB_RGB[Look.color()];
+    span.style.background = bg === 1 ? 'rgba(0,0,0,0.72)' : 'transparent';
+    span.style.padding = bg === 1 ? '0 ' + Math.round(px * 0.3) + 'px' : '0';
+    span.style.fontWeight = bg === 2 ? '700' : '600';
+    span.style.textShadow = bg === 1 ? 'none' : bg === 2 ?
+      [[-o, -o], [o, -o], [-o, o], [o, o], [0, o], [0, -o], [o, 0], [-o, 0]].map(function (d) { return d[0] + 'px ' + d[1] + 'px 0 #000'; }).join(', ') :
+      '0 0 6px #000, 0 0 2px #000, 0 2px 4px #000';
+    box.style.bottom = Math.round((48 + (Look.pos() ? 86 : 0)) * scale + (box._lift || 0)) + 'px';
+  };
+  /** Settings › Subtitles: a sample line and the four choices. */
+  App.subtitleSettings = function (done) {
+    var wrap = U.el('div', 'subset'), first = null;
+    wrap.innerHTML = '<div class="subpv"><div class="subs"><span>This is how subtitles will look.</span></div></div>';
+    var sample = wrap.querySelector('.subs');
+    function draw() { Look.apply(sample, 0.62); }
+    [['Size', Look.sizes, 'sub_size', Look.size()], ['Colour', Look.colors, 'sub_color', Look.color()],
+      ['Background', Look.backgrounds, 'sub_bg', Look.bg()], ['Position', Look.positions, 'sub_pos', Look.pos()]].forEach(function (r) {
+      var row = U.el('div', 'subrow', '<span class="k">' + U.esc(r[0]) + '</span>');
+      r[1].forEach(function (name, i) {
+        var c = U.el('span', 'chip f' + (i === r[3] ? ' sel' : ''), U.esc(name));
+        c._ok = function () {
+          S.set(r[2], i);
+          [].forEach.call(row.querySelectorAll('.chip'), function (x, k) { x.classList.toggle('sel', k === i); });
+          App.log('subtitles: ' + r[2] + '=' + i);
+          draw();
+        };
+        // Up / Down into a row lands on its choice.
+        c._enter = function (dir) { F.set(dir === 'up' || dir === 'down' ? (row.querySelector('.chip.sel') || c) : c); };
+        row.appendChild(c);
+        if (!first && i === r[3]) first = c;
+      });
+      wrap.appendChild(row);
+    });
+    wrap.appendChild(U.el('div', 'kc-note', 'Turn subtitles on while watching: OK, then the Sound button (or Right on a live channel), then Subtitles. ' +
+      '"Higher" helps when the TV puts its own bar over them.'));
+    UI.dialog({ title: 'Subtitles', html: wrap, width: 1340, buttons: [{ label: 'Done', pri: true }], focusEl: first, onClose: done });
+    draw();
+  };
+
   /** o: {src, kind: live|vod|episode|rec, items, index, adopt, urls, title, sub, poster, resumeKey,
    *      start, episodes, onClose(index), item (the film), series (of the episodes)} */
   Screens.Player = function (o) {
@@ -64,6 +121,7 @@
     el.innerHTML =
       '<div class="poster2"><div class="pic"></div><div class="tl"><div class="t1"></div><div class="st"></div></div></div>' +
       '<div class="dead hide">' + U.icon('error') + '<div class="t1"></div><div class="t2"></div></div>' +
+      '<div class="subs hide"><span></span></div>' +
       '<div class="osd">' +
       '<div class="top"><div class="tt"></div><div class="sub"></div><div class="right"><span class="qb hide"></span><span class="plname">' + U.icon('playlist') + '<span></span></span><span class="clk num"></span></div></div>' +
       '<div class="bot"><div class="lg"><img alt=""></div><div class="info"><div class="now"></div><div class="next"></div>' +
@@ -71,6 +129,17 @@
       '<div class="ctrls"><div class="lbl"></div><div class="btns"></div></div></div></div></div>' +
       '<div class="seekhint hide num"></div><div class="zapnum hide num"></div>';
     var poster = el.querySelector('.poster2'), osd = el.querySelector('.osd'), deadBox = el.querySelector('.dead');
+    var subBox = el.querySelector('.subs'), subTimer = null;
+    /** The subtitle the stream sends (above the bar while the bar shows). */
+    function drawSub(text, ms) {
+      clearTimeout(subTimer);
+      if (!text) { subBox.classList.add('hide'); return; }
+      subBox.firstChild.innerHTML = U.esc(text).replace(/\n/g, '<br>');
+      placeSub();
+      subBox.classList.remove('hide');
+      if (ms > 0) subTimer = setTimeout(function () { subBox.classList.add('hide'); }, ms + 80);
+    }
+    function placeSub() { subBox._lift = osdOn ? 250 : 0; Look.apply(subBox, 1); }
     // Magic Remote: a click on the picture shows the bar (or tries again after a failure).
     el.addEventListener('click', function (e) {
       if (U.closest(e.target, 'f') || panel) return;
@@ -230,7 +299,7 @@
         }
         button('guide', 'TV Guide', openGuide);
         if (canStartOver()) button('replay', 'Start Over (the programme on now from its beginning)', startOver);
-        var b = button('audio', 'Sound, picture and sleep timer', openOptions, { gap: true });
+        var b = button('audio', 'Sound, subtitles, picture and sleep timer', openOptions, { gap: true });
         if (!many) mainBtn = b;
         button('aspect', fitLabel, cycleFit);
         var fav = cur() && Store.isFav(cur());
@@ -251,7 +320,7 @@
         }, { big: true });
         button('ff', 'Forward 10 seconds', function () { seekBy(1); });
         if (many) button('next', 'Next episode', function () { step(1); });
-        button('audio', 'Sound, picture, speed and sleep timer', openOptions, { gap: true });
+        button('audio', 'Sound, subtitles, picture, speed and sleep timer', openOptions, { gap: true });
         button('aspect', fitLabel, cycleFit);
       }
       button('back', 'Back', function () { leave(); });
@@ -273,6 +342,7 @@
       drawTime();
       osd.classList.add('show');
       osdOn = true;
+      if (!subBox.classList.contains('hide')) placeSub();
       if (focus && !panel) {
         if (!buttons.length) drawButtons();
         if (!F.cur || !el.contains(F.cur)) F.set(mainBtn || buttons[0]);
@@ -282,6 +352,7 @@
     function hideOsd() {
       osd.classList.remove('show');
       osdOn = false;
+      if (!subBox.classList.contains('hide')) placeSub();
       clearTimeout(osdTimer);
       if (F.cur && osd.contains(F.cur)) F.clear();
     }
@@ -553,12 +624,33 @@
       if (tracks.length < 2) opt(tracks.length ? tracks[0].label : 'Standard sound', true, closePanel);
       else {
         tracks.forEach(function (t) {
-          opt(t.label + (t.lang && t.label !== t.lang ? '  (' + t.lang + ')' : ''), t.on, function () {
+          opt(t.label + (t.lang && t.label.toLowerCase().indexOf(t.lang.toLowerCase()) < 0 ? '  (' + t.lang + ')' : ''), t.on, function () {
             Player.setAudio(t.i);
             closePanel();
             UI.toast('Sound: ' + t.label, 1500);
           });
         });
+      }
+      head('Subtitles');
+      var subs = Player.subTracks();
+      opt('Off', Player.sub() < 0, function () {
+        Player.setSub(-1);
+        S.set('sub_lang', '');
+        closePanel();
+        UI.toast('Subtitles off', 1500);
+      });
+      subs.forEach(function (s) {
+        opt(s.label + (s.lang && s.label.toLowerCase().indexOf(s.lang.toLowerCase()) < 0 ? '  (' + s.lang + ')' : ''), s.on, function () {
+          Player.setSub(s.i);
+          S.set('sub_lang', s.lang || '');
+          closePanel();
+          UI.toast('Subtitles: ' + s.label, 1500);
+        });
+      });
+      if (!subs.length) inner.appendChild(U.el('div', 'pnote', 'This stream has no subtitles.'));
+      else {
+        head('Subtitle size');
+        chips(['Small', 'Medium', 'Large', 'XL'], Look.size(), function (i) { S.set('sub_size', i); if (!subBox.classList.contains('hide')) placeSub(); });
       }
       head('Picture');
       var fits = Player.fits();
@@ -583,6 +675,7 @@
 
     // ---------------------------------------------------------------- player events
     function onPlayer(ev, d) {
+      if (ev === 'sub') { drawSub(d.text, d.ms); return; }
       if (Nav.top() !== self) return;
       if ((ev === 'first' || ev === 'meta') && osdOn) drawQuality();
       if (ev === 'first') { hidePoster(); pulse(false); return; }
@@ -704,7 +797,7 @@
     };
     this.destroy = function () {
       clearTimeout(zapTimer); clearTimeout(osdTimer); clearTimeout(epgTimer); clearTimeout(seekTimer);
-      clearTimeout(digitTimer); clearTimeout(posterHideTimer);
+      clearTimeout(digitTimer); clearTimeout(posterHideTimer); clearTimeout(subTimer);
       clearInterval(tick); clearInterval(saveTimer);
       Player.off(onPlayer);
       Player.setMuted(false);

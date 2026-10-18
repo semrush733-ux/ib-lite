@@ -40,13 +40,16 @@
     getTotalTrackInfo: function () {
       return [{ type: 'VIDEO', index: 0, extra_info: '{"fourCC":"H264","Width":"1920","Height":"1080"}' },
               { type: 'AUDIO', index: 1, extra_info: '{"language":"eng","channels":"2"}' },
-              { type: 'AUDIO', index: 2, extra_info: '{"language":"urd","channels":"2"}' }];
+              { type: 'AUDIO', index: 2, extra_info: '{"language":"urd","channels":"2"}' },
+              { type: 'TEXT', index: 3, extra_info: '{"track_lang":"eng","subtitle_type":"0"}' },
+              { type: 'TEXT', index: 4, extra_info: '{"track_lang":"ara","subtitle_type":"0"}' }];
     },
     getCurrentStreamInfo: function () {
       return [{ type: 'VIDEO', index: 0, extra_info: '{"fourCC":"H264","Width":"1920","Height":"1080"}' },
               { type: 'AUDIO', index: A.audio || 1, extra_info: '{"language":"eng"}' }];
     },
-    setSelectTrack: function (type, i) { rec('setSelectTrack', arguments); if (type === 'AUDIO') A.audio = i; }
+    setSelectTrack: function (type, i) { rec('setSelectTrack', arguments); if (type === 'AUDIO') A.audio = i; },
+    setSilentSubtitle: function (on) { rec('setSilentSubtitle', arguments); }
   };
   window.webapis = window.webapis || {};
   window.webapis.avplay = avplay;
