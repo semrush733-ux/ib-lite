@@ -302,9 +302,10 @@
         btns.appendChild(b);
         return b;
       }
+      // As in the Android app: Full screen, TV Guide, Favourite (Search is in the categories).
       pbtn('full', 'Full screen', function () { var i = indexOf(focusItem || pvItem); if (i >= 0) fullScreen(i); });
+      pbtn('guide', 'TV Guide', openGuide);
       var favBtn = pbtn('starb', 'Favourite', function () { var it = focusItem || pvItem; if (it) toggleFav(it); });
-      pbtn('search', 'Search', search);
       view.favBtn = favBtn;
       pv = U.el('div', 'pv');
       pv.style.cssText = 'width:848px;height:477px;top:96px';
@@ -392,6 +393,23 @@
     }
 
     function previewRect() { return App.rect(pv); }
+
+    /** TV Guide for the channels shown, from the one in focus. The preview carries on in the guide's
+     *  own window; picking a channel plays it full screen, a past programme plays from the recording. */
+    function openGuide() {
+      if (!live || catchup || !items.length) return;
+      var i = indexOf(focusItem || pvItem);
+      App.openGuide({
+        src: src, items: items, index: i < 0 ? 0 : i, title: selectedName,
+        onPick: function (r) {
+          if (r.channel != null) { fullScreen(r.channel); return; }
+          if (r.archive) {
+            stopPreview();
+            Nav.push(new Screens.Player(U.extend({ src: src, kind: 'rec' }, r.archive)));
+          }
+        }
+      });
+    }
 
     function openChannel(i) {
       var it = items[i];
@@ -630,8 +648,8 @@
       }
     };
     this.hide = function (next) {
-      // Another screen opens on top: the preview stops, unless full screen takes the stream over.
-      if (next && next.name === 'player' && next.kind === 'live') return;
+      // Another screen opens on top: the preview stops, unless full screen or the TV Guide takes it over.
+      if (next && ((next.name === 'player' && next.kind === 'live') || next.name === 'guide')) return;
       stopPreview();
     };
     this.onKey = function (k) {
@@ -641,6 +659,8 @@
         return k !== 'ok';
       }
       if (k === 'back') stopPreview();
+      // The remote's GUIDE (or INFO) key: the TV Guide.
+      if ((k === 'guide' || k === 'info') && live && !catchup) { openGuide(); return true; }
       return false;
     };
     this.destroy = function () {

@@ -362,7 +362,7 @@ var Backend = {}, Store = {};
    *  and the categories for children: they belong to one playlist account. */
   function accountKey(k) {
     var base = k.replace(/^p_[^_]+_/, '');
-    return /^(fav_|recent_|catorder_|kids_|hidden_|locked_)/.test(base) || base === 'resume' || base === 'continue';
+    return /^(fav_|recent_|catorder_|kids_|hidden_|locked_)/.test(base) || base === 'resume' || base === 'continue' || base === 'reminders';
   }
   function switchAccount(identity) {
     if (S.get('identity', '') === identity) return;
@@ -518,6 +518,9 @@ var Backend = {}, Store = {};
     cwSave();
   };
   /** The customer's own order of categories (hold OK on a category and move it), per kind. */
+  /** TV Guide reminders (js/guide.js): for the playlist account, not per profile. */
+  Store.reminders = function () { return S.get(acctNs() + 'reminders', []) || []; };
+  Store.setReminders = function (l) { if (l && l.length) S.set(acctNs() + 'reminders', l); else S.del(acctNs() + 'reminders'); };
   Store.catOrder = function (kind) { return S.get(acctNs() + 'catorder_' + kind, []) || []; };
   Store.setCatOrder = function (kind, ids) { S.set(acctNs() + 'catorder_' + kind, ids); };
   /** Categories in that order: the moved ones where they were put, new ones after them. */

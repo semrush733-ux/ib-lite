@@ -7,6 +7,7 @@
 @font-face { font-family: 'Inter'; font-weight: 800; src: url(../fonts/inter-800.woff) format('woff'); }
 @font-face { font-family: 'Brand'; font-weight: 700; src: url(../fonts/poppins-700.woff) format('woff'); }
 @font-face { font-family: 'Icons'; font-weight: 400; src: url(../fonts/icons.woff) format('woff'); }
+@font-face { font-family: 'Icons2'; font-weight: 400; src: url(../fonts/icons2.woff) format('woff'); }
 
 html, body {
   margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
@@ -20,7 +21,7 @@ html, body {
 #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0B0708;
   -webkit-transform-origin: 0 0; transform-origin: 0 0; }
 .hide { display: none !important; }
-.ic { font-family: 'Icons'; font-style: normal; font-weight: 400; line-height: 1; display: inline-block;
+.ic { font-family: 'Icons', 'Icons2'; font-style: normal; font-weight: 400; line-height: 1; display: inline-block;
   -webkit-font-feature-settings: 'liga'; text-transform: none; letter-spacing: 0; white-space: nowrap; }
 .dim { color: #8B93A3; }
 .red { color: #E3262F; }
@@ -601,3 +602,78 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 .rep .dim { font-size: 26px; line-height: 1.45; margin-bottom: 22px; white-space: normal; }
 .rep .chips { white-space: normal; margin-bottom: 14px; }
 .rep .chips .chip { margin: 0 14px 14px 0; }
+/* ---------- TV Guide (js/guide.js) ---------- */
+/* No background of its own: the picture plays in .gd-pv under the page. */
+.guide .gd-top { position: absolute; left: 56px; right: 56px; top: 36px; height: 292px; }
+.guide .gd-card { position: absolute; left: 0; top: 0; bottom: 0; right: 544px; border-radius: 28px; background: #181214; }
+.guide .gd-logo { position: absolute; left: 28px; top: 28px; width: 168px; height: 168px; border-radius: 22px; background: #231A1C; text-align: center; }
+.guide .gd-logo img { width: 136px; height: 136px; margin-top: 16px; object-fit: contain; }
+.guide .gd-info { position: absolute; left: 224px; right: 572px; top: 22px; white-space: nowrap; }
+.guide .gd-info .l1 { height: 44px; font-size: 28px; color: #8B93A3; overflow: hidden; }
+.guide .gd-info .l1 .n { color: #E3262F; font-weight: 800; margin-right: 14px; }
+.guide .gd-info .l1 .ch { display: inline-block; max-width: 640px; overflow: hidden; text-overflow: ellipsis; vertical-align: top; font-weight: 600; }
+.guide .gd-info .l1 .clk { float: right; font-weight: 600; color: #D5DAE3; }
+.guide .gd-info .t { font-size: 46px; font-weight: 800; height: 64px; line-height: 64px; overflow: hidden; text-overflow: ellipsis; }
+.guide .gd-info .t.dim { color: #8B93A3; font-size: 38px; }
+.guide .gd-info .l3 { height: 50px; line-height: 50px; font-size: 27px; overflow: hidden; color: #D5DAE3; }
+.guide .gd-info .l3 .tm { font-weight: 600; }
+.guide .gd-info .l3 .dim { margin-left: 18px; font-size: 24px; }
+.guide .gd-info .l3 .prog { display: inline-block; vertical-align: middle; width: 240px; margin: -4px 0 0 18px; }
+.guide .gd-info .d { white-space: normal; font-size: 25px; line-height: 1.38; color: #B9C0CC; height: 70px; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.bdg { display: inline-block; vertical-align: middle; margin: -4px 0 0 18px; padding: 0 14px; height: 36px; line-height: 36px; border-radius: 8px;
+  font-size: 20px; font-weight: 800; letter-spacing: 1px; }
+.bdg.live { background: rgba(227,38,47,0.22); color: #FF5A61; }
+.bdg.rec { background: rgba(46,204,113,0.18); color: #2ECC71; }
+.bdg.up { background: rgba(74,163,255,0.18); color: #4AA3FF; }
+.bdg.rem { background: rgba(255,201,74,0.18); color: #FFC94A; }
+.guide .gd-pv { position: absolute; right: 0; top: 0; width: 520px; height: 292px; }
+.guide .gd-pv .frame { position: absolute; left: -3px; top: -3px; right: -3px; bottom: -3px; border: 3px solid rgba(255,255,255,0.14); border-radius: 8px; }
+.guide .gd-pv .idle { position: absolute; left: 0; top: 0; right: 0; bottom: 0; background: #181214; border-radius: 6px; text-align: center; }
+.guide .gd-pv .idle img { width: 240px; height: 150px; margin-top: 71px; object-fit: contain; }
+.guide .gd-pv .idle .ic { font-size: 96px; color: #3D3033; margin-top: 98px; }
+.guide .gd-ruler { position: absolute; left: 56px; right: 56px; top: 350px; height: 46px; white-space: nowrap; }
+.guide .gd-ruler .day { position: absolute; left: 6px; top: 4px; font-size: 28px; font-weight: 800; color: #E3262F; }
+.guide .gd-ruler .tl { position: absolute; left: 442px; right: 0; top: 0; bottom: 0; overflow: hidden; }
+.guide .gd-ruler .tl span { position: absolute; top: 6px; font-size: 26px; font-weight: 600; color: #8B93A3; }
+.guide .gd-ruler .tl .mk { position: absolute; bottom: 0; width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent;
+  border-top: 14px solid #E3262F; }
+.guide .gd-grid { position: absolute; left: 56px; right: 56px; top: 400px; height: 630px; overflow: hidden; }
+.guide .gd-rows { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.guide .gd-now { position: absolute; top: 0; width: 3px; background: rgba(227,38,47,0.9); pointer-events: none; }
+.gr { position: absolute; left: 0; right: 0; height: 82px; }
+.gr .side { position: absolute; left: 0; top: 0; width: 430px; height: 82px; border-radius: 16px; background: #181214; border: 3px solid transparent; }
+.gr .side.on { background: #2A1A1D; border-color: #E3262F; }
+.gr .side .no { position: absolute; left: 14px; top: 0; width: 64px; line-height: 76px; font-size: 24px; font-weight: 700; color: #8B93A3; }
+.gr .side.on .no { color: #E3262F; }
+.gr .side img { position: absolute; left: 76px; top: 9px; width: 84px; height: 58px; object-fit: contain; }
+.gr .side .nm { position: absolute; left: 172px; right: 14px; top: 0; height: 76px; display: -webkit-box; display: -webkit-flex; display: flex;
+  -webkit-box-align: center; -webkit-align-items: center; align-items: center; font-size: 25px; font-weight: 600; line-height: 1.2; }
+.gr .side .nm span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.gr .side.on .nm { font-weight: 800; }
+.gr .cells { position: absolute; left: 442px; right: 0; top: 0; bottom: 0; overflow: hidden; }
+.gr .c { position: absolute; top: 0; height: 82px; padding: 12px 18px 0; border-radius: 14px; background: #231A1C; overflow: hidden; white-space: nowrap;
+  border: 3px solid transparent; }
+.gr .c b { display: block; font-size: 25px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; line-height: 32px; }
+.gr .c .tm { display: block; font-style: normal; font-size: 21px; color: #8B93A3; margin-top: 2px; }
+.gr .c.n { background: #3A2629; }
+.gr .c.p { background: #150F11; }
+.gr .c.p b { color: #8B93A3; }
+.gr .c.none b { color: #8B93A3; font-weight: 600; line-height: 52px; }
+.gr .c.on { background: #E3262F; border-color: #fff; }
+.gr .c.on b, .gr .c.none.on b { color: #fff; }
+.gr .c.on .tm { color: rgba(255,255,255,0.88); }
+.gr .ci .ic { font-size: 26px; vertical-align: middle; margin: -4px 8px 0 0; }
+.gr .ci.rec .ic { color: #2ECC71; }
+.gr .ci.rem .ic { color: #FFC94A; }
+.gr .c.on .ci .ic { color: #fff; }
+.guide .gd-hint { position: absolute; left: 56px; right: 56px; top: 1036px; font-size: 22px; color: #8B93A3; white-space: nowrap; overflow: hidden; }
+.guide .gd-hint .ic { font-size: 28px; vertical-align: middle; margin-top: -4px; }
+/* the reminder message */
+.rmdlg h2 .ic { color: #FFC94A; font-size: 46px; vertical-align: middle; margin: -6px 16px 0 0; }
+.rmd { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; }
+.rmd .lg { width: 132px; height: 132px; border-radius: 18px; background: #231A1C; text-align: center; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.rmd .lg img { width: 108px; height: 108px; margin-top: 12px; object-fit: contain; }
+.rmd .tx { margin-left: 30px; min-width: 0; }
+.rmd .t { font-size: 36px; font-weight: 800; line-height: 1.25; color: #fff; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.rmd .s { font-size: 27px; color: #8B93A3; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

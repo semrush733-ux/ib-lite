@@ -70,7 +70,17 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     aspect: 'f581', hq: 'f7e9', undo: 'f0261', keyboard: 'f833', radioOn: 'f00d7', radioOff: 'f00d8',
     power: 'f00b8', shield: 'f016b', dns: 'f6c1', link: 'f85a', pub: 'f00c6', smart: 'f0198', memory: 'f8b3',
     wifi: 'f02bf', image: 'f80d', more: 'f8dc', chevR: 'e15f', chevL: 'e15e', down: 'e246', clean: 'f643',
-    drag: 'e206', boxOn: 'f633', boxOff: 'f632', pin: 'f009c', kids: 'f733', unlock: 'f887', edit: 'e21a', added: 'e122'
+    drag: 'e206', boxOn: 'f633', boxOff: 'f632', pin: 'f009c', kids: 'f733', unlock: 'f887', edit: 'e21a', added: 'e122',
+    // fonts/icons2.woff (tvlite/tools/make_icons2.py): icons the first font does not have.
+    bell: 'f5000', bellOn: 'f5001', bellOff: 'f5002', bellAdd: 'f5003', subs: 'f5004', subsOff: 'f5005', textSize: 'f5006',
+    textColor: 'f5007', textFields: 'f5008', opacity: 'f5009', netCheck: 'f500a', router: 'f500b', lan: 'f500c', signal: 'f500d',
+    tower: 'f500e', download: 'f500f', upload: 'f5010', storage: 'f5011', sd: 'f5012', sweep: 'f5013', devinfo: 'f5014',
+    devices: 'f5015', cached: 'f5016', wallpaper: 'f5017', palette: 'f5018', landscape: 'f5019', dark: 'f501a', style: 'f501b',
+    sparkle: 'f501c', timer: 'f501d', timerOff: 'f501e', bedtime: 'f501f', clock: 'f5020', event: 'f5021', eventOk: 'f5022',
+    today: 'f5023', month: 'f5024', upcoming: 'f5025', later: 'f5026', restart: 'f5027', timeline: 'f5028', grid: 'f5029',
+    tune: 'f502a', theaters: 'f502b', group: 'f502c', groups: 'f502d', hd: 'f502e', face: 'f502f', actors: 'f5030',
+    movies: 'f5031', ondemand: 'f5032', movieFilter: 'f5033', ctv: 'f5034', livetv: 'f5035', okCircle: 'f5036',
+    doneAll: 'f5037', block: 'f5038', toggleOn: 'f5039', toggleOff: 'f503a', sensors: 'f503b'
   };
   U.icon = function (name) { return '<i class="ic">&#x' + (ICONS[name] || 'f816') + ';</i>'; };
 
@@ -188,6 +198,7 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     415: 'play', 19: 'pause', 413: 'stop', 417: 'ff', 412: 'rw', 179: 'playpause', 10252: 'playpause',
     33: 'chup', 34: 'chdown', 427: 'chup', 428: 'chdown', 403: 'red', 404: 'green', 405: 'yellow', 406: 'blue',
     457: 'info', 1056: 'info', 10190: 'last', // Samsung PRE-CH
+    458: 'guide', // the remote's GUIDE key (Samsung)
     65376: 'ok', 65385: 'back' // Samsung's on-screen keyboard: Done, Cancel
   };
   /** Samsung TVs (Tizen) pass on only the keys an app asks for: play / pause, channel, numbers, red, info. */
@@ -195,7 +206,7 @@ var U = {}, S = {}, Net = {}, Keys = {}, F = {}, Nav = {}, App = {};
     var dev = window.tizen && tizen.tvinputdevice, got = [];
     if (!dev) return got;
     var want = ['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop', 'MediaFastForward', 'MediaRewind',
-      'ChannelUp', 'ChannelDown', 'PreviousChannel', 'ColorF0Red', 'Info', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      'ChannelUp', 'ChannelDown', 'PreviousChannel', 'ColorF0Red', 'Info', 'Guide', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
     for (var i = 0; i < want.length; i++) {
       try { dev.registerKey(want[i]); got.push(want[i]); } catch (e) {}
     }

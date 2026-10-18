@@ -301,6 +301,11 @@ var Src = {};
     if (!it || it.k !== 'live') return Promise.resolve([]);
     return this.api('&action=get_short_epg&stream_id=' + encodeURIComponent(it.id) + '&limit=10', 12000).then(function (d) { return parseEpg(d); });
   };
+  /** Everything the server's guide has for a channel (TV Guide screen): past, now and coming. */
+  Xtream.prototype.guide = function (it) {
+    if (!it || it.k !== 'live') return Promise.resolve([]);
+    return this.api('&action=get_simple_data_table&stream_id=' + encodeURIComponent(it.id), 20000).then(function (d) { return parseEpg(d, true); });
+  };
   Xtream.prototype.recordings = function (it) {
     return this.api('&action=get_simple_data_table&stream_id=' + encodeURIComponent(it.id), 20000).then(function (d) {
       var now = Date.now();
@@ -438,7 +443,52 @@ var Src = {};
   M3U.prototype.hasAll = function () { return !!this.data; };
   M3U.prototype.vodInfo = function (it) { return Promise.resolve({ cover: it.i }); };
   M3U.prototype.seriesInfo = function () { return Promise.resolve({ plot: '', cover: '', genre: '', seasons: {}, order: [] }); };
-  M3U.prototype.epg = function () { return Promise.resolve([]); };
+  /** The playlist's XMLTV guide, read once per start in the background (js/xmltv.js); a failure
+   *  means no guide (tried again after 10 minutes), never an error on screen. */
+  M3U.prototype.guideMap = function () {
+    var self = this;
+    if (this.gmap && !(this.gfail && Date.now() - this.gfail > 10 * 60000)) return Promise.resolve(this.gmap);
+    if (this.gloading) return this.gloading;
+    this.gloading = this.load().then(function (d) {
+      var url = U.str(self.epgUrl) || U.str(d.epgUrl);
+      if (!/^https?:\/\//i.test(url) || !window.XMLTV) return null;
+      var seen = {}, ids = [];
+      d.items.live.forEach(function (it) { if (it.g && !seen[it.g]) { seen[it.g] = 1; ids.push(it.g); } });
+      if (!ids.length) { App.log('guide: the playlist has no tvg-id'); return null; }
+      App.log('guide: reading the XMLTV guide for ' + ids.length + ' channels');
+      return XMLTV.load(url, ids).then(function (r) {
+        var s = r.stats || {};
+        App.log('guide: ' + s.channels + ' channels, ' + s.kept + ' programmes (' + Math.round((s.bytes || 0) / 1024) + ' KB' +
+          (s.packed ? ' packed' : '') + ', ' + s.ms + ' ms)');
+        return r.guide;
+      });
+    }).then(function (g) {
+      self.gmap = g || {};
+      self.gfail = 0;
+      self.gloading = null;
+      self.gconv = {};
+      return self.gmap;
+    }, function (e) {
+      App.log('guide: XMLTV not read (' + ((e && e.message) || e) + ')');
+      self.gmap = {};
+      self.gfail = Date.now();
+      self.gloading = null;
+      self.gconv = {};
+      return self.gmap;
+    });
+    return this.gloading;
+  };
+  M3U.prototype.guide = function (it) {
+    var self = this;
+    if (!it || it.k !== 'live' || !it.g) return Promise.resolve([]);
+    return this.guideMap().then(function (m) {
+      var c = self.gconv || (self.gconv = {});
+      if (c[it.g]) return c[it.g];
+      var raw = m[it.g] || [];
+      return (c[it.g] = raw.map(function (a) { return { start: a[0], end: a[1], title: a[2], desc: a[3] || '', archive: false }; }));
+    });
+  };
+  M3U.prototype.epg = function (it) { return this.guide(it); };
   M3U.prototype.liveUrls = function (it) {
     var u = it.u, q = u.indexOf('?'), path = q >= 0 ? u.substring(0, q) : u, query = q >= 0 ? u.substring(q) : '';
     var alt = null;

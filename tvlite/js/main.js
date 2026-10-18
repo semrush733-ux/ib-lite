@@ -144,7 +144,7 @@
       var p = parked;
       parked = null;
       var top = Nav.top();
-      if (top && (top.name === 'player' || top.name === 'browse-live')) {
+      if (top && (top.name === 'player' || top.name === 'browse-live' || top.name === 'guide')) {
         App.log('app back: video again');
         Player.open(p.urls, { live: p.live, start: p.live ? 0 : p.start, loop: p.loop });
       }
@@ -182,6 +182,7 @@
     Nav.reset(s);
     closeIntro();
     if (Backend.registered()) Backend.refreshStatus();
+    App.reminders.start(); // TV Guide reminders (js/guide.js)
   }, function (e) {
     App.log('ERROR start: ' + (e && e.message));
     Nav.reset(new Screens.Connect());

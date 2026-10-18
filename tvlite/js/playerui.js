@@ -228,6 +228,8 @@
         if (many && prevIndex != null && items[prevIndex]) {
           button('history', function () { return items[prevIndex] ? 'Last channel (' + items[prevIndex].n + ')' : 'Last channel'; }, lastChannel);
         }
+        button('guide', 'TV Guide', openGuide);
+        if (canStartOver()) button('replay', 'Start Over (the programme on now from its beginning)', startOver);
         var b = button('audio', 'Sound, picture and sleep timer', openOptions, { gap: true });
         if (!many) mainBtn = b;
         button('aspect', fitLabel, cycleFit);
@@ -294,13 +296,15 @@
     function onFocusedBar() { return osdOn && F.cur && osd.contains(F.cur); }
 
     // ---------------------------------------------------------------- live: zapping
+    var epgFor = null; // the channel whose guide is in epg
     function loadEpg() {
       clearTimeout(epgTimer);
       epg = [];
+      epgFor = null;
       var it = items[index];
       if (!live || !it) return;
       epgTimer = setTimeout(function () {
-        src.epg(it).then(function (l) { if (items[index] === it) { epg = l; if (osdOn) drawGuide(); } }, function () {});
+        src.epg(it).then(function (l) { if (items[index] === it) { epg = l || []; epgFor = it; if (osdOn) drawGuide(); } }, function () { if (items[index] === it) epgFor = it; });
       }, 600);
     }
     function tune(i, quietPoster) {
@@ -338,6 +342,48 @@
       showOsd(false);
       tune(prevIndex, true);
     }
+    // ---------------------------------------------------------------- TV Guide and Start Over
+    /** The full TV Guide over the picture (it plays on in the guide's window). A channel picked there
+     *  plays here; a past programme plays from the recording, then live TV carries on. */
+    function openGuide() {
+      if (!live || !items.length) return;
+      hideOsd();
+      App.openGuide({
+        src: src, items: items, index: target != null ? target : index, title: o.title,
+        onPick: function (r) {
+          if (r.channel != null) {
+            if (r.channel !== index) { target = r.channel; showPoster(); tune(r.channel, true); }
+            return;
+          }
+          if (r.archive) Nav.push(new Screens.Player(U.extend({ src: src, kind: 'rec' }, r.archive)));
+        }
+      });
+    }
+    /** Start Over: an Xtream channel whose server keeps recordings (catch-up). */
+    function canStartOver() {
+      var it = items[index];
+      return !!(live && it && it.a && typeof src.recordingUrls === 'function');
+    }
+    function programmeNow() {
+      var t = Date.now();
+      for (var i = 0; i < epg.length; i++) if (epg[i].start <= t && epg[i].end > t) return epg[i];
+      return null;
+    }
+    /** The programme on now from its beginning (the server's recording); then live TV again. */
+    function startOver() {
+      if (!live) return;
+      var it = items[index];
+      if (!canStartOver()) { UI.toast('Start Over works on channels with catch-up (recordings on the server).', 2600); return; }
+      var c = programmeNow();
+      if (!c) { UI.toast(epgFor === it ? 'The TV guide shows no programme on now.' : 'The TV guide of this channel is not loaded yet.', 2600); return; }
+      App.log('start over');
+      hideOsd();
+      Nav.push(new Screens.Player({
+        src: src, kind: 'rec', urls: src.recordingUrls(it, c), title: c.title || it.n, poster: it.i,
+        sub: it.n + '  ·  Start Over  ·  ' + U.hm(new Date(c.start)) + ' – ' + U.hm(new Date(c.end))
+      }));
+    }
+
     function digit(dgt) {
       if (!live) return;
       digits = (digits + dgt).substring(0, 5);
@@ -582,9 +628,12 @@
       if (live) {
         if (k === 'up' || k === 'chup') { zap(1); return true; }
         if (k === 'down' || k === 'chdown') { zap(-1); return true; }
-        if (k === 'info') { showOsd(true); return true; }
+        // The remote's GUIDE or INFO key: the TV Guide (as in the Android app).
+        if (k === 'guide' || k === 'info') { openGuide(); return true; }
         // The remote's PRE-CH (Samsung) or Fast-forward: back to the channel watched before.
         if (k === 'last' || k === 'ff') { lastChannel(); return true; }
+        // Rewind: Start Over (on channels with catch-up).
+        if (k === 'rw') { startOver(); return true; }
       } else {
         if (k === 'rw') { seekBy(-1); return true; }
         if (k === 'ff') { seekBy(1); return true; }
@@ -618,8 +667,17 @@
     };
 
     // ---------------------------------------------------------------- life
+    /** The channel on screen (for the TV Guide reminders). */
+    this.channel = function () { return cur(); };
     this.show = function (first) {
-      if (!first) return;
+      if (!first) {
+        // Back from the TV Guide (the picture comes back full size) or from a recording (live again).
+        if (!live) return;
+        Player.layout('full');
+        if (!Player.active() || Player.state() === 'error') tune(index);
+        showOsd(true);
+        return;
+      }
       Player.layout('full');
       drawButtons();
       if (live) {

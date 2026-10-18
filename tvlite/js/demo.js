@@ -143,18 +143,35 @@
     var s = find('series', id);
     return Promise.resolve(s ? s.info : { plot: '', cover: '', genre: '', seasons: {}, order: [] });
   };
-  /** A guide for the demo channels, so the guide box and the bar look as they do with real channels. */
-  Demo.prototype.epg = function (it) {
-    var c = find('live', it && it.id);
-    if (!c) return Promise.resolve([]);
-    var slot = 30 * 60000, start = Math.floor(Date.now() / slot) * slot, out = [];
-    for (var i = 0; i < 6; i++) {
-      out.push({
-        title: c.prog[i % c.prog.length], start: start + i * slot, end: start + (i + 1) * slot, archive: false,
-        desc: i === 0 ? 'Demo channel built into the app to show the picture quality. Add your own playlist on the website to watch your channels.' : ''
-      });
+  /** A guide for the demo channels, so the guide box, the bar and the TV Guide look as they do with
+   *  real channels: from 6 hours ago to a day ahead, the same programme lengths every time. */
+  var LENGTHS = [[30, 60, 30, 90, 60], [60, 30, 30, 60, 90, 30], [90, 30, 60, 30], [30, 30, 60, 60, 120]];
+  function demoGuide(c) {
+    var n = 0, i;
+    for (i = 0; i < LIVE.length; i++) if (LIVE[i] === c) n = i;
+    var day = new Date(); day.setHours(0, 0, 0, 0);
+    var now = Date.now(), from = now - 6 * 3600000, to = now + 26 * 3600000, out = [];
+    var lens = LENGTHS[n % LENGTHS.length], t = day.getTime() - 24 * 3600000, k = 0;
+    while (t < to) {
+      var len = lens[(k + n) % lens.length] * 60000;
+      if (t + len > from) {
+        out.push({
+          title: c.prog[k % c.prog.length], start: t, end: t + len, archive: false,
+          desc: k % c.prog.length ? 'Built-in demo channel: ' + c.n + '.' : 'Demo channel built into the app to show the picture quality. Add your own playlist on the website to watch your channels.'
+        });
+      }
+      t += len;
+      k++;
     }
-    return Promise.resolve(out);
+    return out;
+  }
+  Demo.prototype.guide = function (it) {
+    var c = find('live', it && it.id);
+    return Promise.resolve(c ? demoGuide(c) : []);
+  };
+  Demo.prototype.epg = function (it) {
+    var now = Date.now();
+    return this.guide(it).then(function (l) { return l.filter(function (e) { return e.end > now; }).slice(0, 6); });
   };
   Demo.prototype.recordings = function () { return Promise.resolve([]); };
   Demo.prototype.liveUrls = function (it) { var c = find('live', it.id); return c ? c.urls.slice() : []; };
