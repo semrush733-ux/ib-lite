@@ -70,6 +70,19 @@ def main():
     try:
         with sync_playwright() as p:
             b = p.chromium.launch(args=['--disable-web-security'])
+            # ---------------- the start: the name is written letter by letter, the app loads after it
+            pg = b.new_page(viewport={'width': 1920, 'height': 1080})
+            pg.add_init_script("try { localStorage.setItem('lt_session', %s); } catch (e) {}" % json.dumps(json.dumps(SESSION)))
+            pg.goto('http://127.0.0.1:%d/index.html' % PORT, wait_until='domcontentloaded')
+            T.wait_for(pg, "/go/.test(document.getElementById('intro').className)", 3)
+            letters = pg.evaluate("document.querySelectorAll('#intro .ch').length")
+            check('start: the name in letters', letters == len('IBO Lite Player'), letters)
+            check('start: the app waits while the letters are written',
+                  pg.evaluate("!/done/.test(document.getElementById('intro').className) ? typeof window.Nav === 'undefined' : true"))
+            check('start: written, then the app loads', T.wait_for(pg, "/done/.test(document.getElementById('intro') ? document.getElementById('intro').className : 'done') && !!window.Nav", 6))
+            check('start: the brand fades to the home screen', T.wait_for(pg, "!document.getElementById('intro') && Nav.top() && Nav.top().name === 'home'", 8))
+            pg.close()
+
             page, errors = start(b, fake)
             check('home: opens', top(page) == 'home', top(page))
             check('home: playlist box filled', T.wait_for(page, "/Playlist Expiry:/.test(document.querySelector('.plbox').innerText)", 6),
@@ -161,7 +174,7 @@ def main():
 
             # A key pressed on the home screen first: no channel starts
             page, errors = start(b, fake, extra.replace("'true'", "'true'") + "\ndocument.addEventListener('DOMContentLoaded', function () {"
-                                 " var t = setInterval(function () { if (window.App && App.blocked === false) { clearInterval(t);"
+                                 " var t = setInterval(function () { if (window.Nav && Nav.top() && Nav.top().name === 'home' && App.blocked === false) { clearInterval(t);"
                                  " document.dispatchEvent(new KeyboardEvent('keydown', {keyCode: 39, key: 'ArrowRight', bubbles: true})); } }, 20); });")
             time.sleep(3)
             check('last channel: a key first keeps the home screen', top(page) == 'home', top(page))

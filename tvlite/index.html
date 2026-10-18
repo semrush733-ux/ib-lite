@@ -12,7 +12,8 @@
   <div id="screens"></div>
   <div id="dlg"></div>
   <div id="toast"></div>
-  <!-- Start screen: the brand from the website (sharp, drawn by the page) and the soft pulse. -->
+  <!-- Start screen: the symbol, then the name written letter by letter; the soft pulse only when
+       the app needs longer (a new TV registering). -->
   <div id="intro">
     <div class="glowbg"></div>
     <div class="brand"><span class="sym"><img id="introSym" src="img/symbol.png" alt=""></span><span class="name" id="introName"></span></div>
@@ -21,7 +22,8 @@
 </div>
 <script src="js/config.js"></script>
 <script>
-  // Before the first picture: the name and symbol saved from the website last time.
+  /* The start animation runs alone: the app's own scripts load only after the name is written,
+     so even the cheapest TV has nothing else to do while it draws the letters. */
   (function () {
     var name = '', icon = '';
     try {
@@ -29,13 +31,24 @@
       if (b) { name = b.logoName || b.name || ''; icon = b.iconData || ''; }
     } catch (e) {}
     if (!name) name = (window.CONFIG && CONFIG.appName) || 'Lite Player';
-    var i = name.indexOf(' ');
-    var el = document.getElementById('introName');
-    var w = document.createElement('span'); w.className = 'w'; w.textContent = i > 0 ? name.substring(0, i) : name;
-    el.appendChild(w);
-    if (i > 0) { var r = document.createElement('span'); r.className = 'r'; r.textContent = name.substring(i); el.appendChild(r); }
-    if (icon) document.getElementById('introSym').src = icon;
     document.title = (window.CONFIG && CONFIG.appName) || name;
+    var intro = document.getElementById('intro');
+    var sym = document.getElementById('introSym');
+    if (icon) sym.src = icon;
+
+    // The name: the first word white, the rest red, one letter after the other.
+    var el = document.getElementById('introName');
+    var first = name.indexOf(' '), n = name.length;
+    var step = Math.min(36, Math.round(560 / Math.max(1, n - 1))), start = 260, each = 460;
+    for (var i = 0; i < n; i++) {
+      var c = document.createElement('span');
+      c.className = 'ch ' + (first > 0 && i >= first ? 'r' : 'w');
+      c.textContent = name.charAt(i) === ' ' ? ' ' : name.charAt(i);
+      c.style.webkitAnimationDelay = c.style.animationDelay = (start + i * step) + 'ms';
+      el.appendChild(c);
+    }
+    var length = start + (n - 1) * step + each; // when the last letter is in place
+
     // Pages wider or narrower than 1920 (browser tests, old TVs) are scaled as a whole.
     var s = (window.innerWidth || 1920) / 1920;
     if (Math.abs(s - 1) > 0.01) {
@@ -43,20 +56,40 @@
       st.style.webkitTransform = 'scale(' + s + ')';
       st.style.transform = 'scale(' + s + ')';
     }
+
+    var INTRO = window.INTRO = { t0: Date.now(), written: 0 };
+    var APP = ['core', 'qr', 'ui', 'backend', 'sources', 'demo', 'player', 'screens', 'browse', 'details', 'streaming', 'playerui', 'main'];
+    function loadApp() {
+      for (var k = 0; k < APP.length; k++) {
+        var js = document.createElement('script');
+        js.src = 'js/' + APP[k] + '.js';
+        js.async = false; // in this order
+        document.body.appendChild(js);
+      }
+    }
+    var begun = false;
+    function begin() {
+      if (begun) return;
+      begun = true;
+      intro.className = 'go';
+      INTRO.written = Date.now() + length;
+      setTimeout(function () {
+        // Written: the letters become part of the picture (nothing moves any more).
+        if (intro.className === 'go') intro.className = 'go done';
+        loadApp();
+      }, length + 40);
+      // Still here a while after the name was written (a new TV registering): the soft pulse.
+      setTimeout(function () { if (intro.parentNode && !/out|warm/.test(intro.className)) intro.className += ' wait'; }, length + 1500);
+    }
+    // The letters start once the name's font and the symbol are ready, so nothing pops in late.
+    var waiting = 2;
+    function ready() { if (--waiting <= 0) begin(); }
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load('700 124px Brand').then(ready, ready);
+    } else setTimeout(ready, 150);
+    if (sym.complete) ready(); else { sym.onload = sym.onerror = ready; }
+    setTimeout(begin, 700); // never later than this
   })();
 </script>
-<script src="js/core.js"></script>
-<script src="js/qr.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/backend.js"></script>
-<script src="js/sources.js"></script>
-<script src="js/demo.js"></script>
-<script src="js/player.js"></script>
-<script src="js/screens.js"></script>
-<script src="js/browse.js"></script>
-<script src="js/details.js"></script>
-<script src="js/streaming.js"></script>
-<script src="js/playerui.js"></script>
-<script src="js/main.js"></script>
 </body>
 </html>

@@ -28,23 +28,37 @@
     ]).then(function () { return new Screens.Connect(); });
   }
 
-  /** The brand screen goes softly once the first screen is there (and was seen for a moment).
-   * While it shows, the first screen is built but not drawn (visibility hidden): the TV only has the
-   * brand and its pulse to draw, so the animation stays smooth on the cheapest TVs too. */
+  /** The brand screen goes softly once the first screen is ready under it. index.html writes the
+   * name first and only then loads the app, so this runs when the letters stand still. The first
+   * screen is built hidden, then drawn under the brand (the brand is made a hair see-through, else
+   * the TV skips drawing what it covers), with its fonts and pictures, and only then the brand
+   * fades: during the fade the TV has nothing new to draw, so it stays smooth on the cheapest TVs. */
   var screensEl = U.$('screens');
   screensEl.style.visibility = 'hidden';
-  function closeIntro(t0) {
+  var INTRO = window.INTRO || { t0: Date.now(), written: 0 };
+  var raf = window.requestAnimationFrame || window.webkitRequestAnimationFrame || function (f) { return setTimeout(f, 16); };
+  function closeIntro() {
     var intro = U.$('intro');
-    var wait = Math.max(0, 1400 - (Date.now() - t0));
-    setTimeout(function () {
-      App.blocked = false;
-      screensEl.style.visibility = '';
-      // One frame for the first screen to be drawn, then the brand fades over it.
+    if (!intro) { App.blocked = false; screensEl.style.visibility = ''; return; }
+    intro.classList.remove('wait');
+    intro.classList.add('warm');
+    screensEl.style.visibility = '';
+    var done = false;
+    function fade() {
+      if (done) return;
+      done = true;
+      // The whole name is seen for a moment before the brand goes.
       setTimeout(function () {
+        App.blocked = false;
         intro.classList.add('out');
-        setTimeout(function () { if (intro.parentNode) intro.parentNode.removeChild(intro); }, 360);
-      }, 40);
-    }, wait);
+        setTimeout(function () { if (intro.parentNode) intro.parentNode.removeChild(intro); }, 480);
+      }, Math.max(0, INTRO.written + 300 - Date.now()));
+    }
+    setTimeout(fade, 1200); // never longer than this
+    var fonts = document.fonts && document.fonts.ready && document.fonts.ready.then ? document.fonts.ready : Promise.resolve();
+    fonts.then(null, function () {}).then(function () {
+      raf(function () { raf(function () { setTimeout(fade, 150); }); });
+    });
   }
 
   App.restart = function () {
@@ -160,17 +174,16 @@
   }
 
   // ---------------------------------------------------------------- go
-  var t0 = Date.now();
   App.blocked = true;
   Backend.loadConfig();
   firstScreen().then(function (s) {
     Nav.reset(s);
-    closeIntro(t0);
+    closeIntro();
     if (Backend.registered()) Backend.refreshStatus();
   }, function (e) {
     App.log('ERROR start: ' + (e && e.message));
     Nav.reset(new Screens.Connect());
-    closeIntro(t0);
+    closeIntro();
   });
   setTimeout(inbox, 15000);
   setInterval(inbox, 3 * 60000);

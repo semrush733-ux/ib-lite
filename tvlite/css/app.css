@@ -40,22 +40,37 @@ html.avp-on, html.avp-on body, html.avp-on #stage { background: transparent; }
 #dlg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 3; pointer-events: none; }
 #dlg > div { pointer-events: auto; }
 #toast { position: absolute; left: 0; right: 0; bottom: 70px; z-index: 4; text-align: center; pointer-events: none; }
-#intro { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 5; opacity: 1;
-  background: #0B0708; -webkit-transition: opacity 280ms ease-out; transition: opacity 280ms ease-out; will-change: opacity; }
+#intro { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 5; opacity: 1; background: #0B0708;
+  -webkit-transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1); transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1); will-change: opacity; }
+/* A hair see-through while the first screen is drawn under it (the TV skips drawing what is fully covered). */
+#intro.warm { opacity: 0.99; }
 #intro.out { opacity: 0; }
 #log { position: absolute; left: 20px; top: 20px; width: 900px; max-height: 1040px; overflow: hidden; z-index: 9;
   pointer-events: none; color: #fff; font: 18px/1.35 monospace; background: rgba(0,0,0,.85); padding: 14px 18px;
   border-radius: 10px; white-space: pre-wrap; word-break: break-all; }
 
-/* ---------- intro: the brand, sharp, and the soft pulse ---------- */
+/* ---------- intro: the symbol comes in, then the name is written letter by letter ----------
+   Only transform and opacity move, each letter on its own layer while it moves (index.html loads the
+   app only after the last letter, so nothing else runs meanwhile); written, they become one picture. */
 #intro .glowbg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
   background: radial-gradient(ellipse 980px 620px at 50% 46%, rgba(120,20,28,0.30), rgba(11,7,8,0) 70%); }
 #intro .brand { position: absolute; left: 0; right: 0; top: 380px; height: 200px; text-align: center; white-space: nowrap; }
-#intro .sym { display: inline-block; vertical-align: middle; width: 196px; height: 196px; }
+#intro .sym { display: inline-block; vertical-align: middle; width: 196px; height: 196px; opacity: 0; }
 #intro .sym img { width: 196px; height: 196px; display: block; }
 #intro .name { display: inline-block; vertical-align: middle; margin-left: 44px; font-family: 'Brand', 'Inter', sans-serif;
   font-weight: 700; font-size: 124px; line-height: 1; letter-spacing: -1px; }
-#intro .pulse { position: absolute; left: 912px; top: 704px; }
+#intro .ch { display: inline-block; opacity: 0; }
+#intro.go .sym { will-change: transform, opacity; -webkit-animation: isym 620ms ease-out 60ms both; animation: isym 620ms ease-out 60ms both; }
+#intro.go .ch { will-change: transform, opacity;
+  -webkit-animation: ich 460ms cubic-bezier(0.22, 0.8, 0.24, 1) both; animation: ich 460ms cubic-bezier(0.22, 0.8, 0.24, 1) both; }
+#intro.done .sym, #intro.done .ch { opacity: 1; -webkit-animation: none; animation: none; will-change: auto; }
+@-webkit-keyframes isym { 0% { opacity: 0; -webkit-transform: scale(0.62); } 62% { opacity: 1; -webkit-transform: scale(1.05); } 100% { opacity: 1; -webkit-transform: scale(1); } }
+@keyframes isym { 0% { opacity: 0; transform: scale(0.62); } 62% { opacity: 1; transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+@-webkit-keyframes ich { 0% { opacity: 0; -webkit-transform: translate3d(0, 42px, 0); } 100% { opacity: 1; -webkit-transform: translate3d(0, 0, 0); } }
+@keyframes ich { 0% { opacity: 0; transform: translate3d(0, 42px, 0); } 100% { opacity: 1; transform: translate3d(0, 0, 0); } }
+/* the soft pulse: only when the app needs longer than usual (a new TV registering) */
+#intro .pulse { position: absolute; left: 912px; top: 704px; display: none; }
+#intro.wait .pulse { display: block; opacity: 0; -webkit-animation: plate 300ms ease-out forwards; animation: plate 300ms ease-out forwards; }
 
 /* ---------- logo (symbol + name; first word white, the rest red) ---------- */
 .logo { display: inline-block; white-space: nowrap; vertical-align: middle; }
