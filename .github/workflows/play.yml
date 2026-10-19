@@ -34,7 +34,9 @@ jobs:
       - name: Apply the brand
         run: |
           get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
-          APP_NAME="$(get APP_NAME)"; PACKAGE_ID="$(get PACKAGE_ID)"; WEBSITE="$(get WEBSITE)"
+          APP_NAME="$(get APP_NAME)"; WEBSITE="$(get WEBSITE)"
+          # The Play app has its own package name (brand/brand.txt PLAY_PACKAGE_ID).
+          PACKAGE_ID="$(get PLAY_PACKAGE_ID)"; [ -n "$PACKAGE_ID" ] || PACKAGE_ID="$(get PACKAGE_ID)"
           WEBSITE="${WEBSITE%/}"
           API_BASE=""; [ -n "$WEBSITE" ] && API_BASE="$WEBSITE/wp-json/b1g/v1"
           APK_NAME="$(echo "$APP_NAME" | tr -cd '[:alnum:]')"; [ -n "$APK_NAME" ] || APK_NAME=App
@@ -186,6 +188,7 @@ jobs:
           {
             echo "Android App Bundle for Google Play (upload it in Play Console -> Test and release -> Production / Internal testing)."
             echo ""
+            echo "- Package: $APP_ID"
             echo "- Version code: ${CODE:-?}"
             echo "- Signed with your upload key: $HAS_SIGNING"
             [ -s out/upload-key-sha256.txt ] && echo "- Upload key $(cat out/upload-key-sha256.txt | sed 's/^ *//')"

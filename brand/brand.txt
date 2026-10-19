@@ -4,6 +4,9 @@ APP_NAME=Lite Player
 # Android package name. Keep it the same once customers have installed the app
 # (a new one installs as a separate app).
 PACKAGE_ID=com.liteplayer.tv
+# Google Play package name: the Play app is its own app (Play updates it, the website's APK
+# updates itself). Set once in Play Console: never change it.
+PLAY_PACKAGE_ID=com.iboliteplayer.tv
 # LG TV app ID (the LG Content Store app). Set once in LG Seller Lounge: never change it.
 LG_APP_ID=com.iboliteplayer.tv
 # The app's own website (WordPress with the player plugin). Empty = not connected yet.
