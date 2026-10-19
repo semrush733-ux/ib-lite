@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../backend.dart';
 import '../config.dart';
+import '../privacy.dart';
 import '../engine.dart';
 import '../enhance.dart';
 import '../i18n.dart';
@@ -1022,6 +1023,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           t('Something does not work? Send a report: the app\'s recent log and this TV\'s details go to the support team (no passwords).'),
           style: const TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),
+        const SizedBox(height: 18),
+        // What the app sends and why, and the full policy (also on the first screen).
+        const Align(alignment: Alignment.centerLeft, child: PrivacyButton(color: C.panel)),
       ],
     );
   }

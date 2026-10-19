@@ -44,3 +44,6 @@ const String kIosFeed = String.fromEnvironment('B1G_IOS_FEED');
 /// Google Play build: Play installs the updates (the app never downloads its own APK) and the
 /// built-in VPN is left out (Play only allows VPN apps whose main job is the VPN).
 const bool kPlay = bool.fromEnvironment('B1G_PLAY');
+
+/// The website's privacy policy page (empty: <website>/privacy-policy-2/, see privacy.dart).
+const String kPrivacyUrlBuild = String.fromEnvironment('B1G_PRIVACY_URL');

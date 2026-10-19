@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../backend.dart';
 import '../config.dart';
+import '../privacy.dart';
 import '../i18n.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -302,6 +303,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
                 ),
               );
             }),
+          ),
+          // What the app sends and why, and the full policy (also in Settings › Application Info).
+          const Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(padding: EdgeInsets.fromLTRB(0, 18, 22, 0), child: PrivacyButton(color: Color(0xCC1A0608))),
+            ),
           ),
           const Positioned.fill(child: IgnorePointer(child: ExcludeFocus(child: RunningPuppy()))),
         ],
