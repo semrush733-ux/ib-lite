@@ -776,6 +776,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _wallpapers() {
     final current = Store.wallpaper;
+    // In the Google Play build the standard wallpaper is number 3, so it is not listed twice.
+    final numbers = [for (var n = 0; n <= 20; n++) if (!(kPlay && n == 3)) n];
     return GridView.builder(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
@@ -783,8 +785,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
       ),
-      itemCount: 21,
-      itemBuilder: (context, i) {
+      itemCount: numbers.length,
+      itemBuilder: (context, index) {
+        final i = numbers[index];
         final on = current == i;
         return TvFocus(
           autofocus: on,

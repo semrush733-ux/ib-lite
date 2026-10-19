@@ -1513,6 +1513,9 @@ class _WeatherBox extends StatelessWidget {
   }
 }
 
-/// The picture for a wallpaper number (0 = the standard home background).
-String wallpaperAsset(int n) =>
-    n <= 0 || n > 20 ? 'assets/home_bg.webp' : 'assets/wallpapers/wp${n.toString().padLeft(2, '0')}.webp';
+/// The picture for a wallpaper number (0 = the standard home background). The Google Play build
+/// uses the plain red wallpaper 3 as its standard one (the photo of a living room watching
+/// football would make the player look like a sports-streaming app to Play's review).
+String wallpaperAsset(int n) => n <= 0 || n > 20
+    ? (kPlay ? 'assets/wallpapers/wp03.webp' : 'assets/home_bg.webp')
+    : 'assets/wallpapers/wp${n.toString().padLeft(2, '0')}.webp';

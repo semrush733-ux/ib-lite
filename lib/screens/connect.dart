@@ -137,7 +137,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset('assets/home_bg.webp', fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
+          Image.asset(wallpaperAsset(0), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
