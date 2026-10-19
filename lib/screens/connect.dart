@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../backend.dart';
+import '../config.dart';
 import '../i18n.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -172,7 +173,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
                             _step(1, 'Scan the QR code with your phone, or open',
                                 site.isEmpty ? 'the website' : '$site/upload-playlist'),
                             _step(2, 'Your MAC Address and Device Key are filled in for you', ''),
-                            _step(3, 'Add an M3U link or your Xtream Codes login', ''),
+                            _step(3, kPlay ? 'Add your playlist link or your server login' : 'Add an M3U link or your Xtream Codes login', ''),
                             _step(4, 'The playlist appears on this TV by itself', ''),
                             // No subscription yet: the demo playlist set on the website.
                             if (Backend.demo != null) ...[

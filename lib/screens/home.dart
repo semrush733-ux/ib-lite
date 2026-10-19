@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../backend.dart';
+import '../config.dart';
 import '../continue_watching.dart';
 import '../downloads.dart';
 import '../i18n.dart';
@@ -377,9 +378,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: C.panel,
         title: const Text('Catch Up'),
-        content: const Text(
-          'Catch Up works with Xtream Codes playlists, where the server keeps recordings of past '
-          'programmes. An M3U playlist link does not carry recordings.',
+        content: Text(
+          kPlay
+              ? 'Catch Up works with a server login, where the server keeps recordings of past '
+                  'programmes. An M3U playlist link does not carry recordings.'
+              : 'Catch Up works with Xtream Codes playlists, where the server keeps recordings of past '
+                  'programmes. An M3U playlist link does not carry recordings.',
           style: TextStyle(height: 1.45),
         ),
         actions: [
@@ -563,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _infoRow('Playlist', widget.api is XtreamApi ? 'Xtream Codes' : 'M3U'),
+              _infoRow('Playlist', widget.api is XtreamApi ? (kPlay ? 'Server login' : 'Xtream Codes') : 'M3U'),
               _infoRow('Status', a == null ? (_offline ? 'No connection' : 'Checking…') : (a.isTrial ? 'Trial' : 'Active')),
               _infoRow('Expires', a?.expires == null ? (a == null ? '—' : 'Never') : formatDate(a!.expires!)),
               if (a != null && a.note.isNotEmpty) _infoRow('Note', a.note),

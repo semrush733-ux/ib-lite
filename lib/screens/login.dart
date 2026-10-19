@@ -420,7 +420,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (!_locked && !_hasSiteServer) ...[
                         Row(
                           children: [
-                            _tab('Xtream Codes', _xtream, _xtreamTabNode),
+                            _tab(kPlay ? 'Server login' : 'Xtream Codes', _xtream, _xtreamTabNode),
                             const SizedBox(width: 8),
                             _tab('M3U link', _m3uLink, _m3uTabNode),
                           ],
@@ -452,7 +452,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           _busy
                               ? 'Loading the playlist. A large one can take a minute.'
-                              : 'Any M3U / M3U8 playlist address, for example\nhttp://server:port/get.php?username=…&password=…&type=m3u_plus',
+                              : kPlay
+                                  ? 'Any M3U / M3U8 playlist address, for example\nhttps://example.com/playlist.m3u'
+                                  : 'Any M3U / M3U8 playlist address, for example\nhttp://server:port/get.php?username=…&password=…&type=m3u_plus',
                           style: const TextStyle(color: C.dim, fontSize: 12.5, height: 1.35),
                         ),
                       ] else ...[

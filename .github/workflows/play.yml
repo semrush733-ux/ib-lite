@@ -2,10 +2,12 @@ name: Google Play (AAB)
 
 # Builds the Android App Bundle (.aab) for Google Play, signed with your key (the same key as the
 # APK; on Play it is the "upload key", Google signs the installed app with its own key).
-# The Play build leaves out what Play does not allow: the app downloading its own updates (Play
-# updates it) and the built-in VPN. Result: release "play-latest" with the .aab, the store pictures
-# and a short guide. Started by hand (Actions -> Google Play (AAB) -> Run workflow) or by a push
-# that changes this file.
+# The Play build leaves out what Play does not allow or would question: the app downloading its
+# own updates (Play updates it), the built-in VPN (and its WireGuard native code, which is not
+# built for 16 KB memory pages) and the location permission (only the Wi-Fi list in Settings ›
+# Network used it). Result: release "play-latest" with the .aab, the store pictures and a short
+# guide. Started by hand (Actions -> Google Play (AAB) -> Run workflow) or by a push that changes
+# this file.
 
 on:
   workflow_dispatch:
@@ -75,7 +77,7 @@ jobs:
           fi
           mkdir -p out/logs
 
-      - name: Play version of the manifest (no self-update, no VPN service)
+      - name: Play version of the manifest (no self-update, no VPN service, no location)
         run: |
           python3 - <<'PY'
           p = 'android/app/src/main/AndroidManifest.xml'
@@ -83,13 +85,24 @@ jobs:
           if 'xmlns:tools' not in s:
               s = s.replace('<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
                             '<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"', 1)
-          s = s.replace('<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />',
-                        '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />', 1)
+          # Self-update (Play updates the app) and, for the Wi-Fi list the Play build does not show,
+          # location and joining networks.
+          for perm in ('REQUEST_INSTALL_PACKAGES', 'ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION', 'CHANGE_WIFI_STATE'):
+              old = '<uses-permission android:name="android.permission.%s" />' % perm
+              assert old in s, perm
+              s = s.replace(old, '<uses-permission android:name="android.permission.%s" tools:node="remove" />' % perm, 1)
           s = s.replace('</application>',
                         '    <service android:name="com.wireguard.android.backend.GoBackend$VpnService" tools:node="remove" />\n    </application>', 1)
           open(p, 'w').write(s)
           PY
           grep -n "tools:node" android/app/src/main/AndroidManifest.xml
+          # No VPN in this build: leave out the WireGuard native libraries (Play needs every 64-bit
+          # library built for 16 KB memory pages, and these are not).
+          if [ -f android/app/build.gradle.kts ]; then
+            printf '\n// ---- Google Play: no VPN, so no WireGuard native code ----\nandroid {\n    packaging {\n        jniLibs {\n            excludes += setOf("**/libwg-go.so", "**/libwg-quick.so", "**/libwg.so")\n        }\n    }\n}\n' >> android/app/build.gradle.kts
+          else
+            printf "\n// ---- Google Play: no VPN, so no WireGuard native code ----\nandroid { packagingOptions { jniLibs { excludes += ['**/libwg-go.so', '**/libwg-quick.so', '**/libwg.so'] } } }\n" >> android/app/build.gradle
+          fi
 
       - name: Get packages
         run: flutter pub get
@@ -111,6 +124,27 @@ jobs:
             --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_API_BASE="$API_BASE" \
             2>&1 | tee out/build.log
           cp build/app/outputs/bundle/release/app-release.aab "out/$APK_NAME-play.aab"
+
+      - name: Check the bundle for Play (16 KB pages, permissions)
+        run: |
+          set -e
+          rm -rf "$RUNNER_TEMP/aab" && mkdir -p "$RUNNER_TEMP/aab"
+          unzip -q "out/$APK_NAME-play.aab" 'base/lib/*' 'base/manifest/AndroidManifest.xml' -d "$RUNNER_TEMP/aab"
+          bad=""
+          for f in "$RUNNER_TEMP"/aab/base/lib/arm64-v8a/*.so "$RUNNER_TEMP"/aab/base/lib/x86_64/*.so; do
+            [ -f "$f" ] || continue
+            for a in $(readelf -lW "$f" | awk '$1=="LOAD"{print $NF}'); do
+              [ $((a)) -ge 16384 ] || bad="$bad $(basename "$(dirname "$f")")/$(basename "$f")($a)"
+            done
+          done
+          python3 tools/aab_manifest.py "$RUNNER_TEMP/aab/base/manifest/AndroidManifest.xml" > out/manifest.txt
+          grep -E "uses-sdk|uses-permission" out/manifest.txt | sed 's/^ *//' > out/permissions.txt
+          cat out/permissions.txt
+          if [ -n "$bad" ]; then echo "::error::Not built for 16 KB memory pages:$bad"; exit 1; fi
+          if grep -qE "REQUEST_INSTALL_PACKAGES|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|BIND_VPN_SERVICE" out/manifest.txt; then
+            echo "::error::The Play bundle still asks for a permission it must not have"; exit 1
+          fi
+          echo "All 64-bit libraries are built for 16 KB pages."
 
       - name: Sign with your key
         if: env.HAS_SIGNING == 'true'
@@ -155,7 +189,10 @@ jobs:
             echo "- Version code: ${CODE:-?}"
             echo "- Signed with your upload key: $HAS_SIGNING"
             [ -s out/upload-key-sha256.txt ] && echo "- Upload key $(cat out/upload-key-sha256.txt | sed 's/^ *//')"
-            echo "- Left out for Play: self-update (Play updates the app), built-in VPN."
+            echo "- Left out for Play: self-update (Play updates the app), built-in VPN, location (Wi-Fi list)."
+            if [ -s out/permissions.txt ]; then
+              echo ""; echo "### Target SDK and permissions"; echo '```'; cat out/permissions.txt; echo '```'
+            fi
             if [ -z "$FILES" ]; then
               echo ""; echo "### Errors"; echo '```'; tail -60 out/build.log 2>/dev/null | cut -c1-300; echo '```'
             fi

@@ -1213,6 +1213,8 @@ class SettingsBadge extends StatelessWidget {
 
 
 /// Settings › Network: the connection in use, the Wi-Fi networks around the TV, and joining one.
+/// The Google Play build has no location permission (Android wants it for Wi-Fi scans), so it
+/// shows the connection, the speed test and the TV's own Wi-Fi page, without the list of networks.
 class _NetworkPanel extends StatefulWidget {
   const _NetworkPanel();
 
@@ -1231,7 +1233,7 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _refresh(scan: true);
+    _refresh(scan: !kPlay);
   }
 
   @override
@@ -1243,7 +1245,7 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
   // Back from the permission question or the TV's Wi-Fi page: look again.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh(scan: true);
+    if (state == AppLifecycleState.resumed) _refresh(scan: !kPlay);
   }
 
   Future<void> _refresh({bool scan = false}) async {
@@ -1421,6 +1423,11 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
             ],
           ),
         ),
+        if (kPlay) ...[
+          const SizedBox(height: 16),
+          const Text('To join another Wi-Fi network, open the TV Wi-Fi settings.',
+              style: TextStyle(fontSize: 13.5, color: C.dim, height: 1.5)),
+        ] else ...[
         const SizedBox(height: 20),
         Row(
           children: [
@@ -1571,6 +1578,7 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
                 ),
               ),
             ),
+        ],
         ],
       ],
     );

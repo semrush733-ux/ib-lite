@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../backend.dart';
+import '../config.dart';
 import '../input_mode.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -351,7 +352,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(color: C.card, borderRadius: BorderRadius.circular(5)),
-                        child: Text(p.isXtream ? 'XTREAM' : 'M3U',
+                        child: Text(p.isXtream ? (kPlay ? 'SERVER' : 'XTREAM') : 'M3U',
                             style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: C.dim)),
                       ),
                       if (now) ...[

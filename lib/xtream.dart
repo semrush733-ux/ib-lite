@@ -41,7 +41,7 @@ String friendlyError(Object e) {
   if (kind == 'SocketException' || kind == 'HandshakeException' || kind == '_ClientSocketException' || e is http.ClientException) {
     return 'Cannot reach the server. Check the address and your internet connection.';
   }
-  if (e is FormatException) return 'This address did not answer like an IPTV server.';
+  if (e is FormatException) return 'This address did not answer like a playlist server.';
   return 'Something went wrong. Please try again.';
 }
 
@@ -413,7 +413,7 @@ List<XCategory> parseCategories(dynamic data) {
 
 XAccount parseAccount(dynamic data) {
   if (data is! Map || data['user_info'] is! Map) {
-    throw XtreamException('This address did not answer like an IPTV server.');
+    throw XtreamException('This address did not answer like a playlist server.');
   }
   final u = data['user_info'] as Map;
   if (toInt(u['auth']) != 1) throw XtreamAuthException('Wrong username or password.');
