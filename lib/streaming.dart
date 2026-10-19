@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'backend.dart';
+import 'config.dart';
 import 'store.dart';
 import 'theme.dart' show log;
 import 'tmdb.dart' show cleanTitle, CleanTitle;
@@ -34,8 +35,9 @@ const kStreamingServices = <StreamingService>[
   StreamingService('peacock', 'Peacock', ['peacock']),
 ];
 
-/// The boxes switched on in Settings, in the order above.
-List<StreamingService> enabledStreaming() => [for (final s in kStreamingServices) if (Store.streamingOn(s.id)) s];
+/// The boxes switched on in Settings, in the order above (none in the Google Play build).
+List<StreamingService> enabledStreaming() =>
+    kPlay ? const <StreamingService>[] : [for (final s in kStreamingServices) if (Store.streamingOn(s.id)) s];
 
 const _accentFrom = 'àáâãäåèéêëìíîïòóôõöùúûüçñ';
 const _accentTo = 'aaaaaaeeeeiiiiooooouuuucn';

@@ -25,7 +25,12 @@ import 'profiles.dart';
 enum _Section { network, vpn, vod, live, subtitles, parental, profiles, wallpaper, categories, streaming, cache, language, info }
 
 /// The Google Play build has no VPN section.
-final _sections = [for (final s in _Section.values) if (!(kPlay && s == _Section.vpn)) s];
+// The Google Play build has no VPN and no streaming-service boxes (a player for the customer's
+// own media: no other companies' names on the home screen).
+final _sections = [
+  for (final s in _Section.values)
+    if (!(kPlay && (s == _Section.vpn || s == _Section.streaming))) s
+];
 
 const _titles = {
   _Section.network: 'Network',

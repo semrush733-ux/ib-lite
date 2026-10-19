@@ -156,7 +156,8 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
 
 /// Full-screen activation page: shown when the trial ended or the device was
 /// suspended. The customer sees the Device ID, a QR code to the website and a
-/// field to type an activation code.
+/// field to type an activation code. The Google Play build sells nothing and points to no other
+/// way to pay (Play's payments rules): it shows the Device ID and the activation code field only.
 class ActivationScreen extends StatefulWidget {
   const ActivationScreen({super.key});
 
@@ -270,11 +271,13 @@ class _ActivationScreenState extends State<ActivationScreen> {
                     Text(
                       suspended
                           ? 'Please contact support to restore access.'
-                          : 'Activate once and keep watching — no monthly fees.',
+                          : kPlay
+                              ? 'Enter your activation code to keep watching.'
+                              : 'Activate once and keep watching — no monthly fees.',
                       style: const TextStyle(fontSize: 15, color: C.dim),
                     ),
                     const SizedBox(height: 24),
-                    const DeviceCard(showPairing: false),
+                    const DeviceCard(showPairing: false, showQr: !kPlay),
                   ],
                 ),
               ),
@@ -294,8 +297,9 @@ class _ActivationScreenState extends State<ActivationScreen> {
                       const Text('Activate this device',
                           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 8),
-                      Text('Get your code at  ${kSiteBase.replaceFirst('https://', '')}/activation',
-                          style: const TextStyle(fontSize: 13.5, color: C.dim)),
+                      if (!kPlay)
+                        Text('Get your code at  ${kSiteBase.replaceFirst('https://', '')}/activation',
+                            style: const TextStyle(fontSize: 13.5, color: C.dim)),
                       const SizedBox(height: 14),
                       if (_error != null) ...[
                         Container(
@@ -353,10 +357,13 @@ class _ActivationScreenState extends State<ActivationScreen> {
 /// device already connected. Used on the login screen, the activation screen
 /// and in the "My device" window on the home screen.
 class DeviceCard extends StatelessWidget {
-  const DeviceCard({super.key, this.showPairing = true, this.compact = false});
+  const DeviceCard({super.key, this.showPairing = true, this.compact = false, this.showQr = true});
 
   final bool showPairing;
   final bool compact;
+
+  /// False: the IDs only, without the QR code and its caption.
+  final bool showQr;
 
   Widget _value(String label, String value) {
     return Column(
@@ -408,24 +415,26 @@ class DeviceCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-            // The fixed box gives the code its size up front, so the text beside it always
-            // gets the rest of the row.
-            child: SizedBox(
-              width: qrSize,
-              height: qrSize,
-              child: QrImageView(
-                data: showPairing ? Backend.uploadUrl : Backend.activationUrl,
-                version: QrVersions.auto,
-                size: qrSize,
-                padding: EdgeInsets.zero,
-                backgroundColor: Colors.white,
+          if (showQr) ...[
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
+              // The fixed box gives the code its size up front, so the text beside it always
+              // gets the rest of the row.
+              child: SizedBox(
+                width: qrSize,
+                height: qrSize,
+                child: QrImageView(
+                  data: showPairing ? Backend.uploadUrl : Backend.activationUrl,
+                  version: QrVersions.auto,
+                  size: qrSize,
+                  padding: EdgeInsets.zero,
+                  backgroundColor: Colors.white,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 18),
+            const SizedBox(width: 18),
+          ],
           SizedBox(
             width: compact ? 190 : 230,
             child: Column(
@@ -444,13 +453,15 @@ class DeviceCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13, color: C.accent, fontWeight: FontWeight.w600)),
                 ],
-                const SizedBox(height: 8),
-                Text(
-                  showPairing
-                      ? 'Scan with your phone to add your playlist to this TV.'
-                      : 'Scan with your phone to activate this device on our website.',
-                  style: const TextStyle(fontSize: 12, color: C.dim, height: 1.35),
-                ),
+                if (showQr) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    showPairing
+                        ? 'Scan with your phone to add your playlist to this TV.'
+                        : 'Scan with your phone to activate this device on our website.',
+                    style: const TextStyle(fontSize: 12, color: C.dim, height: 1.35),
+                  ),
+                ],
               ],
             ),
           ),
