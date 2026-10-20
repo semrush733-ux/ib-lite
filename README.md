@@ -21,6 +21,27 @@ replaces the file in this release:
 The release notes hold the build report and the result of the emulator test. Screenshots of that
 test are on the branch `ci-smoke-b1g`.
 
+## Windows (EXE)
+
+`.github/workflows/windows.yml` builds the same app for Windows 10 / 11 (64-bit) on every push
+and publishes the release `windows-latest`:
+
+- `IBOLitePlayer-Setup.exe` - installer for the current user (no administrator question), Start
+  menu and desktop shortcut;
+- `IBOLitePlayer-Windows.zip` - portable: unzip and start `IBOLitePlayer.exe`;
+- `windows-update.json` - the app checks it; "Update now" downloads the new installer, runs it
+  silently and the new version opens by itself (login, playlists and favourites stay).
+
+Keyboard like the remote: arrows and Enter, Esc = Back, F11 or Alt+Enter = full screen; the
+mouse works everywhere. The Windows part of the app's device channel is
+`windows_extra/b1g_device.cpp` (machine id - only a hash is sent - and MAC for the website,
+network and Wi-Fi details, keep the screen on, full screen); `tools/windows_setup.py` adds it to
+the project Flutter creates. Not in the Windows app: the VPN and voice search (Android only).
+
+Before publishing, the test build is opened on the Windows build machine and driven with the
+keyboard against the mock IPTV server (`ci/smoke_windows.py`). Its result and screenshots are on
+the branch `ci-win`. The program is not code-signed: SmartScreen may ask "Run anyway" once.
+
 ## Lock the app to one server
 
 Put the server address into `config/server.txt` (one line, for example `http://example.com:8080`)
