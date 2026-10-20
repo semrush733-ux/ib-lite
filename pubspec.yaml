@@ -30,6 +30,11 @@ dependency_overrides:
   # stays on the start logo. Any 2.4.x is from before that change. Remove this pin only
   # after the emulator test (release notes, "app starts on the sign-in screen") passes with a newer one.
   shared_preferences_android: ">=2.4.0 <2.5.0"
+  # shared_preferences_foundation 2.6.0 (iPhone part) uses Swift syntax that the Xcode on the
+  # macos-14 build machine cannot compile ("Unexpected ',' separator" in messages.g.swift), so
+  # the IPA failed from build #38 on. 2.5.x builds fine. Remove this pin when the iPhone build
+  # moves to a newer Xcode (16.3 or later).
+  shared_preferences_foundation: ">=2.5.0 <2.6.0"
 
 flutter:
   uses-material-design: true
