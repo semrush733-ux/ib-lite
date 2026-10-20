@@ -1,0 +1,71 @@
+B1G backend register hwid=yes mac=no
+B1G backend registered
+B1G backend config server=none update=0 app=0
+B1G screen=login
+B1G login ok mode=xtream
+B1G screen=home profile=main kids=false
+B1G browse live categories=2
+B1G browse live items=4
+B1G prefetch done
+B1G inbox: BackendException
+B1G preview open engine=mpv
+B1G open index=3 format=ts try=0 engine=mpv
+B1G engine: media_kit: error: property not found _setProperty(osc, 1)
+B1G engine: libmpv_render/dxva2-egl: Failed to create EGL surface
+B1G mpv: playlist: Reading plaintext playlist.
+B1G engine: lavf: Failed to create file cache.
+B1G tracks audio=1 subtitles=0
+B1G mpv: cplayer: (+) Video --vid=1 (h264 1280x720 25.000fps)
+B1G mpv: cplayer: (+) Audio --aid=1 (aac 2ch 48000Hz)
+B1G engine: vd: Failed to allocate AVHWDeviceContext.
+B1G engine: Failed to allocate AVHWDeviceContext.
+B1G engine: ao/wasapi: There are no playback devices available
+B1G engine: ao: Failed to initialize audio driver 'wasapi'
+B1G engine: cplayer: Could not open/initialize audio device -> no sound.
+B1G engine: Could not open/initialize audio device -> no sound.
+B1G mpv: cplayer: Audio: no audio
+B1G mpv: cplayer: VO: [libmpv] 1280x720 yuv420p
+B1G ready index=3 format=ts video=1280x720 mode=gpu engine=mpv
+B1G start ms=765
+B1G playing index=3 pos=0
+B1G engine: vd: Failed to allocate AVHWDeviceContext.
+B1G engine: Failed to allocate AVHWDeviceContext.
+B1G mpv: cplayer: Track switched:
+B1G mpv: cplayer: (+) Video --vid=1 (h264 1280x720 25.000fps)
+B1G mpv: cplayer: Audio --aid=1 (aac 2ch 48000Hz)
+B1G full screen hands the channel back to the preview
+B1G player closed
+B1G preview carries on the full-screen channel (engine=mpv)
+B1G decoder processor (copy-back did not help) format=h264 fps=25.000000 interlaced=no
+B1G preview open engine=mpv
+B1G open index=0 format=ts try=0 engine=mpv
+B1G engine: media_kit: error: property not found _setProperty(osc, 1)
+B1G engine: libmpv_render/dxva2-egl: Failed to create EGL surface
+B1G mpv: playlist: Reading plaintext playlist.
+B1G engine: lavf: Failed to create file cache.
+B1G tracks audio=1 subtitles=0
+B1G mpv: cplayer: (+) Video --vid=1 (h264 1920x1080 25.000fps)
+B1G mpv: cplayer: (+) Audio --aid=1 (aac 2ch 48000Hz)
+B1G engine: vd: Failed to allocate AVHWDeviceContext.
+B1G engine: Failed to allocate AVHWDeviceContext.
+B1G engine: ao/wasapi: There are no playback devices available
+B1G engine: ao: Failed to initialize audio driver 'wasapi'
+B1G engine: cplayer: Could not open/initialize audio device -> no sound.
+B1G engine: Could not open/initialize audio device -> no sound.
+B1G mpv: cplayer: Audio: no audio
+B1G mpv: cplayer: VO: [libmpv] 1920x1080 yuv420p
+B1G ready index=0 format=ts video=1920x1080 mode=gpu engine=mpv
+B1G start ms=927
+B1G playing index=0 pos=0
+B1G decoder processor format=h264 fps=25.000000 interlaced=yes, deinterlaced
+B1G mpv: cplayer: Track switched:
+B1G mpv: cplayer: (+) Video --vid=1 (h264 1920x1080 25.000fps)
+B1G mpv: cplayer: Audio --aid=1 (aac 2ch 48000Hz)
+B1G engine: lavfi: filter 'yadif' not found or failed to allocate
+B1G engine: dummy: Creating filter 'yadif' failed.
+B1G playing index=0 pos=5
+B1G playing index=0 pos=10
+B1G playing index=0 pos=15
+B1G full screen hands the channel back to the preview
+B1G player closed
+B1G preview carries on the full-screen channel (engine=mpv)

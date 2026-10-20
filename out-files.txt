@@ -1,0 +1,15 @@
+total 58098
+drwxr-xr-x 1 runneradmin 197121        0 Oct 20 22:25 .
+drwxr-xr-x 1 runneradmin 197121        0 Oct 20 22:19 ..
+-rwxr-xr-x 1 runneradmin 197121 26459573 Oct 20 22:25 IBOLitePlayer-Setup.exe
+-rw-r--r-- 1 runneradmin 197121 32961758 Oct 20 22:25 IBOLitePlayer-Windows.zip
+-rw-r--r-- 1 runneradmin 197121     2060 Oct 20 22:25 NOTES.md
+drwxr-xr-x 1 runneradmin 197121        0 Oct 20 22:21 app
+-rw-r--r-- 1 runneradmin 197121    29617 Oct 20 22:21 app_icon.ico
+-rw-r--r-- 1 runneradmin 197121       16 Oct 20 22:18 brand_sig.txt
+-rw-r--r-- 1 runneradmin 197121     1286 Oct 20 22:21 build.log
+drwxr-xr-x 1 runneradmin 197121        0 Oct 20 22:25 logs
+drwxr-xr-x 1 runneradmin 197121        0 Oct 20 22:25 portable
+drwxr-xr-x 1 runneradmin 197121        0 Oct 20 22:25 smoke-win
+drwxr-xr-x 1 runneradmin 197121        0 Oct 20 22:22 test-app
+-rw-r--r-- 1 runneradmin 197121      171 Oct 20 22:25 windows-update.json

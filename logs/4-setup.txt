@@ -1,0 +1,2 @@
+icon done
+windows project ready: "IBO Lite Player" (IBOLitePlayer.exe)

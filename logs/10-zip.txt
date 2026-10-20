@@ -1,0 +1,4 @@
+
+Files read from disk: 52
+Archive size: 32961758 bytes (32 MiB)
+Everything is Ok
