@@ -1,0 +1,300 @@
+10-20 22:16:54.389 D/CarrierSvcBindHelper( 1008): onPackageModified: com.android.bluetooth
+10-20 22:16:54.389 D/CarrierSvcBindHelper( 1008): No carrier app for: 0
+10-20 22:16:54.390 D/StylusManager(  803): Stylus InputDevice changed: 4 virtio_input_multi_touch_1
+10-20 22:16:54.395 D/ImsResolver( 1008): maybeAddedImsService, packageName: com.android.bluetooth
+10-20 22:16:54.396 D/CarrierSvcBindHelper( 1008): onPackageModified: com.android.devicelockcontroller
+10-20 22:16:54.396 D/CarrierSvcBindHelper( 1008): No carrier app for: 0
+10-20 22:16:54.400 D/StylusManager(  803): Stylus InputDevice changed: 7 virtio_input_multi_touch_4
+10-20 22:16:54.403 D/ImsResolver( 1008): maybeAddedImsService, packageName: com.android.devicelockcontroller
+10-20 22:16:54.407 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.426 D/StylusManager(  803): Stylus InputDevice changed: 10 virtio_input_multi_touch_7
+10-20 22:16:54.450 D/StylusManager(  803): Stylus InputDevice changed: 9 virtio_input_multi_touch_6
+10-20 22:16:54.478 D/StylusManager(  803): Stylus InputDevice changed: 6 virtio_input_multi_touch_3
+10-20 22:16:54.479 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.484 D/StylusManager(  803): Stylus InputDevice changed: 8 virtio_input_multi_touch_5
+10-20 22:16:54.490 D/StylusManager(  803): Stylus InputDevice changed: 5 virtio_input_multi_touch_2
+10-20 22:16:54.495 D/StylusManager(  803): Stylus InputDevice changed: 14 virtio_input_multi_touch_11
+10-20 22:16:54.505 D/StylusManager(  803): Stylus InputDevice changed: 13 virtio_input_multi_touch_10
+10-20 22:16:54.516 D/StylusManager(  803): Stylus InputDevice changed: 12 virtio_input_multi_touch_9
+10-20 22:16:54.533 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.559 D/AppWidgetServiceImpl(  506): Provider info from ComponentInfo{com.android.systemui/com.android.systemui.people.widget.PeopleSpaceWidgetProvider} won't be persisted.
+10-20 22:16:54.565 I/flutter ( 2260): B1G backend config server=none update=0 app=1
+10-20 22:16:54.566 I/system_server(  506): Background young concurrent copying GC freed 462732(16MB) AllocSpace objects, 61(1220KB) LOS objects, 50% free, 17MB/35MB, paused 2.500ms,68us total 163.270ms
+10-20 22:16:54.584 I/m.android.phone( 1008): Background concurrent copying GC freed 440554(27MB) AllocSpace objects, 74(3216KB) LOS objects, 49% free, 3732KB/7465KB, paused 39us,18us total 144.219ms
+10-20 22:16:54.590 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.590 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.591 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.592 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.592 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.593 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.594 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.594 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.594 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.594 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.594 W/System  ( 1008): A resource failed to call AbstractCursor.close. 
+10-20 22:16:54.601 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.612 W/droid.launcher3( 1049): Cleared Reference was only reachable from finalizer (only reported once)
+10-20 22:16:54.621 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.626 I/droid.launcher3( 1049): Background concurrent copying GC freed 120664(6272KB) AllocSpace objects, 75(3804KB) LOS objects, 49% free, 5241KB/10MB, paused 25us,14us total 104.084ms
+10-20 22:16:54.671 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.676 W/ndroid.systemui(  803): Cleared Reference was only reachable from finalizer (only reported once)
+10-20 22:16:54.685 I/ndroid.systemui(  803): NativeAlloc concurrent copying GC freed 488958(24MB) AllocSpace objects, 63(2392KB) LOS objects, 49% free, 13MB/27MB, paused 53us,37us total 709.929ms
+10-20 22:16:54.712 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.719 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.721 E/system_server(  506): No package ID 7f found for resource ID 0x7f08025b.
+10-20 22:16:54.723 E/system_server(  506): No package ID 7f found for resource ID 0x7f1315be.
+10-20 22:16:54.723 E/system_server(  506): No package ID 7f found for resource ID 0x7f08025a.
+10-20 22:16:54.723 E/system_server(  506): No package ID 7f found for resource ID 0x7f13067c.
+10-20 22:16:54.723 E/system_server(  506): No package ID 7f found for resource ID 0x7f080259.
+10-20 22:16:54.723 E/system_server(  506): No package ID 7f found for resource ID 0x7f130e50.
+10-20 22:16:54.726 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.727 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.728 D/AppWidgetServiceImpl(  506): Provider info from ComponentInfo{com.android.systemui/com.android.systemui.people.widget.PeopleSpaceWidgetProvider} won't be persisted.
+10-20 22:16:54.753 I/DropBoxManagerService(  506): add tag=system_app_strictmode isTagEnabled=true flags=0x2
+10-20 22:16:54.855 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.856 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.856 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.859 D/OomAdjuster(  506): Not killing cached processes
+10-20 22:16:54.860 D/CompatibilityChangeReporter( 1740): Compat change id reported: 253665015; UID 10061; state: ENABLED
+10-20 22:16:54.860 D/CompatibilityChangeReporter( 1740): Compat change id reported: 194532703; UID 10061; state: ENABLED
+10-20 22:16:54.861 D/CompatibilityChangeReporter(  506): Compat change id reported: 253665015; UID 10061; state: ENABLED
+10-20 22:16:54.861 D/CompatibilityChangeReporter(  506): Compat change id reported: 194532703; UID 10061; state: ENABLED
+10-20 22:16:54.864 D/CompatibilityChangeReporter(  506): Compat change id reported: 261072174; UID 1000; state: ENABLED
+10-20 22:16:54.867 W/VoiceInteractionManager(  506): no available voice recognition services found for user 0
+10-20 22:16:54.873 I/DropBoxManagerService(  506): add tag=system_server_strictmode isTagEnabled=true flags=0x2
+10-20 22:16:54.874 I/DropBoxManagerService(  506): add tag=system_server_strictmode isTagEnabled=true flags=0x2
+10-20 22:16:54.880 D/ModelWriter( 1049): removing items from db . Reason: [removed because the corresponding package or component is removed. mOp=2 removedPackages=[] removedComponents=[{com.android.inputmethod.latin/com.android.inputmethod.latin.setup.SetupActivity}]]
+10-20 22:16:55.070 I/apexd   (    0): Deleting unused dm device com.android.apex.cts.shim
+10-20 22:16:55.072 E/apexd   (    0): Didn't generate uevent for [com.android.apex.cts.shim] removal
+10-20 22:16:55.074 W/apexd   (    0): Failed to delete dm-device com.android.apex.cts.shim
+10-20 22:16:55.075 I/apexd   (    0): Deleting unused dm device com.android.btservices
+10-20 22:16:55.076 E/apexd   (    0): Didn't generate uevent for [com.android.btservices] removal
+10-20 22:16:55.077 W/apexd   (    0): Failed to delete dm-device com.android.btservices
+10-20 22:16:55.079 I/apexd   (    0): Deleting unused dm device com.android.devicelock
+10-20 22:16:55.080 E/apexd   (    0): Didn't generate uevent for [com.android.devicelock] removal
+10-20 22:16:55.082 W/apexd   (    0): Failed to delete dm-device com.android.devicelock
+10-20 22:16:55.083 I/apexd   (    0): Deleting unused dm device com.android.healthfitness
+10-20 22:16:55.089 E/apexd   (    0): Didn't generate uevent for [com.android.healthfitness] removal
+10-20 22:16:55.091 W/apexd   (    0): Failed to delete dm-device com.android.healthfitness
+10-20 22:16:55.092 I/apexd   (    0): Deleting unused dm device com.android.i18n
+10-20 22:16:55.093 E/apexd   (    0): Didn't generate uevent for [com.android.i18n] removal
+10-20 22:16:55.094 W/apexd   (    0): Failed to delete dm-device com.android.i18n
+10-20 22:16:55.096 I/apexd   (    0): Deleting unused dm device com.android.os.statsd
+10-20 22:16:55.098 E/apexd   (    0): Didn't generate uevent for [com.android.os.statsd] removal
+10-20 22:16:55.100 W/apexd   (    0): Failed to delete dm-device com.android.os.statsd
+10-20 22:16:55.107 I/apexd   (    0): Deleting unused dm device com.android.rkpd
+10-20 22:16:55.108 E/apexd   (    0): Didn't generate uevent for [com.android.rkpd] removal
+10-20 22:16:55.110 W/apexd   (    0): Failed to delete dm-device com.android.rkpd
+10-20 22:16:55.111 I/apexd   (    0): Deleting unused dm device com.android.runtime
+10-20 22:16:55.112 E/apexd   (    0): Didn't generate uevent for [com.android.runtime] removal
+10-20 22:16:55.114 W/apexd   (    0): Failed to delete dm-device com.android.runtime
+10-20 22:16:55.115 I/apexd   (    0): Deleting unused dm device com.android.sdkext
+10-20 22:16:55.116 E/apexd   (    0): Didn't generate uevent for [com.android.sdkext] removal
+10-20 22:16:55.119 W/apexd   (    0): Failed to delete dm-device com.android.sdkext
+10-20 22:16:55.122 I/apexd   (    0): Deleting unused dm device com.android.tzdata
+10-20 22:16:55.123 E/apexd   (    0): Didn't generate uevent for [com.android.tzdata] removal
+10-20 22:16:55.136 W/apexd   (    0): Failed to delete dm-device com.android.tzdata
+10-20 22:16:54.950 D/EGL_emulation( 2260): app_time_stats: avg=434.58ms min=8.23ms max=1269.62ms count=3
+10-20 22:16:55.138 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2346 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:16:55.141 I/apexd   (    0): Deleting unused dm device com.android.virt
+10-20 22:16:55.143 E/apexd   (    0): Didn't generate uevent for [com.android.virt] removal
+10-20 22:16:55.145 W/apexd   (    0): Failed to delete dm-device com.android.virt
+10-20 22:16:55.147 I/apexd   (    0): Deleting unused dm device com.android.vndk.v34
+10-20 22:16:54.960 I/flutter ( 2260): B1G screen=login
+10-20 22:16:55.150 E/apexd   (    0): Didn't generate uevent for [com.android.vndk.v34] removal
+10-20 22:16:55.169 W/apexd   (    0): Failed to delete dm-device com.android.vndk.v34
+10-20 22:16:55.170 I/AidlLazyServiceRegistrar(    0): Trying to shut down the service. No clients in use for any service in process.
+10-20 22:16:55.173 I/servicemanager(    0): Unregistering apexservice
+10-20 22:16:55.174 I/BpBinder(    0): onLastStrongRef automatically unlinking death recipients:
+10-20 22:16:55.176 I/AidlLazyServiceRegistrar(    0): Unregistered all clients and exiting
+10-20 22:16:55.184 I/init    (    0): Service 'apexd' (pid 198) exited with status 0 oneshot service took 21.198000 seconds in background
+10-20 22:16:55.187 I/init    (    0): Sending signal 9 to service 'apexd' (pid 198) process group...
+10-20 22:16:55.189 I/libprocessgroup(    0): Successfully killed process cgroup uid 0 pid 198 in 0ms
+10-20 22:16:55.021 I/ExoPlayerImpl( 2260): Release 39486fc [AndroidXMedia3/1.4.1] [emu64x, Android SDK built for x86_64, unknown, 34] [media3.common, media3.exoplayer, media3.decoder, media3.datasource, media3.extractor]
+10-20 22:16:55.027 D/MediaCodec( 2260): keep callback message for reclaim
+10-20 22:16:55.028 I/CCodecConfig( 2260): query failed after returning 7 values (BAD_INDEX)
+10-20 22:16:55.029 W/Codec2Client( 2260): query -- param skipped: index = 1342179345.
+10-20 22:16:55.031 W/Codec2Client( 2260): query -- param skipped: index = 2415921170.
+10-20 22:16:55.042 D/CCodecBufferChannel( 2260): [c2.android.mp3.decoder#788] MediaCodec discarded an unknown buffer
+10-20 22:16:55.043 D/CCodecBufferChannel( 2260): [c2.android.mp3.decoder#788] MediaCodec discarded an unknown buffer
+10-20 22:16:55.043 D/CCodecBufferChannel( 2260): [c2.android.mp3.decoder#788] MediaCodec discarded an unknown buffer
+10-20 22:16:55.043 D/CCodecBufferChannel( 2260): [c2.android.mp3.decoder#788] MediaCodec discarded an unknown buffer
+10-20 22:16:55.045 W/MessageQueue( 2260): Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.045 W/MessageQueue( 2260): java.lang.IllegalStateException: Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.045 W/MessageQueue( 2260): 	at android.os.MessageQueue.enqueueMessage(MessageQueue.java:560)
+10-20 22:16:55.045 W/MessageQueue( 2260): 	at android.os.Handler.enqueueMessage(Handler.java:786)
+10-20 22:16:55.045 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageAtTime(Handler.java:735)
+10-20 22:16:55.045 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageDelayed(Handler.java:705)
+10-20 22:16:55.045 W/MessageQueue( 2260): 	at android.os.Handler.sendMessage(Handler.java:643)
+10-20 22:16:55.045 W/MessageQueue( 2260): 	at android.media.MediaCodec.postEventFromNative(MediaCodec.java:5222)
+10-20 22:16:55.046 W/MessageQueue( 2260): Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.046 W/MessageQueue( 2260): java.lang.IllegalStateException: Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.MessageQueue.enqueueMessage(MessageQueue.java:560)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.enqueueMessage(Handler.java:786)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageAtTime(Handler.java:735)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageDelayed(Handler.java:705)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessage(Handler.java:643)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.media.MediaCodec.postEventFromNative(MediaCodec.java:5222)
+10-20 22:16:55.046 W/MessageQueue( 2260): Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.046 W/MessageQueue( 2260): java.lang.IllegalStateException: Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.MessageQueue.enqueueMessage(MessageQueue.java:560)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.enqueueMessage(Handler.java:786)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageAtTime(Handler.java:735)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageDelayed(Handler.java:705)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessage(Handler.java:643)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.media.MediaCodec.postEventFromNative(MediaCodec.java:5222)
+10-20 22:16:55.046 W/MessageQueue( 2260): Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.046 W/MessageQueue( 2260): java.lang.IllegalStateException: Handler (android.media.MediaCodec$EventHandler) {e7c2b8c} sending message to a Handler on a dead thread
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.MessageQueue.enqueueMessage(MessageQueue.java:560)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.enqueueMessage(Handler.java:786)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageAtTime(Handler.java:735)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessageDelayed(Handler.java:705)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.os.Handler.sendMessage(Handler.java:643)
+10-20 22:16:55.046 W/MessageQueue( 2260): 	at android.media.MediaCodec.postEventFromNative(MediaCodec.java:5222)
+10-20 22:16:55.050 I/hw-BpHwBinder( 2260): onLastStrongRef automatically unlinking death recipients
+10-20 22:16:55.050 I/hw-BpHwBinder(  465): onLastStrongRef automatically unlinking death recipients
+10-20 22:16:55.050 I/hw-BpHwBinder(  465): onLastStrongRef automatically unlinking death recipients
+10-20 22:16:55.050 D/MediaMetricsManagerService(  506): failed to get player_metrics_app_blocklist from DeviceConfig
+10-20 22:16:55.050 V/MediaMetricsManagerService(  506): Logging level blocked: Failed to get PLAYER_METRICS_APP_BLOCKLIST.
+10-20 22:16:55.052 D/MediaMetricsManagerService(  506): failed to get player_metrics_app_blocklist from DeviceConfig
+10-20 22:16:55.052 V/MediaMetricsManagerService(  506): Logging level blocked: Failed to get PLAYER_METRICS_APP_BLOCKLIST.
+10-20 22:16:55.052 D/MediaCodec( 2260): flushMediametrics
+10-20 22:16:55.053 D/MediaCodec( 2260): flushMediametrics
+10-20 22:16:55.053 W/MediaCodec( 2260): no metrics handle found
+10-20 22:16:55.166 D/audioserver(  385): FGS Logger Transaction failed
+10-20 22:16:55.166 D/audioserver(  385): -129
+10-20 22:16:55.169 D/StatusBarIconController(  803): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-20 22:16:55.179 D/audioserver(  385): FGS Logger Transaction failed
+10-20 22:16:55.179 D/audioserver(  385): -129
+10-20 22:16:55.338 D/AvrcpBrowsablePlayerConnector(  983): Received a message: msg.what=2
+10-20 22:16:55.338 V/AvrcpBrowsablePlayerConnector(  983): Timed out waiting for players
+10-20 22:16:55.339 I/AvrcpBrowsablePlayerConnector(  983): Successfully connected to 0 browsable players.
+10-20 22:16:55.339 I/MediaPlayerList(  983): init: Browsable Player list size is 0
+10-20 22:16:55.377 W/BroadcastLoopers(  506): Found previously unknown looper Thread[appscheduling.default,5,main]
+10-20 22:16:55.730 E/TaskPersister(  506): File error accessing recents directory (directory doesn't exist?).
+10-20 22:16:55.986 D/EGL_emulation( 2260): app_time_stats: avg=128.27ms min=42.08ms max=384.81ms count=8
+10-20 22:16:56.196 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2352 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:16:56.222 D/CompatibilityChangeReporter(  506): Compat change id reported: 265195908; UID 10057; state: ENABLED
+10-20 22:16:56.438 D/AvrcpBrowsablePlayerConnector(  983): Received a message: msg.what=2
+10-20 22:16:56.438 V/AvrcpBrowsablePlayerConnector(  983): Timed out waiting for players
+10-20 22:16:56.438 I/AvrcpBrowsablePlayerConnector(  983): Successfully connected to 0 browsable players.
+10-20 22:16:56.438 I/MediaPlayerList(  983): init: Browsable Player list size is 0
+10-20 22:16:56.953 D/ActivityManager(  506): freezing 1422 com.android.music
+10-20 22:16:56.993 D/EGL_emulation( 2260): app_time_stats: avg=51.44ms min=32.28ms max=70.84ms count=18
+10-20 22:16:57.731 I/servicemanager(    0): Notifying artd they don't (previously: do) have clients when we now have no record of a client
+10-20 22:16:57.741 I/servicemanager(    0): Unregistering artd
+10-20 22:16:57.549 I/AidlLazyServiceRegistrar( 2236): Process has 0 (of 1 available) client(s) in use after notification artd has clients: 0
+10-20 22:16:57.549 I/AidlLazyServiceRegistrar( 2236): Trying to shut down the service. No clients in use for any service in process.
+10-20 22:16:57.744 I/BpBinder(    0): onLastStrongRef automatically unlinking death recipients:
+10-20 22:16:57.560 I/AidlLazyServiceRegistrar( 2236): Unregistered all clients and exiting
+10-20 22:16:57.753 I/init    (    0): Service 'artd' (pid 2236) exited with status 0 oneshot service took 5.057000 seconds in background
+10-20 22:16:57.755 I/init    (    0): Sending signal 9 to service 'artd' (pid 2236) process group...
+10-20 22:16:57.758 I/libprocessgroup(    0): Successfully killed process cgroup uid 1082 pid 2236 in 0ms
+10-20 22:16:57.734 D/CompatibilityChangeReporter( 1504): Compat change id reported: 150939131; UID 10073; state: ENABLED
+10-20 22:16:57.734 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-20 22:16:57.921 D/ActivityManager(  506): freezing 1423 com.android.sdksetup
+10-20 22:16:58.009 D/EGL_emulation( 2260): app_time_stats: avg=47.47ms min=32.25ms max=70.99ms count=19
+10-20 22:16:58.037 D/android.hardware.audio@7.1-impl.ranchu(  331): threadLoop: entering standby, frames: 200192
+10-20 22:16:58.670 D/BufferPoolAccessor2.0(  803): evictor expired: 3, evicted: 0
+10-20 22:16:58.733 D/BufferPoolAccessor2.0(  506): evictor expired: 6, evicted: 0
+10-20 22:16:58.770 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:16:58.869 D/ActivityManager(  506): freezing 1710 com.android.quicksearchbox
+10-20 22:16:58.885 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:16:58.926 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-20 22:16:59.049 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:16:59.050 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:16:59.051 D/EGL_emulation( 2260): app_time_stats: avg=54.66ms min=36.89ms max=88.75ms count=18
+10-20 22:16:59.075 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:16:59.094 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:16:59.108 D/ProfileInstaller( 2260): Installing profile for com.liteplayer.tv
+10-20 22:16:59.171 W/BpBinder( 2378): Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+10-20 22:16:59.182 W/ProcessState( 2378): Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+10-20 22:16:59.184 W/ServiceManagerCppClient(  388): Permission failure: android.permission.CAPTURE_BLACKOUT_CONTENT from uid=2000 pid=2378
+10-20 22:16:59.184 D/PermissionCache(  388): checking android.permission.CAPTURE_BLACKOUT_CONTENT for uid=2000 => denied (245 us)
+10-20 22:16:59.257 I/hwservicemanager(  132): getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+10-20 22:16:59.257 I/Gralloc4( 2378): mapper 4.x is not supported
+10-20 22:16:59.443 I/servicemanager(    0): Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+10-20 22:16:59.385 D/StatusBarIconController(  803): ignoring old pipeline callback because the new wifi icon is enabled
+10-20 22:16:59.979 D/ActivityManager(  506): freezing 1787 com.android.carrierconfig
+10-20 22:17:00.072 D/EGL_emulation( 2260): app_time_stats: avg=56.22ms min=37.02ms max=75.85ms count=17
+10-20 22:17:00.074 D/EGL_emulation(  803): app_time_stats: avg=8661.97ms min=8661.97ms max=8661.97ms count=1
+10-20 22:17:00.507 D/ActivityManager(  506): freezing 1491 com.android.printspooler
+10-20 22:17:00.630 D/BufferPoolAccessor2.0( 2260): bufferpool2 0x7803b1e491a8 : 0(0 size) total buffers - 0(0 size) used buffers - 75/80 (recycle/alloc) - 5/140 (fetch/transfer)
+10-20 22:17:00.630 D/BufferPoolAccessor2.0( 2260): evictor expired: 1, evicted: 1
+10-20 22:17:00.743 D/BufferPoolAccessor2.0(  465): bufferpool2 0x7ead14822a38 : 0(0 size) total buffers - 0(0 size) used buffers - 66/70 (recycle/alloc) - 4/70 (fetch/transfer)
+10-20 22:17:00.743 D/BufferPoolAccessor2.0(  465): evictor expired: 1, evicted: 1
+10-20 22:17:01.218 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2397 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:17:01.121 W/AudioFlinger(  385): createTrack_l(): mismatch between requested flags (00000004) and output flags (00000002)
+10-20 22:17:01.122 D/AF::TrackHandle(  385): OpPlayAudio: track:56 usage:13 not muted
+10-20 22:17:01.126 D/audioserver(  385): FGS Logger Transaction failed
+10-20 22:17:01.127 D/audioserver(  385): -129
+10-20 22:17:01.148 D/EGL_emulation( 2260): app_time_stats: avg=52.33ms min=37.58ms max=73.81ms count=19
+10-20 22:17:01.176 D/AudioFlinger(  385): mixer(0x79dd51df0930) throttle end: throttle time(33)
+10-20 22:17:01.257 D/ActivityManager(  506): freezing 2182 com.android.carrierdefaultapp
+10-20 22:17:01.294 D/audioserver(  385): FGS Logger Transaction failed
+10-20 22:17:01.294 D/audioserver(  385): -129
+10-20 22:17:01.330 D/ActivityManager(  506): freezing 1262 com.android.cellbroadcastreceiver
+10-20 22:17:01.506 I/ProvidersCache( 1504): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-20 22:17:01.719 I/flutter ( 2260): B1G login ok mode=xtream
+10-20 22:17:01.730 I/flutter ( 2260): B1G screen=home profile=main kids=false
+10-20 22:17:01.741 W/WindowOnBackDispatcher( 2260): OnBackInvokedCallback is not enabled for the application.
+10-20 22:17:01.741 W/WindowOnBackDispatcher( 2260): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+10-20 22:17:01.774 I/resolv  (  325): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:01.783 I/resolv  (  325): res_nmkquery: (QUERY, IN, A)
+10-20 22:17:01.798 I/resolv  (  325): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:01.800 I/resolv  (  325): res_nsend: used send_dg 58 terrno: 0
+10-20 22:17:01.800 I/resolv  (  325): doQuery: rcode=0, ancount=2, return value=58
+10-20 22:17:01.804 I/resolv  (  325): res_nmkquery: (QUERY, IN, AAAA)
+10-20 22:17:01.823 I/resolv  (  325): res_nsend: used send_dg 82 terrno: 0
+10-20 22:17:01.823 I/resolv  (  325): doQuery: rcode=0, ancount=2, return value=82
+10-20 22:17:01.946 I/resolv  (  325): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:01.947 I/resolv  (  325): res_nmkquery: (QUERY, IN, A)
+10-20 22:17:01.957 I/resolv  (  325): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:01.958 I/resolv  (  325): res_nmkquery: (QUERY, IN, AAAA)
+10-20 22:17:01.970 I/resolv  (  325): res_nsend: used send_dg 86 terrno: 0
+10-20 22:17:01.972 I/resolv  (  325): doQuery: rcode=0, ancount=0, return value=86
+10-20 22:17:01.973 I/resolv  (  325): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:01.973 I/resolv  (  325): res_nmkquery: (QUERY, IN, AAAA)
+10-20 22:17:01.973 I/resolv  (  325): resolv_cache_lookup: FOUND IN CACHE entry=0x784e2cd3a7b0
+10-20 22:17:01.974 I/resolv  (  325): doQuery: rcode=0, ancount=0, return value=86
+10-20 22:17:01.980 I/resolv  (  325): res_nsend: used send_dg 52 terrno: 0
+10-20 22:17:01.980 I/resolv  (  325): doQuery: rcode=0, ancount=1, return value=52
+10-20 22:17:02.197 D/EGL_emulation( 2260): app_time_stats: avg=76.26ms min=39.04ms max=356.54ms count=13
+10-20 22:17:02.538 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2428 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:17:02.390 D/StatusBarIconController(  803): ignoring old pipeline callback because the new wifi icon is enabled
+10-20 22:17:03.160 I/keystore2(  156): system/security/keystore2/src/watchdog.rs:319 - Watchdog thread idle -> terminating. Have a great day.
+10-20 22:17:03.204 D/EGL_emulation( 2260): app_time_stats: avg=124.64ms min=110.24ms max=148.49ms count=8
+10-20 22:17:04.168 D/android.hardware.audio@7.1-impl.ranchu(  331): threadLoop: entering standby, frames: 343808
+10-20 22:17:04.258 D/EGL_emulation( 2260): app_time_stats: avg=116.25ms min=102.17ms max=130.41ms count=9
+10-20 22:17:04.561 I/init    (    0): Sending signal 9 to service 'idmap2d' (pid 448) process group...
+10-20 22:17:04.376 W/OverlayManager(  506): service 'idmap' died
+10-20 22:17:04.379 D/OomAdjuster(  506): Not killing cached processes
+10-20 22:17:04.572 I/libprocessgroup(    0): Successfully killed process cgroup uid 1000 pid 448 in 9ms
+10-20 22:17:04.573 I/init    (    0): Control message: Processed ctl.stop for 'idmap2d' from pid: 506 (system_server)
+10-20 22:17:04.575 I/init    (    0): Service 'idmap2d' (pid 448) received signal 9
+10-20 22:17:04.389 I/DropBoxManagerService(  506): add tag=system_app_strictmode isTagEnabled=true flags=0x2
+10-20 22:17:04.443 W/BpBinder( 2433): Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+10-20 22:17:04.443 W/ProcessState( 2433): Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+10-20 22:17:04.738 I/servicemanager(    0): Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+10-20 22:17:04.552 I/hwservicemanager(  132): getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+10-20 22:17:04.552 I/Gralloc4( 2433): mapper 4.x is not supported
+10-20 22:17:04.917 D/ActivityManager(  506): freezing 1760 com.android.externalstorage
+10-20 22:17:05.172 D/StatusBarIconController(  803): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-20 22:17:05.447 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2435 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:17:05.285 D/audioserver(  385): FGS Logger Transaction failed
+10-20 22:17:05.285 D/audioserver(  385): -129
+10-20 22:17:05.337 D/EGL_emulation( 2260): app_time_stats: avg=134.33ms min=110.50ms max=161.13ms count=8
+10-20 22:17:05.354 I/flutter ( 2260): B1G browse live categories=2
+10-20 22:17:05.406 I/flutter ( 2260): B1G browse live items=4
+10-20 22:17:05.446 D/audioserver(  385): FGS Logger Transaction failed
+10-20 22:17:05.447 D/audioserver(  385): -129
