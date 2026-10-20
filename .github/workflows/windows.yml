@@ -148,7 +148,8 @@ jobs:
           set -o pipefail
           ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
           [ -f "$ISCC" ] || choco install innosetup -y --no-progress 2>&1 | tail -3 | tee out/logs/8-innosetup-install.txt
-          "$ISCC" "/DAppName=$APP_NAME" "/DAppVersion=1.0.$BUILD_NUMBER" "/DAppExe=$EXE_NAME" \
+          # MSYS_NO_PATHCONV: Git Bash would otherwise turn "/DName=..." into a file path.
+          MSYS_NO_PATHCONV=1 "$ISCC" "/DAppName=$APP_NAME" "/DAppVersion=1.0.$BUILD_NUMBER" "/DAppExe=$EXE_NAME" \
             "/DAppSite=$WEBSITE" "/DSourceDir=$(cygpath -w "$PWD/out/app")" "/DOutDir=$(cygpath -w "$PWD/out")" \
             "/DIconFile=$(cygpath -w "$PWD/out/app_icon.ico")" "$(cygpath -w "$PWD/windows_extra/installer.iss")" 2>&1 | tee out/logs/9-installer.txt
           # Portable: one folder named after the app, the program inside it.
