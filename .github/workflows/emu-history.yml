@@ -1,0 +1,53 @@
+name: Emulator test history (temporary)
+
+# Collects SMOKE.md of earlier emulator tests (artifacts "b1g-smoke-result") onto the branch
+# ci-emu-history. Nothing is built or published.
+
+on:
+  push:
+    branches: [emu-history]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        run: [38343800057, 38466494201, 38706516438, 38939041189, 39099423965, 39312655054, 39461166259]
+      max-parallel: 7
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: b1g-smoke-result
+          run-id: ${{ matrix.run }}
+          github-token: ${{ github.token }}
+          path: got
+      - name: Keep the summary
+        run: |
+          mkdir -p keep
+          { echo "run ${{ matrix.run }}"; ls -la got | head -40; echo; cat got/SMOKE.md 2>/dev/null || echo "(no SMOKE.md)"; } > keep/${{ matrix.run }}.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: summary-${{ matrix.run }}
+          path: keep/
+          retention-days: 2
+
+  publish:
+    needs: collect
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: summary-*
+          merge-multiple: true
+          path: all
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd all && git init -q && git checkout -q -b ci-emu-history && git add -A
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -q -m "earlier emulator test summaries"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-emu-history
