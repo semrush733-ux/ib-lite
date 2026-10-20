@@ -61,26 +61,30 @@ jobs:
           cache: true
 
       - name: Create the Windows project
+        timeout-minutes: 20
         run: |
-          set -e
-          flutter --version | head -1
-          flutter create --no-pub --platforms=windows --org com.b1g --project-name b1gtv ../win-scaffold
+          set -eo pipefail
+          mkdir -p out/logs
+          flutter --version 2>&1 | tee out/logs/1-flutter-version.txt
+          flutter create --no-pub --platforms=windows --org com.b1g --project-name b1gtv ../win-scaffold 2>&1 | tee out/logs/2-create.txt
           cp -r ../win-scaffold/windows windows
           # The video engine's Windows part (libmpv); the Android build uses its Android part.
-          flutter pub add media_kit_libs_windows_video
-          python tools/windows_setup.py "$APP_NAME" "$EXE_NAME"
+          flutter pub add media_kit_libs_windows_video 2>&1 | tee out/logs/3-pub-add.txt
+          python tools/windows_setup.py "$APP_NAME" "$EXE_NAME" 2>&1 | tee out/logs/4-setup.txt
 
       - name: Get packages
-        run: flutter pub get
+        timeout-minutes: 15
+        run: flutter pub get 2>&1 | tee out/logs/5-pub-get.txt
 
       - name: Build the app
         id: build
         continue-on-error: true
+        timeout-minutes: 30
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: |
           set -eo pipefail
-          mkdir -p out
+          mkdir -p out/logs
           SERVER="$(tr -d ' \r\n' < config/server.txt 2>/dev/null || true)"
           FEED="https://github.com/${{ github.repository }}/releases/download/windows-latest/windows-update.json"
           flutter build windows --release \
@@ -99,6 +103,7 @@ jobs:
         id: testbuild
         if: steps.build.outcome == 'success'
         continue-on-error: true
+        timeout-minutes: 25
         run: |
           set -eo pipefail
           mkdir -p out/smoke-win
@@ -110,7 +115,7 @@ jobs:
             --dart-define=B1G_TMDB_KEY=test --dart-define=B1G_TMDB_BASE=$M/3 --dart-define=B1G_TMDB_IMAGES=$M/t/p \
             --dart-define=B1G_API_BASE=$M/wp-json/b1g/v1 --dart-define=B1G_PREFILL_SERVER=$M \
             --dart-define=B1G_PREFILL_USER=demo --dart-define=B1G_PREFILL_PASS=demo \
-            --dart-define=B1G_LOG_FILE="$LOGFILE" 2>&1 | tail -5
+            --dart-define=B1G_LOG_FILE="$LOGFILE" 2>&1 | tee out/logs/7-test-build.txt | tail -5
           rm -rf out/test-app && cp -r build/windows/x64/runner/Release out/test-app
           for f in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do cp "/c/Windows/System32/$f" out/test-app/; done
 
@@ -137,6 +142,7 @@ jobs:
         id: package
         if: steps.build.outcome == 'success'
         continue-on-error: true
+        timeout-minutes: 15
         run: |
           set -e
           ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
@@ -194,3 +200,22 @@ jobs:
           else
             gh release create windows-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md
           fi
+
+      - name: Keep the test result and logs on the branch "ci-win"
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D=../ci-win-out
+          rm -rf "$D" && mkdir -p "$D"
+          cp -r out/smoke-win "$D/" 2>/dev/null || true
+          cp -r out/logs "$D/" 2>/dev/null || true
+          cp out/build.log out/NOTES.md "$D/" 2>/dev/null || true
+          ls -la out > "$D/out-files.txt" 2>&1 || true
+          cd "$D"
+          git init -q
+          git checkout -q -b ci-win
+          git add -A
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -q -m "Windows build $BUILD_NUMBER: test result and logs"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" ci-win
