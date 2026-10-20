@@ -127,7 +127,7 @@ jobs:
         run: |
           choco install ffmpeg -y --no-progress > /dev/null || true
           export PATH="$PATH:/c/ProgramData/chocolatey/bin"
-          PYTHON=python bash ci/make_media.sh > /dev/null
+          PYTHON=python INTERLACED=1 bash ci/make_media.sh > /dev/null
           powershell -NoProfile -Command "try { Set-DisplayResolution -Width 1920 -Height 1080 -Force } catch { Write-Host 'screen size stays' }" || true
           python ci/smoke_windows.py "out/test-app/$EXE_NAME.exe" "$APP_NAME" "$TEST_LOG"
 
@@ -184,7 +184,7 @@ jobs:
             echo "- **$EXE_NAME-Windows.zip**: portable: unzip and start $EXE_NAME.exe."
             echo ""
             echo "Not signed with a code-signing certificate: if Windows shows \"Windows protected your PC\", choose More info > Run anyway."
-            echo "Keyboard: arrows and Enter like the remote, Esc = Back, F11 or Alt+Enter = full screen. The mouse works everywhere."
+            echo "Opens full screen like a TV app. Keyboard: arrows and Enter like the remote, Esc = Back, F11 or Alt+Enter = window / full screen (remembered). The mouse works everywhere."
             echo ""
             [ -f out/smoke-win/SMOKE.md ] && cat out/smoke-win/SMOKE.md
             if [ "${{ steps.build.outcome }}" != "success" ]; then

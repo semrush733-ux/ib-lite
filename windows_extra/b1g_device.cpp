@@ -9,13 +9,19 @@
 //   wifiPermission   newer Windows wants location access for the Wi-Fi list: opens that page
 //   openUrl          web pages (film trailers) in the default browser
 //   keepScreenOn     no screen saver or sleep while a video plays
-//   toggleFullScreen / setFullScreen / isFullScreen   F11, Alt+Enter
+//   toggleFullScreen F11, Alt+Enter: full screen or a window, remembered for the next start
+//   setFullScreen    the app itself (a video opens full screen), not remembered
+//   isFullScreen
+//
+// The program opens full screen like a TV app (ShowFullScreen): no title bar, no taskbar.
 #pragma warning(push, 0)
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <iphlpapi.h>
 #include <wlanapi.h>
 #include <shellapi.h>
+#include <objbase.h>
+#include <shobjidl.h>
 #pragma warning(pop)
 
 #include "b1g_device.h"
@@ -37,6 +43,8 @@
 #pragma comment(lib, "ws2_32.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "uuid.lib")
 
 namespace b1g_device {
 namespace {
@@ -49,7 +57,10 @@ std::unique_ptr<flutter::MethodChannel<EncodableValue>> g_channel;
 HWND g_window = nullptr;
 bool g_full = false;
 LONG_PTR g_style = 0;
+LONG_PTR g_ex_style = 0;
 WINDOWPLACEMENT g_place{};
+ITaskbarList2* g_taskbar = nullptr;
+bool g_taskbar_tried = false;
 
 std::string Utf8(const std::wstring& text) {
   if (text.empty()) return std::string();
@@ -334,24 +345,97 @@ bool Open(const std::string& url) {
   return reinterpret_cast<INT_PTR>(code) > 32;
 }
 
+// The program's own place for settings: HKEY_CURRENT_USER\Software\<name of the .exe>.
+std::wstring SettingsKey() {
+  wchar_t path[MAX_PATH] = {0};
+  GetModuleFileNameW(nullptr, path, MAX_PATH);
+  std::wstring name(path);
+  const size_t slash = name.find_last_of(L"\\/");
+  if (slash != std::wstring::npos) name = name.substr(slash + 1);
+  const size_t dot = name.find_last_of(L'.');
+  if (dot != std::wstring::npos) name = name.substr(0, dot);
+  if (name.empty()) name = L"LitePlayer";
+  return L"Software\\" + name;
+}
+
+// The viewer switched to a window with F11 (the program then starts as a window next time).
+bool WindowedChosen() {
+  DWORD value = 0;
+  DWORD size = static_cast<DWORD>(sizeof(value));
+  return RegGetValueW(HKEY_CURRENT_USER, SettingsKey().c_str(), L"Windowed", RRF_RT_REG_DWORD, nullptr, &value,
+                      &size) == ERROR_SUCCESS &&
+         value == 1;
+}
+
+void RememberWindowed(bool windowed) {
+  HKEY key = nullptr;
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, SettingsKey().c_str(), 0, nullptr, 0, KEY_SET_VALUE, nullptr, &key,
+                      nullptr) != ERROR_SUCCESS) {
+    return;
+  }
+  const DWORD value = windowed ? 1 : 0;
+  RegSetValueExW(key, L"Windowed", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value),
+                 static_cast<DWORD>(sizeof(value)));
+  RegCloseKey(key);
+}
+
+// Tells the taskbar that the window is full screen, so it stays behind it while the program is
+// in front. Windows usually notices a window that covers the screen by itself; this makes sure.
+void MarkFullScreen(bool on) {
+  if (!g_taskbar_tried) {
+    g_taskbar_tried = true;
+    ITaskbarList2* list = nullptr;
+    if (SUCCEEDED(CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&list)))) {
+      if (SUCCEEDED(list->HrInit())) {
+        g_taskbar = list;
+      } else {
+        list->Release();
+      }
+    }
+  }
+  if (g_taskbar != nullptr && g_window != nullptr) g_taskbar->MarkFullscreenWindow(g_window, on ? TRUE : FALSE);
+}
+
+// No title bar and no border, and the window covers the whole monitor, taskbar included. A
+// maximised window first becomes a normal one: Windows keeps the taskbar in front of a maximised
+// window. g_place (saved before) brings "maximised" back on the way out. [show]: SWP_SHOWWINDOW
+// when the window appears for the first time.
+void EnterFullScreen(UINT show) {
+  g_style = GetWindowLongPtrW(g_window, GWL_STYLE);
+  g_ex_style = GetWindowLongPtrW(g_window, GWL_EXSTYLE);
+  MONITORINFO monitor{};
+  monitor.cbSize = static_cast<DWORD>(sizeof(monitor));
+  GetMonitorInfoW(MonitorFromWindow(g_window, MONITOR_DEFAULTTONEAREST), &monitor);
+  const RECT& area = monitor.rcMonitor;
+  SetWindowLongPtrW(g_window, GWL_STYLE, g_style & ~static_cast<LONG_PTR>(WS_OVERLAPPEDWINDOW | WS_MAXIMIZE));
+  SetWindowLongPtrW(g_window, GWL_EXSTYLE,
+                    g_ex_style & ~static_cast<LONG_PTR>(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE |
+                                                        WS_EX_STATICEDGE));
+  SetWindowPos(g_window, HWND_TOP, area.left, area.top, area.right - area.left, area.bottom - area.top,
+               SWP_NOOWNERZORDER | SWP_FRAMECHANGED | show);
+  MarkFullScreen(true);
+}
+
+// Back to the window as it was (maximised, or its normal size and place).
+void LeaveFullScreen() {
+  const LONG_PTR visible = GetWindowLongPtrW(g_window, GWL_STYLE) & static_cast<LONG_PTR>(WS_VISIBLE);
+  SetWindowLongPtrW(g_window, GWL_STYLE,
+                    (g_style & ~static_cast<LONG_PTR>(WS_VISIBLE | WS_MAXIMIZE | WS_MINIMIZE)) | visible);
+  SetWindowLongPtrW(g_window, GWL_EXSTYLE, g_ex_style);
+  MarkFullScreen(false);
+  SetWindowPlacement(g_window, &g_place);
+  SetWindowPos(g_window, nullptr, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+}
+
 void SetFullScreen(bool on) {
   if (g_window == nullptr || on == g_full) return;
   if (on) {
-    g_style = GetWindowLongPtrW(g_window, GWL_STYLE);
     g_place.length = static_cast<UINT>(sizeof(WINDOWPLACEMENT));
     GetWindowPlacement(g_window, &g_place);
-    MONITORINFO monitor{};
-    monitor.cbSize = static_cast<DWORD>(sizeof(monitor));
-    GetMonitorInfoW(MonitorFromWindow(g_window, MONITOR_DEFAULTTONEAREST), &monitor);
-    SetWindowLongPtrW(g_window, GWL_STYLE, g_style & ~static_cast<LONG_PTR>(WS_OVERLAPPEDWINDOW));
-    SetWindowPos(g_window, HWND_TOP, monitor.rcMonitor.left, monitor.rcMonitor.top,
-                 monitor.rcMonitor.right - monitor.rcMonitor.left, monitor.rcMonitor.bottom - monitor.rcMonitor.top,
-                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    EnterFullScreen(0);
   } else {
-    SetWindowLongPtrW(g_window, GWL_STYLE, g_style);
-    SetWindowPlacement(g_window, &g_place);
-    SetWindowPos(g_window, nullptr, 0, 0, 0, 0,
-                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    LeaveFullScreen();
   }
   g_full = on;
 }
@@ -381,9 +465,12 @@ void Handle(const flutter::MethodCall<EncodableValue>& call,
                                                  : ES_CONTINUOUS);
     result->Success();
   } else if (method == "toggleFullScreen") {
+    // F11 / Alt+Enter: the viewer's choice, also for the next start.
     SetFullScreen(!g_full);
+    RememberWindowed(!g_full);
     result->Success(EncodableValue(g_full));
   } else if (method == "setFullScreen") {
+    // The app itself (a video opens full screen): the viewer's choice stays as it was.
     const bool* on = args != nullptr ? std::get_if<bool>(args) : nullptr;
     SetFullScreen(on != nullptr ? *on : !g_full);
     result->Success(EncodableValue(g_full));
@@ -414,6 +501,20 @@ void Register(flutter::BinaryMessenger* messenger, HWND window) {
   g_channel = std::make_unique<flutter::MethodChannel<EncodableValue>>(
       messenger, "b1g/device", &flutter::StandardMethodCodec::GetInstance());
   g_channel->SetMethodCallHandler(Handle);
+}
+
+bool ShowFullScreen() {
+  if (g_window == nullptr || g_full || WindowedChosen()) return false;
+  // F11 then gives the maximised window.
+  g_place.length = static_cast<UINT>(sizeof(WINDOWPLACEMENT));
+  GetWindowPlacement(g_window, &g_place);
+  g_place.showCmd = SW_SHOWMAXIMIZED;
+  // Shown by SetWindowPos (not ShowWindow, whose first call may follow the shortcut's
+  // "Run: Maximised" instead): the window appears full screen at once, without a title bar first.
+  EnterFullScreen(SWP_SHOWWINDOW);
+  g_full = true;
+  SetForegroundWindow(g_window);
+  return true;
 }
 
 }  // namespace b1g_device

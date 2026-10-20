@@ -32,8 +32,9 @@ and publishes the release `windows-latest`:
 - `windows-update.json` - the app checks it; "Update now" downloads the new installer, runs it
   silently and the new version opens by itself (login, playlists and favourites stay).
 
-Keyboard like the remote: arrows and Enter, Esc = Back, F11 or Alt+Enter = full screen; the
-mouse works everywhere. The Windows part of the app's device channel is
+The program opens full screen like a TV app (no title bar, no taskbar). Keyboard like the
+remote: arrows and Enter, Esc = Back, F11 or Alt+Enter = window / full screen (the choice is
+remembered; a video always plays full screen); the mouse works everywhere. The Windows part of the app's device channel is
 `windows_extra/b1g_device.cpp` (machine id - only a hash is sent - and MAC for the website,
 network and Wi-Fi details, keep the screen on, full screen); `tools/windows_setup.py` adds it to
 the project Flutter creates. Not in the Windows app: the VPN and voice search (Android only).

@@ -3,8 +3,10 @@
 Windows test (runs in .github/workflows/windows.yml, on the Windows build machine).
 
 Starts the mock IPTV server (ci/mock_server.py), opens the TEST build of the Windows app and
-drives it with the keyboard, the way a remote would: sign in, Live TV, play a channel full
-screen, Back with Esc, full screen with F11. The test build writes its log to a file
+drives it with the keyboard, the way a remote would: the program opens full screen (no title bar,
+nothing over the bottom of the screen: the taskbar is behind it), F11 gives a window, sign in,
+Live TV, a channel plays and covers the whole screen again, Back with Esc gives the window back,
+F11 full screen again. The test build writes its log to a file
 (B1G_LOG_FILE); the test reads it to know what really happened. Screenshots of the screen go to
 out/smoke-win. Output: out/smoke-win/SMOKE.md and STATUS ("ok" when the app opens and signs in).
 
@@ -22,6 +24,22 @@ OUT = 'out/smoke-win'
 os.makedirs(OUT, exist_ok=True)
 
 user32 = ctypes.WinDLL('user32', use_last_error=True)
+try:
+    user32.SetProcessDPIAware()  # real pixels, like the app
+except Exception:  # noqa: BLE001
+    pass
+
+
+class POINT(ctypes.Structure):
+    _fields_ = [('x', ctypes.c_long), ('y', ctypes.c_long)]
+
+
+user32.WindowFromPoint.argtypes = [POINT]
+user32.WindowFromPoint.restype = ctypes.c_void_p
+user32.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+user32.GetAncestor.restype = ctypes.c_void_p
+GWL_STYLE = -16
+WS_CAPTION = 0x00C00000
 VK = {'DOWN': 0x28, 'UP': 0x26, 'LEFT': 0x25, 'RIGHT': 0x27, 'ENTER': 0x0D, 'ESC': 0x1B, 'F11': 0x7A}
 EXTENDED = {'DOWN', 'UP', 'LEFT', 'RIGHT'}
 results = []
@@ -131,6 +149,38 @@ def window_rect():
     return None
 
 
+def style():
+    return (user32.GetWindowLongW(window, GWL_STYLE) & 0xFFFFFFFF) if find_window() else 0
+
+
+def owner_at(x, y):
+    """The program's main window at this point of the screen (0: another window, the taskbar...)."""
+    hwnd = user32.WindowFromPoint(POINT(x, y))
+    root = user32.GetAncestor(hwnd, 2) if hwnd else 0  # GA_ROOT
+    return (root or 0) & 0xFFFFFFFF
+
+
+def full_screen():
+    """Full screen: the window covers the screen, has no title bar, and it is the program (not the
+    taskbar) at the top and the bottom edge of the screen."""
+    rect = window_rect()
+    w, h = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    mine = window & 0xFFFFFFFF
+    covers = rect is not None and rect[0] <= 0 and rect[1] <= 0 and rect[2] >= w and rect[3] >= h
+    caption = bool(style() & WS_CAPTION)
+    top = owner_at(w // 2, 2) == mine
+    bottom = owner_at(w // 2, h - 3) == mine
+    return covers and not caption and top and bottom, '%s screen %dx%d title bar=%s top=%s bottom=%s' % (
+        rect, w, h, caption, 'app' if top else 'other', 'app' if bottom else 'other (taskbar?)')
+
+
+def windowed():
+    """A maximised window with its title bar."""
+    zoomed = bool(user32.IsZoomed(window)) if find_window() else False
+    caption = bool(style() & WS_CAPTION)
+    return zoomed and caption, '%s maximised=%s title bar=%s' % (window_rect(), zoomed, caption)
+
+
 def run(app):
     # 1. The program opens and shows its window (test build: on the sign-in screen).
     ok = wait_log(r'screen=login', 0, 120) is not None
@@ -144,7 +194,14 @@ def run(app):
     reg = wait_log(r'backend register hwid=(\w+) mac=(\w+)', 0, 30)
     check('this computer registers with the website (machine id and MAC from Windows)',
           reg is not None and reg.group(1) == 'yes', reg.group(0) if reg else 'no registration line')
-    check('window opens maximised', bool(user32.IsZoomed(window)) if find_window() else False, window_rect())
+    ok, detail = full_screen()
+    check('the program opens full screen (no title bar, taskbar behind it)', ok, detail)
+
+    # F11: the viewer wants a window (remembered for the next start).
+    key('F11', pause=2.5)
+    shot('f11-window')
+    ok, detail = windowed()
+    check('F11 gives a maximised window with its title bar', ok, detail)
 
     # 2. Sign in (server, username and password are filled in; the focus is on "Sign in").
     m = mark()
@@ -187,23 +244,32 @@ def run(app):
     check('channel 1 plays full screen (.ts stream)', ready is not None and pos >= 8,
           '%s, position %ss' % (ready.group(0) if ready else 'not ready', pos))
     check('video picture is decoded', ready is not None and int(ready.group(2)) > 0, ready.group(0) if ready else '')
+    ok, detail = full_screen()
+    check('the video covers the whole screen (also when a window was chosen)', ok, detail)
+    # This machine has no video chip: the app tries the copy-back way once and plays on.
+    dec = wait_log(r'^B1G decoder (.+)', m, 20)
+    after = wait_position(0, max(pos, 0) + 5, m, 30)
+    check('the log says how the video is decoded, and it plays on after that check', dec is not None and after >= pos + 5,
+          '%s; position %ss -> %ss' % (dec.group(1) if dec else 'no decoder line', pos, after))
+    # Channel 1 is 1080i here (like broadcast sport): deinterlaced, 50 pictures a second.
+    later = wait_log(r'^B1G deinterlace: (.+)', m, 1)
+    check('the 1080i channel is deinterlaced', dec is not None and 'interlaced=yes, deinterlaced' in dec.group(1),
+          (dec.group(1) if dec else 'no decoder line') + ('; then: %s' % later.group(1) if later else ''))
 
-    # 4. F11: full screen and back.
-    key('F11', pause=2)
-    rect = window_rect()
-    width = user32.GetSystemMetrics(0)
-    height = user32.GetSystemMetrics(1)
-    full = rect is not None and rect[2] - rect[0] >= width and rect[3] - rect[1] >= height
-    shot('f11-full-screen')
-    check('F11 makes the window full screen', full, '%s screen %dx%d' % (rect, width, height))
-    key('F11', pause=2)
-
-    # 5. Esc is Back: the player closes, the channel list is there again.
+    # 4. Esc is Back: the player closes, the channel list and the chosen window are there again.
     m = mark()
     key('ESC', pause=2.5)
     shot('esc-back')
     alive = app.poll() is None
     check('Esc goes back (the program stays open)', alive and find_window() != 0)
+    ok, detail = windowed()
+    check('after the video the window comes back', ok, detail)
+
+    # 5. F11 again: full screen.
+    key('F11', pause=2.5)
+    shot('f11-full-screen')
+    ok, detail = full_screen()
+    check('F11 makes it full screen again', ok, detail)
     key('ESC', pause=2)
     key('ESC', pause=2)
     shot('home-again')
@@ -214,7 +280,7 @@ def run(app):
 
 
 def main():
-    env = dict(os.environ, MOCK_BASE='http://127.0.0.1:8787')
+    env = dict(os.environ, MOCK_BASE='http://127.0.0.1:8787', MOCK_INTERLACED='1')
     server_log = open('%s/mock-server.log' % OUT, 'w')
     server = subprocess.Popen([sys.executable, 'ci/mock_server.py', '8787'], stdout=server_log,
                               stderr=subprocess.STDOUT, env=env)

@@ -27,6 +27,7 @@ import '../voice.dart';
 import '../widgets.dart';
 import '../xtream.dart';
 import '../warmup.dart';
+import '../window_mode.dart';
 import 'guide.dart';
 
 /// One thing the player can show. [urls] are tried in order (live channels
@@ -249,6 +250,8 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     _resetEngine();
     WidgetsBinding.instance.addObserver(this);
     _keepScreenOn(true);
+    // Windows: a video covers the whole screen, also when the viewer chose a window (F11).
+    unawaited(WindowMode.playerOpened());
     _watchdog = Timer.periodic(const Duration(seconds: 2), (_) => _checkHealth());
     _enhanceTimer = Timer.periodic(const Duration(seconds: 3), (_) => _watchEnhance());
     // Alexa / the Google Assistant: "pause", "next", "rewind 30 seconds"... go to this player.
@@ -426,6 +429,7 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     log('player closed');
     LastStream.closed();
     _keepScreenOn(false);
+    unawaited(WindowMode.playerClosed());
     if (_fpsApplied > 0) {
       _device.invokeMethod<void>('resetFrameRate').catchError((Object _) {});
     }
@@ -695,6 +699,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     }
     _applyPreferredTracks();
     _matchFrameRate();
+    // Windows: which way the video is decoded (the video chip, or the processor); see MpvEngine.
+    if (player is MpvEngine) {
+      unawaited(player.checkDecoder().then((line) {
+        if (line.isNotEmpty) log(line);
+      }));
+    }
     if (mounted) setState(() => _status = null);
     _showOverlay();
     _voiceState();
@@ -1086,10 +1096,12 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
   }
 
   /// Picture Enhance never becomes a load: when pictures start being skipped (and it is not the
-  /// network), the level steps down by itself and the device remembers its limit.
+  /// network), the level steps down by itself and the device remembers its limit. The same for
+  /// deinterlacing on Windows, once Enhance is off.
   Future<void> _watchEnhance() async {
     final e = _engine;
-    if (e == null || !_ready || !_accepting || _suspended || _dead || e.enhanceLevel <= 0) {
+    final deinterlacing = e is MpvEngine && e.deinterlacing;
+    if (e == null || !_ready || !_accepting || _suspended || _dead || (e.enhanceLevel <= 0 && !deinterlacing)) {
       _dropBase = -1;
       return;
     }
@@ -1123,6 +1135,14 @@ class _PlayerScreenState extends State<PlayerScreen> with WidgetsBindingObserver
     }
     if (_heavyTicks < 2 && delta < perLook * 0.3) return;
     final level = e.enhanceLevel;
+    if (level <= 0) {
+      log('deinterlace: $delta pictures skipped in 3 s, off on this computer');
+      Store.setWinDeint(false);
+      _heavyTicks = 0;
+      _dropBase = -1;
+      if (e is MpvEngine) await e.stopDeinterlacing();
+      return;
+    }
     final lower = level - 1;
     log('picture enhance: $delta pictures skipped in 3 s, ${EnhanceLevel.label(level)} -> ${EnhanceLevel.label(lower)}');
     EnhanceLevel.tooHeavy(level);

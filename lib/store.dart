@@ -377,6 +377,15 @@ class Store {
   static int get enhanceCap => _p.getInt('enhance_cap') ?? -1;
   static void setEnhanceCap(int v) => _p.setInt('enhance_cap', v);
 
+  /// Windows: how the video chip decodes on this computer. '' = the usual way (the picture
+  /// stays on the video chip); 'auto-copy' = learned that only the copy-back way works here.
+  static String get winHwdec => _p.getString('win_hwdec') ?? '';
+  static void setWinHwdec(String v) => _p.setString('win_hwdec', v);
+
+  /// Windows: interlaced channels are deinterlaced (false: this computer could not keep up).
+  static bool get winDeint => _p.getBool('win_deint') ?? true;
+  static void setWinDeint(bool v) => _p.setBool('win_deint', v);
+
   /// Streams whose sound ExoPlayer cannot decode on this device: they play on MPV.
   static List<String> get exoNoSound => _p.getStringList('exo_no_sound') ?? const [];
   static void addExoNoSound(String key) {

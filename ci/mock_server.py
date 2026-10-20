@@ -66,7 +66,9 @@ PLAYLIST = '''#EXTM3U
 '''.format(b=BASE)
 
 
-LIVE_SECONDS = 90.0  # length of ci/media/live.ts
+LIVE_SECONDS = 90.0  # length of ci/media/live.ts (and live_i.ts)
+# Windows test: channel 1 is the interlaced (1080i) version, made by make_media.sh with INTERLACED=1.
+INTERLACED = os.environ.get('MOCK_INTERLACED') == '1' and os.path.exists(os.path.join(MEDIA, 'live_i.ts'))
 LIVE_LOCK = threading.Lock()
 LIVE_ACTIVE = [0]
 
@@ -286,6 +288,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_text('not found', 'text/plain', 404)
         kind, sid, ext = m.group(1), m.group(2), m.group(3)
         if kind == 'live':
+            if sid == '1' and ext == 'ts' and INTERLACED:
+                return self.send_live('live_i.ts')
             if sid in ('1', '4', '5') and ext == 'ts':
                 return self.send_live('live.ts')
             if sid in ('1', '2', '4') and ext == 'm3u8':

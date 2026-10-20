@@ -5,7 +5,9 @@ Run by .github/workflows/windows.yml after the project is created (not part of t
 
     python tools/windows_setup.py "IBO Lite Player" IBOLitePlayer
 
-  * program name and window title; the window opens maximised and never smaller than 960x540
+  * program name and window title; the program opens full screen like a TV app (no title bar, no
+    taskbar; F11 switches to a maximised window and back, remembered), a window is never smaller
+    than 960x540
   * the .exe file name and its version details (Properties > Details)
   * windows_extra/b1g_device.cpp: the app's "b1g/device" channel (machine id for the website,
     network and Wi-Fi details, full screen with F11, keep the screen on while a video plays)
@@ -90,7 +92,9 @@ def main():
           '  }\n\n'
           '  switch (message) {')
 
-    # 2. Opens maximised (like a TV app); F11 / Alt+Enter make it full screen.
+    # 2. Opens full screen (like a TV app), or maximised when the viewer chose a window with F11
+    #    last time; F11 / Alt+Enter switch between the two.
+    patch(fw, 'this->Show();', 'if (!b1g_device::ShowFullScreen()) this->Show();')
     patch(os.path.join(RUNNER, 'win32_window.cpp'), 'ShowWindow(window_handle_, SW_SHOWNORMAL)',
           'ShowWindow(window_handle_, SW_SHOWMAXIMIZED)')
 

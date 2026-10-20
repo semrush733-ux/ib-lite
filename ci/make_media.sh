@@ -7,6 +7,12 @@ V="-c:v libx264 -preset veryfast -profile:v main -pix_fmt yuv420p -g 50"
 A="-c:a aac -b:a 96k -ac 2"
 SINE="sine=frequency=440:sample_rate=48000"
 ffmpeg -loglevel error -y -f lavfi -i "testsrc=size=1280x720:rate=25" -f lavfi -i "$SINE" -t 90 $V -b:v 1200k $A -f mpegts "$M/live.ts"
+# Windows test: channel 1 as a broadcaster sends sport, 1080i (interlaced), to test deinterlacing.
+if [ "${INTERLACED:-}" = 1 ]; then
+  ffmpeg -loglevel error -y -f lavfi -i "testsrc=size=1920x1080:rate=25" -f lavfi -i "$SINE" -t 90 \
+    -vf "setfield=tff" -flags +ildct+ilme -x264-params "interlaced=1:tff=1" $V -preset ultrafast -b:v 2500k $A \
+    -f mpegts "$M/live_i.ts"
+fi
 ffmpeg -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=25" -f lavfi -i "$SINE" -t 60 $V -b:v 1200k $A \
   -f hls -hls_time 4 -hls_list_size 0 -hls_segment_filename "$M/hls/seg%03d.ts" "$M/hls/index.m3u8"
 # The movie has two audio languages and a subtitle track, to test the audio / subtitle menu.

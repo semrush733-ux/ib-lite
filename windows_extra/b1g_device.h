@@ -12,6 +12,11 @@ namespace b1g_device {
 // and does what it asks of the window (full screen, keep the screen on, open a web page).
 void Register(flutter::BinaryMessenger* messenger, HWND window);
 
+// Shows the window for the first time. Like a TV app it covers the whole screen (no title bar,
+// no taskbar) unless the viewer switched to a window with F11 last time; then it returns false
+// and the window opens maximised as before.
+bool ShowFullScreen();
+
 }  // namespace b1g_device
 
 #endif  // RUNNER_B1G_DEVICE_H_

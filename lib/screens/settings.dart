@@ -383,34 +383,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Sharper, crisper picture with a little more colour. Auto turns it on when this TV is strong '
-          'enough and switches it off by itself the moment the picture would stutter.'
-          '${Store.enhanceCap == 0 ? ' This TV: off (too heavy here).' : Store.enhanceCap > 0 ? ' This TV: up to ${EnhanceLevel.label(Store.enhanceCap)}.' : ''}',
+          EnhanceLevel.autoOff
+              ? 'Sharper, crisper picture with a little more colour. On a computer Auto leaves it off, '
+                  'for the smoothest picture; Always on turns it on (it switches off by itself the moment '
+                  'the picture would stutter).'
+              : 'Sharper, crisper picture with a little more colour. Auto turns it on when this TV is strong '
+                  'enough and switches it off by itself the moment the picture would stutter.'
+                  '${Store.enhanceCap == 0 ? ' This TV: off (too heavy here).' : Store.enhanceCap > 0 ? ' This TV: up to ${EnhanceLevel.label(Store.enhanceCap)}.' : ''}',
           style: const TextStyle(fontSize: 13, color: C.dim, height: 1.45),
         ),
-        const SizedBox(height: 24),
-        const Text('MATCH FRAME RATE',
-            style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            _chip('On', Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(true))),
-            const SizedBox(width: 10),
-            _chip('Off', !Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(false))),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Off by default. Turn it ON for a smoother picture: the TV switches to the frame rate of the '
-          'channel (50 Hz for UK / European channels, 60 Hz for US) so moving pictures - football, '
-          'news tickers, scrolling text - glide without judder or jerky movement.\n'
-          '• Turn it ON if: the picture looks jerky or stutters on fast movement, or your TV / box is '
-          'weaker and you want the best streaming experience.\n'
-          '• Keep it OFF if: the screen goes black for a second every time you change channel, or your '
-          'TV shows "no signal" / flickers when a channel starts.\n'
-          'Works on Android TV boxes, Firestick and Android TVs that support it.',
-          style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
-        ),
+        // A TV setting: the Windows app has no frame rate switching.
+        if (defaultTargetPlatform != TargetPlatform.windows) ...[
+          const SizedBox(height: 24),
+          const Text('MATCH FRAME RATE',
+              style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _chip('On', Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(true))),
+              const SizedBox(width: 10),
+              _chip('Off', !Store.matchFrameRate, () => setState(() => Store.setMatchFrameRate(false))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Off by default. Turn it ON for a smoother picture: the TV switches to the frame rate of the '
+            'channel (50 Hz for UK / European channels, 60 Hz for US) so moving pictures - football, '
+            'news tickers, scrolling text - glide without judder or jerky movement.\n'
+            '• Turn it ON if: the picture looks jerky or stutters on fast movement, or your TV / box is '
+            'weaker and you want the best streaming experience.\n'
+            '• Keep it OFF if: the screen goes black for a second every time you change channel, or your '
+            'TV shows "no signal" / flickers when a channel starts.\n'
+            'Works on Android TV boxes, Firestick and Android TVs that support it.',
+            style: TextStyle(fontSize: 13, color: C.dim, height: 1.45),
+          ),
+        ],
         const SizedBox(height: 24),
         const Text('QUICK START FOR FILMS',
             style: TextStyle(fontSize: 13, color: C.dim, fontWeight: FontWeight.w800, letterSpacing: 1.2)),

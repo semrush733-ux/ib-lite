@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/services.dart';
 
 import 'store.dart';
@@ -35,10 +35,16 @@ class EnhanceLevel {
     return _device = level;
   }
 
+  /// Windows: "Auto" leaves it off. A computer's picture goes through more steps than a TV
+  /// box's (the app draws the video itself), and live TV must stay smooth on every laptop;
+  /// "Always on" still turns it on.
+  static bool get autoOff => !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
   /// The level a new video starts with.
   static Future<int> start() async {
     final mode = Store.enhanceMode;
     if (mode == 'off') return 0;
+    if (mode != 'on' && autoOff) return 0;
     final cap = Store.enhanceCap;
     if (mode == 'on') return cap < 0 ? 2 : (cap == 0 ? 1 : cap); // the viewer asked for it
     final dev = await _deviceLevel();

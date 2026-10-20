@@ -88,6 +88,8 @@ abstract class PlaybackEngine {
 // ------------------------------------------------------------------------------------- mpv
 
 class MpvEngine extends PlaybackEngine {
+  static bool get _windows => !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
   static bool get _weak {
     try {
       return Store.enhanceCap == 0; // measured as too weak for Picture Enhance
@@ -184,7 +186,8 @@ class MpvEngine extends PlaybackEngine {
       set('demuxer-max-bytes', live ? (_weak ? '32MiB' : '64MiB') : (_weak ? '64MiB' : '128MiB')),
       set('demuxer-max-back-bytes', live ? (_weak ? '8MiB' : '16MiB') : (_weak ? '16MiB' : '32MiB')),
       if (!live) set('demuxer-seekable-cache', 'yes'),
-      set('vd-lavc-dr', 'yes'),
+      // Windows draws through ANGLE, where direct rendering is not offered: mpv decides.
+      set('vd-lavc-dr', _windows ? 'auto' : 'yes'),
       if (live) set('demuxer-lavf-analyzeduration', '1'),
       if (!live) set('hr-seek', 'no'),
       set('audio-channels', 'stereo'),
@@ -205,7 +208,72 @@ class MpvEngine extends PlaybackEngine {
       set('hdr-compute-peak', 'no'),
       set('interpolation', 'no'),
       if (direct) set('hwdec', 'mediacodec'),
+      if (_windows) ...[
+        // The video chip decodes (mpv's recommended choice). A computer where the picture cannot
+        // stay on the chip uses the copy-back way, learned by [checkDecoder].
+        set('hwdec', Store.winHwdec == 'auto-copy' ? 'auto-copy' : 'auto-safe'),
+        // Decided per stream by [checkDecoder].
+        set('deinterlace', 'no'),
+      ],
     ]);
+    _decoderChecked = false;
+    deinterlacing = false;
+  }
+
+  /// Windows: this stream's pictures are interlaced (1080i sport, SD channels) and are shown like
+  /// on a TV: both halves of every picture, 50 smooth pictures a second instead of combed lines
+  /// at 25. With the video chip's decoding it is done on the chip. Films and progressive channels
+  /// are left alone. (TV boxes deinterlace in their own video chip; there it is part of Picture
+  /// Enhance.) A computer that skips pictures with it gets it switched off: see the player.
+  bool deinterlacing = false;
+
+  /// The computer could not keep up with deinterlacing.
+  Future<void> stopDeinterlacing() async {
+    deinterlacing = false;
+    await _set('deinterlace', 'no');
+  }
+
+  /// Video formats a computer's video chip decodes.
+  static const _chipFormats = {'h264', 'hevc', 'mpeg2video', 'vp9', 'av1', 'vc1'};
+  static final Set<String> _copyFailed = {};
+  bool _decoderChecked = false;
+
+  /// Windows, once the picture is there: how the video is decoded (a line for the log). When
+  /// the processor decodes a format the video chip knows (the picture could not stay on the chip
+  /// on this computer), the copy-back way is tried once; when the chip takes over, that is
+  /// remembered for the next videos. A processor decoding 1080p skips pictures on many laptops.
+  Future<String> checkDecoder() async {
+    if (!_windows || direct || _decoderChecked || _disposed) return '';
+    _decoderChecked = true;
+    final v = await Future.wait([
+      _get('hwdec-current'),
+      _get('video-format'),
+      _get('container-fps'),
+      _get('video-frame-info/interlaced'),
+    ]);
+    final hw = v[0];
+    final format = v[1];
+    final interlaced = v[3] == 'yes';
+    if (interlaced && Store.winDeint) {
+      await _set('deinterlace', 'yes');
+      deinterlacing = true;
+    }
+    final about = 'format=$format fps=${v[2]} interlaced='
+        '${interlaced ? (deinterlacing ? 'yes, deinterlaced' : 'yes, left as it is (too heavy here)') : 'no'}';
+    if (hw.isNotEmpty && hw != 'no') return 'decoder video chip ($hw) $about';
+    if (!_chipFormats.contains(format) || Store.winHwdec == 'auto-copy' || _copyFailed.contains(format)) {
+      return 'decoder processor $about';
+    }
+    await _set('hwdec', 'auto-copy');
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    if (_disposed) return '';
+    final again = await _get('hwdec-current');
+    if (again.isNotEmpty && again != 'no') {
+      Store.setWinHwdec('auto-copy');
+      return 'decoder processor -> video chip by copy-back ($again), remembered $about';
+    }
+    _copyFailed.add(format);
+    return 'decoder processor (copy-back did not help) $about';
   }
 
   @override
@@ -283,7 +351,8 @@ class MpvEngine extends PlaybackEngine {
         _set('saturation', '0'),
         _set('contrast', '0'),
         _set('scale', 'bilinear'),
-        _set('deinterlace', 'no'),
+        // Windows: only interlaced streams, decided by [checkDecoder].
+        if (!_windows) _set('deinterlace', 'no'),
       ]);
       return true;
     }
@@ -295,9 +364,10 @@ class MpvEngine extends PlaybackEngine {
       _set('scale', level >= 2 ? 'spline36' : 'bilinear'),
       // Interlaced channels (1080i sport): smooth lines instead of combing; progressive ones
       // are left alone ("auto"). Only on devices strong enough for Enhance. The player library
-      // on Windows is an older mpv that only knows yes / no ("yes" there also only touches
-      // pictures marked as interlaced).
-      _set('deinterlace', !kIsWeb && defaultTargetPlatform == TargetPlatform.windows ? 'yes' : 'auto'),
+      // on Windows is an older mpv that only knows yes / no ("yes" works on every picture), so
+      // there it is switched on for interlaced streams only, with Enhance or without (see
+      // [deinterlacing]).
+      if (!_windows) _set('deinterlace', 'auto'),
     ]);
     return true;
   }

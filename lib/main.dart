@@ -19,6 +19,7 @@ import 'start.dart';
 import 'store.dart';
 import 'theme.dart';
 import 'voice.dart';
+import 'window_mode.dart';
 
 /// MediaKit and the key watcher are set up once, also when "Try again" opens the app anew.
 bool _basicsReady = false;
@@ -81,8 +82,8 @@ Future<void> _open() async {
 }
 
 /// Windows: keyboard and mouse stand in for the remote. Esc (and the mouse's back button) is the
-/// remote's Back; F11 or Alt+Enter switches full screen (done by the Windows program, see
-/// windows_extra/b1g_device.cpp).
+/// remote's Back; F11 or Alt+Enter switches between full screen (how the program opens) and a
+/// window (lib/window_mode.dart, done by windows_extra/b1g_device.cpp).
 bool get _desktop => !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
 class _BackIntent extends Intent {
@@ -95,11 +96,7 @@ class _FullScreenIntent extends Intent {
 
 void _back() => navigatorKey.currentState?.maybePop();
 
-Future<void> _toggleFullScreen() async {
-  try {
-    await const MethodChannel('b1g/device').invokeMethod<bool>('toggleFullScreen');
-  } catch (_) {}
-}
+Future<void> _toggleFullScreen() => WindowMode.toggle();
 
 final Map<ShortcutActivator, Intent>? _desktopShortcuts = _desktop
     ? {
