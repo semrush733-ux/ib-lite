@@ -25,7 +25,7 @@ jobs:
         run: |
           get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
           APP_NAME="$(get APP_NAME)"; WEBSITE="$(get WEBSITE)"; WEBSITE="${WEBSITE%/}"
-          echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$(get PACKAGE_ID)"; } >> "$GITHUB_ENV"
           python3 -m pip install --quiet pillow || true
           python3 tools/fetch_brand.py "$WEBSITE"
           if [ -s brand/site_label.txt ]; then echo "APP_NAME=$(cat brand/site_label.txt)" >> "$GITHUB_ENV"; fi
