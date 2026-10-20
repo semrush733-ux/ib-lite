@@ -292,6 +292,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_live('live_i.ts')
             if sid in ('1', '4', '5') and ext == 'ts':
                 return self.send_live('live.ts')
+            if sid == '1' and ext == 'm3u8' and INTERLACED:
+                # The 1080i channel 1 only comes as .ts (the app falls back to it, as with channel 5).
+                return self.send_text('not found', 'text/plain', 404)
             if sid in ('1', '2', '4') and ext == 'm3u8':
                 with open(os.path.join(MEDIA, 'hls', 'index.m3u8')) as f:
                     text = re.sub(r'^(seg\d+\.ts)$', r'/hls/\1', f.read(), flags=re.M)
@@ -340,5 +343,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == '__main__':
-    print('mock IPTV server on port %d, media in %s' % (PORT, MEDIA), flush=True)
+    print('mock IPTV server on port %d, media in %s%s' % (PORT, MEDIA, ', channel 1 is 1080i' if INTERLACED else ''),
+          flush=True)
     ThreadingHTTPServer(('0.0.0.0', PORT), Handler).serve_forever()
