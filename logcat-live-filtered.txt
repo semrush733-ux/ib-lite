@@ -1,0 +1,52 @@
+10-20 22:58:40.587 I/ActivityTaskManager(  506): START u0 {flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity} with LAUNCH_SINGLE_TOP from uid 2000 (BAL_ALLOW_PERMISSION) result code=0
+10-20 22:58:40.591 V/WindowManagerShell(  802): Transition requested: android.os.BinderProxy@e1086ea TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity } baseActivity=ComponentInfo{com.liteplayer.tv/com.b1g.b1gtv.MainActivity} topActivity=ComponentInfo{com.litep
+10-20 22:58:40.604 I/ActivityManager(  506): Start proc 2230:com.liteplayer.tv/u0a141 for next-top-activity {com.liteplayer.tv/com.b1g.b1gtv.MainActivity}
+10-20 22:58:40.637 D/CoreBackPreview(  506): Window{29cf6be u0 Splash Screen com.liteplayer.tv}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@ff82435, mPriority=0, mIsAnimationCallback=false}
+10-20 22:58:40.640 I/m.liteplayer.tv( 2230): Using CollectorTypeCC GC.
+10-20 22:58:40.641 W/m.liteplayer.tv( 2230): Unexpected CPU variant for x86: x86_64.
+10-20 22:58:40.641 W/m.liteplayer.tv( 2230): Known variants: atom, sandybridge, silvermont, goldmont, goldmont-plus, tremont, kabylake, default
+10-20 22:58:40.642 E/m.liteplayer.tv( 2230): Not starting debugger since process cannot load the jdwp agent.
+10-20 22:58:40.884 D/nativeloader( 2230): Configuring clns-6 for other apk /data/app/~~OVfu13JNBPZD2oTDMsC0GA==/com.liteplayer.tv-mnNpAEi-3C4Wxjqb_2dJ8Q==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~OVfu13JNBPZD2oTDMsC0GA==/com.liteplayer.tv-mnNpAEi-3C4Wxjqb_2dJ8Q==/lib/x86_64:/data/app/~~OVfu13JNBPZD2oTDMsC0GA==/com.liteplayer.tv-mnNpAEi-3C4Wxjqb_2dJ8Q==/base.apk!/l
+10-20 22:58:40.888 V/WindowManager(  506): Sent Transition #6 createdAt=10-20 22:58:40.575 via request=TransitionRequestInfo { type = OPEN, triggerTask = TaskInfo{userId=0 taskId=8 displayId=0 isRunning=true baseIntent=Intent { flg=0x10000000 cmp=com.liteplayer.tv/com.b1g.b1gtv.MainActivity } baseActivity=ComponentInfo{com.liteplayer.tv/com.b1g.b1gtv.MainActivity} topActivity=ComponentInfo{com.lit
+10-20 22:58:40.888 V/WindowManager(  506):     info={id=6 t=OPEN f=0x0 trk=0 r=[0@Point(0, 0)] c=[{WCT{RemoteToken{9233407 Task{5e43874 #8 type=standard I=com.liteplayer.tv/com.b1g.b1gtv.MainActivity}}} m=OPEN f=NONE leash=Surface(name=Task=8)/@0xf44c621 sb=Rect(0, 0 - 1920, 1080) eb=Rect(0, 0 - 1920, 1080) d=0},{WCT{RemoteToken{b06a35d Task{8a9129a #1 type=home}}} m=TO_BACK f=SHOW_WALLPAPER leash
+10-20 22:58:40.970 V/GraphicsEnvironment( 2230): ANGLE GameManagerService for com.liteplayer.tv: false
+10-20 22:58:40.970 V/GraphicsEnvironment( 2230): com.liteplayer.tv is not listed in per-application setting
+10-20 22:58:41.186 D/CarrierSvcBindHelper( 1008): onPackageAdded: com.liteplayer.tv
+10-20 22:58:41.182 W/m.liteplayer.tv( 2230): type=1400 audit(0.0:15): avc:  denied  { read } for  name="max_map_count" dev="proc" ino=47078 scontext=u:r:untrusted_app:s0:c141,c256,c512,c768 tcontext=u:object_r:proc_max_map_count:s0 tclass=file permissive=0 app=com.liteplayer.tv
+10-20 22:58:41.204 D/CarrierSvcBindHelper( 1008): onPackageModified: com.liteplayer.tv
+10-20 22:58:41.209 D/ImsResolver( 1008): maybeAddedImsService, packageName: com.liteplayer.tv
+10-20 22:58:41.218 D/ImsResolver( 1008): maybeAddedImsService, packageName: com.liteplayer.tv
+10-20 22:58:41.269 I/flutter ( 2230): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+10-20 22:58:41.357 D/CoreBackPreview(  506): Window{8d55c80 u0 com.liteplayer.tv/com.b1g.b1gtv.MainActivity}: Setting back callback OnBackInvokedCallbackInfo{mCallback=android.window.IOnBackInvokedCallback$Stub$Proxy@e55b17b, mPriority=0, mIsAnimationCallback=false}
+10-20 22:58:42.573 I/flutter ( 2230): B1G voice microphone=no
+10-20 22:58:42.594 W/m.liteplayer.tv( 2230): type=1400 audit(0.0:16): avc:  denied  { search } for  name="net" dev="sysfs" ino=6878 scontext=u:r:untrusted_app:s0:c141,c256,c512,c768 tcontext=u:object_r:sysfs_net:s0 tclass=dir permissive=0 app=com.liteplayer.tv
+10-20 22:58:42.602 W/m.liteplayer.tv( 2230): type=1400 audit(0.0:17): avc:  denied  { search } for  name="net" dev="sysfs" ino=6878 scontext=u:r:untrusted_app:s0:c141,c256,c512,c768 tcontext=u:object_r:sysfs_net:s0 tclass=dir permissive=0 app=com.liteplayer.tv
+10-20 22:58:42.649 I/ExoPlayerImpl( 2230): Init 8ecdf8c [AndroidXMedia3/1.4.1] [emu64x, Android SDK built for x86_64, unknown, 34]
+10-20 22:58:42.686 I/flutter ( 2230): B1G backend register hwid=yes mac=no
+10-20 22:58:42.789 I/DMCodecAdapterFactory( 2230): Creating an asynchronous MediaCodec adapter for track type audio
+10-20 22:58:42.804 I/MediaCodec( 2230): MediaCodec will operate in async mode
+10-20 22:58:42.804 D/MediaCodec( 2230): flushMediametrics
+10-20 22:58:42.805 D/MediaCodec( 2230): keep callback message for reclaim
+10-20 22:58:43.028 I/flutter ( 2230): B1G screen=login
+10-20 22:58:43.054 I/ActivityTaskManager(  506): Displayed com.liteplayer.tv/com.b1g.b1gtv.MainActivity for user 0: +2s453ms
+10-20 22:58:43.062 I/ActivityTaskManager(  506): Fully drawn com.liteplayer.tv/com.b1g.b1gtv.MainActivity: +2s453ms
+10-20 22:58:43.073 W/InputManager-JNI(  506): Input channel object '29cf6be Splash Screen com.liteplayer.tv (client)' was disposed without first being removed with the input manager!
+10-20 22:58:43.075 D/CoreBackPreview(  506): Window{29cf6be u0 Splash Screen com.liteplayer.tv EXITING}: Setting back callback null
+10-20 22:58:43.083 I/ExoPlayerImpl( 2230): Release 8ecdf8c [AndroidXMedia3/1.4.1] [emu64x, Android SDK built for x86_64, unknown, 34] [media3.common, media3.exoplayer, media3.decoder, media3.datasource, media3.extractor]
+10-20 22:58:43.127 D/MediaCodec( 2230): keep callback message for reclaim
+10-20 22:58:43.142 D/CCodecBufferChannel( 2230): [c2.android.mp3.decoder#12] MediaCodec discarded an unknown buffer
+10-20 22:58:43.142 D/CCodecBufferChannel( 2230): [c2.android.mp3.decoder#12] MediaCodec discarded an unknown buffer
+10-20 22:58:43.143 D/CCodecBufferChannel( 2230): [c2.android.mp3.decoder#12] MediaCodec discarded an unknown buffer
+10-20 22:58:43.143 D/CCodecBufferChannel( 2230): [c2.android.mp3.decoder#12] MediaCodec discarded an unknown buffer
+10-20 22:58:43.156 D/MediaCodec( 2230): flushMediametrics
+10-20 22:58:43.156 D/MediaCodec( 2230): flushMediametrics
+10-20 22:58:43.156 W/MediaCodec( 2230): no metrics handle found
+10-20 22:58:43.174 I/ImeTracker(  506): com.liteplayer.tv:13a0d2a6: onRequestHide at ORIGIN_SERVER_HIDE_INPUT reason HIDE_UNSPECIFIED_WINDOW
+10-20 22:58:43.174 I/ImeTracker(  506): com.liteplayer.tv:13a0d2a6: onCancelled at PHASE_SERVER_SHOULD_HIDE
+10-20 22:58:43.188 I/flutter ( 2230): B1G backend registered
+10-20 22:58:43.290 I/flutter ( 2230): B1G backend config server=none update=0 app=1
+10-20 22:58:47.284 D/ProfileInstaller( 2230): Installing profile for com.liteplayer.tv
+10-20 22:58:49.925 I/flutter ( 2230): B1G login ok mode=xtream
+10-20 22:58:49.947 I/flutter ( 2230): B1G screen=home profile=main kids=false
+10-20 22:58:53.741 I/flutter ( 2230): B1G browse live categories=2
+10-20 22:58:53.790 I/flutter ( 2230): B1G browse live items=4
