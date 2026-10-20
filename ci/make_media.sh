@@ -10,7 +10,7 @@ ffmpeg -loglevel error -y -f lavfi -i "testsrc=size=1280x720:rate=25" -f lavfi -
 ffmpeg -loglevel error -y -f lavfi -i "testsrc2=size=1280x720:rate=25" -f lavfi -i "$SINE" -t 60 $V -b:v 1200k $A \
   -f hls -hls_time 4 -hls_list_size 0 -hls_segment_filename "$M/hls/seg%03d.ts" "$M/hls/index.m3u8"
 # The movie has two audio languages and a subtitle track, to test the audio / subtitle menu.
-python3 - "$M/subs.srt" <<'PY'
+"${PYTHON:-python3}" - "$M/subs.srt" <<'PY'
 import sys
 def t(s): return '%02d:%02d:%02d,000' % (s // 3600, s % 3600 // 60, s % 60)
 with open(sys.argv[1], 'w') as f:

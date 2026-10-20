@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../backend.dart';
 import '../config.dart';
 import '../theme.dart';
+import '../tizen_exit.dart' if (dart.library.js_interop) '../tizen_exit_web.dart';
 import '../widgets.dart';
 import 'update.dart';
 
@@ -173,7 +174,10 @@ class _StartProblemState extends State<_StartProblem> {
                       _button('Update now', Icons.system_update_rounded, () => showUpdateDialog(context, u),
                           primary: true, node: _updateNode),
                     _button('Try again', Icons.refresh_rounded, widget.retry, autofocus: true),
-                    _button('Close', Icons.close_rounded, () => SystemNavigator.pop()),
+                    _button('Close', Icons.close_rounded, () {
+                      tizenExit(); // Samsung TV and Windows close here; Android below
+                      SystemNavigator.pop();
+                    }),
                   ],
                 ),
                 const SizedBox(height: 26),

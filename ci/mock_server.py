@@ -23,7 +23,8 @@ from urllib.parse import parse_qs, urlparse
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8787
 MEDIA = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'media')
-BASE = 'http://10.0.2.2:%d' % PORT  # the host machine as seen from the emulator
+# The host machine as seen from the emulator; the Windows test runs on the same machine (MOCK_BASE).
+BASE = os.environ.get('MOCK_BASE') or 'http://10.0.2.2:%d' % PORT
 
 LIVE_CATS = [{'category_id': '1', 'category_name': 'UK Entertainment', 'parent_id': 0},
              {'category_id': '2', 'category_name': 'Sports', 'parent_id': 0}]
@@ -304,7 +305,7 @@ class Handler(BaseHTTPRequestHandler):
                 'user_info': {'username': 'demo', 'password': 'demo', 'auth': 1, 'status': 'Active',
                               'exp_date': str(int(time.time()) + 90 * 86400), 'is_trial': '0', 'active_cons': '0',
                               'max_connections': '1', 'allowed_output_formats': ['m3u8', 'ts']},
-                'server_info': {'url': '10.0.2.2', 'port': str(PORT), 'server_protocol': 'http'},
+                'server_info': {'url': urlparse(BASE).hostname, 'port': str(PORT), 'server_protocol': 'http'},
             })
         cat = q.get('category_id')
 

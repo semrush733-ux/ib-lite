@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -17,6 +17,9 @@ import '../widgets.dart';
 Future<void> showUpdateDialog(BuildContext context, BUpdate update) {
   if (defaultTargetPlatform == TargetPlatform.iOS) {
     return showDialog<void>(context: context, builder: (_) => _IosUpdateDialog(update: update));
+  }
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+    return showDialog<void>(context: context, builder: (_) => _WindowsUpdateDialog(update: update));
   }
   return showDialog<void>(
     context: context,
@@ -341,6 +344,125 @@ class _IosUpdateDialog extends StatelessWidget {
             onPressed: () => _open(context, 'altstore://source?url=${Uri.encodeComponent(source)}'),
             child: const Text('Update'),
           ),
+      ],
+    );
+  }
+}
+
+/// Windows: "Update now" downloads the new installer and starts it; the app closes so the
+/// installer can replace it, and the installer opens the new version when it is done.
+/// Login, playlists and favourites stay (they are kept outside the program folder).
+class _WindowsUpdateDialog extends StatefulWidget {
+  const _WindowsUpdateDialog({required this.update});
+  final BUpdate update;
+
+  @override
+  State<_WindowsUpdateDialog> createState() => _WindowsUpdateDialogState();
+}
+
+class _WindowsUpdateDialogState extends State<_WindowsUpdateDialog> {
+  bool _busy = false;
+  int _percent = 0;
+  String _error = '';
+  http.Client? _client;
+
+  @override
+  void dispose() {
+    _client?.close();
+    super.dispose();
+  }
+
+  Future<void> _install() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _percent = 0;
+      _error = '';
+    });
+    log('windows update download start');
+    try {
+      final file = File('${Directory.systemTemp.path}${Platform.pathSeparator}'
+          'app-setup-${widget.update.versionCode}.exe');
+      if (await file.exists()) await file.delete();
+      final client = _client = http.Client();
+      final request = http.Request('GET', Uri.parse(widget.update.apkUrl))..headers['User-Agent'] = kUserAgent;
+      final response = await client.send(request).timeout(const Duration(seconds: 30));
+      if (response.statusCode != 200) throw HttpException('status ${response.statusCode}');
+      final total = response.contentLength ?? 0;
+      var received = 0;
+      var first = <int>[];
+      final sink = file.openWrite();
+      try {
+        await for (final chunk in response.stream.timeout(const Duration(seconds: 40))) {
+          if (first.length < 2) first = [...first, ...chunk.take(2 - first.length)];
+          sink.add(chunk);
+          received += chunk.length;
+          final percent = total > 0 ? (received * 100 ~/ total).clamp(0, 100).toInt() : 0;
+          if (percent != _percent && mounted) setState(() => _percent = percent);
+        }
+      } finally {
+        await sink.flush();
+        await sink.close();
+      }
+      // A Windows program starts with "MZ"; a web page or an error text does not.
+      if (received < 1024 * 1024 || first.length < 2 || first[0] != 0x4D || first[1] != 0x5A) {
+        throw const FormatException('not an installer');
+      }
+      log('windows update downloaded bytes=$received');
+      await Process.start(file.path, const ['/SILENT', '/SUPPRESSMSGBOXES', '/NORESTART'],
+          mode: ProcessStartMode.detached);
+      exit(0);
+    } catch (e) {
+      log('windows update failed: ${e.runtimeType}');
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = 'The update could not be downloaded. Check the internet and try again, '
+              'or download the new version in your browser.';
+        });
+      }
+    }
+  }
+
+  Future<void> _browser() async {
+    try {
+      await launchUrl(Uri.parse(widget.update.apkUrl), mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.update;
+    return AlertDialog(
+      backgroundColor: C.card,
+      title: Text('New version ${u.versionName}'.trim()),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(u.notes.isEmpty ? 'A newer version of the app is ready.' : u.notes,
+                style: const TextStyle(height: 1.45)),
+            const SizedBox(height: 12),
+            const Text('Your login, playlists and favourites stay.', style: TextStyle(color: C.dim, height: 1.45)),
+            if (_busy) ...[
+              const SizedBox(height: 18),
+              LinearProgressIndicator(value: _percent > 0 ? _percent / 100 : null, color: C.accent),
+              const SizedBox(height: 8),
+              Text(_percent > 0 ? 'Downloading… $_percent%' : 'Downloading…', style: const TextStyle(color: C.dim)),
+            ],
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(_error, style: const TextStyle(color: C.danger, height: 1.4)),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: _busy ? null : () => Navigator.of(context).pop(), child: const Text('Later')),
+        if (_error.isNotEmpty) TextButton(onPressed: _browser, child: const Text('Open in browser')),
+        FilledButton(autofocus: true, onPressed: _busy ? null : _install, child: const Text('Update now')),
       ],
     );
   }

@@ -41,6 +41,14 @@ const String kTvPlatform = String.fromEnvironment('B1G_TV_PLATFORM', defaultValu
 const int kIosBuild = int.fromEnvironment('B1G_BUILD');
 const String kIosFeed = String.fromEnvironment('B1G_IOS_FEED');
 
+/// Windows build: like the iPhone one, its build number is [kIosBuild] (B1G_BUILD) and newer
+/// builds come from the Windows release (windows-update.json), not from the website's Android
+/// numbers. The app downloads the new installer and runs it.
+const String kWinFeed = String.fromEnvironment('B1G_WIN_FEED');
+
+/// Test builds only: every log line is also written to this file (the Windows test reads it).
+const String kLogFile = String.fromEnvironment('B1G_LOG_FILE');
+
 /// Google Play build: Play installs the updates (the app never downloads its own APK) and the
 /// built-in VPN is left out (Play only allows VPN apps whose main job is the VPN).
 const bool kPlay = bool.fromEnvironment('B1G_PLAY');

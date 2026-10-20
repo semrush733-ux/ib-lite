@@ -34,10 +34,12 @@ class NetInfo {
   final bool wifiOn;
 }
 
-/// Settings › Network, talking to NetHelper on the Android side.
+/// Settings › Network, talking to NetHelper on the Android side (windows_extra/b1g_device.cpp
+/// on Windows, where joining a network opens the Windows Wi-Fi settings).
 class Net {
   static const _ch = MethodChannel('b1g/device');
-  static bool get available => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  static bool get available =>
+      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.windows);
 
   static int _i(Object? v) => v is num ? v.toInt() : 0;
 

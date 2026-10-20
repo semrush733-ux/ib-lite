@@ -23,8 +23,8 @@ class Downloads extends ChangeNotifier {
   Downloads._();
   static final Downloads i = Downloads._();
 
-  /// Android only (TV, Fire TV, phones); not in the Google Play build.
-  static bool get available => !kPlay && Platform.isAndroid;
+  /// Android (TV, Fire TV, phones) and Windows; not in the Google Play build.
+  static bool get available => !kPlay && (Platform.isAndroid || Platform.isWindows);
 
   /// Other places that may be playing a video (the live preview registers itself here).
   static final Set<bool Function()> watchers = {};
@@ -52,8 +52,14 @@ class Downloads extends ChangeNotifier {
     if (_loaded || !available) return;
     _loaded = true;
     try {
-      final base = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
-      _dir = Directory('${base.path}/downloads')..createSync(recursive: true);
+      if (Platform.isWindows) {
+        // Windows: Documents\<app name>\Downloads, where people can also find the files.
+        final docs = await getApplicationDocumentsDirectory();
+        _dir = Directory('${docs.path}\\$kAppName\\Downloads')..createSync(recursive: true);
+      } else {
+        final base = await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+        _dir = Directory('${base.path}/downloads')..createSync(recursive: true);
+      }
       final f = File('${_dir!.path}/list.json');
       if (f.existsSync()) {
         final list = jsonDecode(f.readAsStringSync());
@@ -68,7 +74,7 @@ class Downloads extends ChangeNotifier {
         if (d.state == DlState.running || d.state == DlState.waiting) d.state = DlState.queued;
         if (d.done && !File(d.path).existsSync()) {
           d.state = DlState.failed;
-          d.error = 'The file was removed from the TV.';
+          d.error = Platform.isWindows ? 'The file was removed from this computer.' : 'The file was removed from the TV.';
         }
       }
     } catch (e) {
@@ -207,11 +213,14 @@ class Downloads extends ChangeNotifier {
       } catch (e) {
         if (_stop) break;
         tries++;
-        final full = e is FileSystemException && (e.osError?.errorCode == 28 || '${e.osError}'.contains('No space'));
+        // 28: Android / Linux "no space"; 39 and 112: Windows "disk full".
+        final code = e is FileSystemException ? e.osError?.errorCode : null;
+        final full = e is FileSystemException &&
+            (code == 28 || (Platform.isWindows && (code == 39 || code == 112)) || '${e.osError}'.contains('No space'));
         if (full || tries >= 6) {
           d.state = DlState.failed;
           d.speed = 0;
-          d.error = full ? 'The TV storage is full.' : _reason(e);
+          d.error = full ? (Platform.isWindows ? 'The disk is full.' : 'The TV storage is full.') : _reason(e);
           break;
         }
         d.speed = 0;

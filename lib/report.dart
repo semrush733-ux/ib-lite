@@ -36,7 +36,7 @@ Future<void> showReportDialog(BuildContext context) async {
 /// The TV's model, Android version, memory and screen, for the report.
 Future<Map<String, Object>> _deviceInfo() async {
   final out = <String, Object>{};
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.windows)) {
     try {
       final m = await const MethodChannel('b1g/device').invokeMethod<Map<dynamic, dynamic>>('deviceInfo');
       m?.forEach((k, v) {

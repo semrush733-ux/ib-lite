@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, Tar
 import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter/painting.dart' show PaintingBinding;
 import 'package:flutter/services.dart' show MethodChannel;
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -281,36 +282,38 @@ class Backend {
     } catch (_) {
       // Not on Android (tests): no update check.
     }
-    if (_ios && kIosBuild > 0) {
+    if ((_ios || _windows) && kIosBuild > 0) {
       appVersionCode = kIosBuild;
       appVersionName = '1.0.$kIosBuild';
     }
   }
 
   static bool get _ios => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  static bool get _windows => !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
-  /// iPhone: newer builds come from the iPhone release, not from the website (Android numbers).
-  static Future<void> _checkIosUpdate() async {
-    if (kIosFeed.isEmpty) return;
+  /// iPhone and Windows: newer builds come from their own release (ios-update.json /
+  /// windows-update.json), not from the website (those are Android build numbers).
+  static Future<void> _checkFeedUpdate(String feed) async {
+    if (feed.isEmpty) return;
     try {
-      final r = await http.get(Uri.parse(kIosFeed)).timeout(const Duration(seconds: 15));
+      final r = await http.get(Uri.parse(feed)).timeout(const Duration(seconds: 15));
       if (r.statusCode != 200) return;
       final j = jsonDecode(r.body);
       if (j is! Map) return;
       final code = int.tryParse('${j['version_code'] ?? ''}') ?? 0;
-      final ipa = '${j['ipa_url'] ?? ''}'.trim();
-      if (code <= 0 || !ipa.startsWith('http')) return;
+      final file = '${j['exe_url'] ?? j['ipa_url'] ?? ''}'.trim();
+      if (code <= 0 || !file.startsWith('http')) return;
       update = BUpdate(
         versionCode: code,
         versionName: '${j['version_name'] ?? ''}'.trim(),
-        apkUrl: ipa,
+        apkUrl: file,
         notes: '${j['notes'] ?? ''}'.trim(),
         sourceUrl: '${j['source_url'] ?? ''}'.trim(),
       );
-      log('ios update feed=$code app=$appVersionCode');
+      log('${_windows ? 'windows' : 'ios'} update feed=$code app=$appVersionCode');
       changes.value++;
     } catch (e) {
-      log('ios update feed: ${e.runtimeType}');
+      log('update feed: ${e.runtimeType}');
     }
   }
 
@@ -458,7 +461,9 @@ class Backend {
       if (kPlay) {
         update = null; // Google Play updates the app itself
       } else if (_ios) {
-        unawaited(_checkIosUpdate());
+        unawaited(_checkFeedUpdate(kIosFeed));
+      } else if (_windows) {
+        unawaited(_checkFeedUpdate(kWinFeed));
       } else {
         update = BUpdate.fromJson(data['update']);
       }
@@ -502,6 +507,12 @@ class Backend {
         ids = registrationIds(await _device.invokeMethod<dynamic>('deviceIds'));
       } catch (_) {
         // Not available: register without them, as before.
+      }
+      // Windows gives its machine id: only a hash of it leaves the computer (it stays the same
+      // after a reinstall, so the website finds this computer and its licence again).
+      final raw = ids['hwid'];
+      if (_windows && raw != null) {
+        ids = {...ids, 'hwid': 'win-${sha256.convert(utf8.encode(raw)).toString().substring(0, 40)}'};
       }
       log('backend register hwid=${ids.containsKey('hwid') ? 'yes' : 'no'} mac=${ids.containsKey('mac') ? 'yes' : 'no'}');
       final data = await _post('/device/register', {

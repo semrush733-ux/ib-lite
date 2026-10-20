@@ -17,7 +17,7 @@ name: Lite Player app
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md', 'recorder/**', '.github/workflows/recorder.yml', 'admin_app/**', 'brand/admin-icon.png', 'brand/make-admin-icon.py', '.github/workflows/admin-ios.yml', '.github/workflows/admin.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**', '.github/workflows/play.yml', 'tvlite/**', 'tools/build_tvlite.py', 'tools/make_demo_art.py']
+    paths-ignore: ['**.md', 'recorder/**', '.github/workflows/recorder.yml', 'admin_app/**', 'brand/admin-icon.png', 'brand/make-admin-icon.py', '.github/workflows/admin-ios.yml', '.github/workflows/admin.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**', '.github/workflows/play.yml', 'tvlite/**', 'tools/build_tvlite.py', 'tools/make_demo_art.py', '.github/workflows/windows.yml', 'windows_extra/**', 'tools/windows_setup.py', 'ci/smoke_windows.py']
   # "Run workflow" button in GitHub Actions: rebuild with the icon set in the website admin.
   workflow_dispatch:
   # Every hour: when the app name or icon was changed in the website admin (App look), a new

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'config.dart';
 import 'logbook.dart';
+import 'logfile.dart' if (dart.library.js_interop) 'logfile_web.dart';
 import 'remote_brand.dart';
 
 class C {
@@ -46,6 +47,7 @@ class _NoTransitions extends PageTransitionsBuilder {
 
 void log(String message) {
   debugPrint('B1G $message');
+  if (kLogFile.isNotEmpty) writeLogLine(kLogFile, 'B1G $message');
   // Kept in memory (cleaned) for "Report a problem".
   LogBook.add(message);
 }

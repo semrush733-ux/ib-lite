@@ -1,0 +1,196 @@
+name: Windows app (EXE)
+
+# Builds the same player for Windows computers (Windows 10 and 11, 64-bit).
+#
+# Result: release "windows-latest" with
+#   <App>-Setup.exe       installer (current user, no administrator question; Start menu + desktop)
+#   <App>-Windows.zip     portable: unzip anywhere and start <App>.exe, nothing is installed
+#   windows-update.json   the app looks here for newer builds and installs them itself
+#
+# Before anything is published the TEST build is opened on this Windows machine and driven with
+# the keyboard against a mock IPTV server (ci/smoke_windows.py): sign in, Live TV, a channel full
+# screen, F11, Esc. When the program does not even open, nothing is published (the TVs' and PCs'
+# update check keeps the previous build). The result and screenshots go into the release notes /
+# the run's artifacts.
+#
+# The program is not signed with a code-signing certificate: Windows SmartScreen may show
+# "Windows protected your PC" once (More info > Run anyway).
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'recorder/**', '.github/workflows/recorder.yml', 'admin_app/**', 'brand/admin-icon.png', 'brand/make-admin-icon.py', '.github/workflows/admin-ios.yml', '.github/workflows/admin.yml', '.github/workflows/lite.yml', '.github/workflows/ios.yml', '.github/workflows/tizen.yml', 'tizen/**', '.github/workflows/webos.yml', 'webos/**', '.github/workflows/play.yml', 'tvlite/**', 'tools/build_tvlite.py', 'tools/make_demo_art.py', 'android_extra/**', 'android_overlay/**', 'tools/aab_manifest.py', 'ci/smoke.py']
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  exe:
+    runs-on: windows-2022
+    timeout-minutes: 80
+    defaults:
+      run:
+        shell: bash
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | tr -d '\r' | sed 's/[[:space:]]*$//'; }
+          APP_NAME="$(get APP_NAME)"; WEBSITE="$(get WEBSITE)"
+          WEBSITE="${WEBSITE%/}"
+          API_BASE=""; [ -n "$WEBSITE" ] && API_BASE="$WEBSITE/wp-json/b1g/v1"
+          python -m pip install --quiet --disable-pip-version-check pillow
+          python tools/fetch_brand.py "$WEBSITE" || true
+          if [ -s brand/site_label.txt ]; then APP_NAME="$(tr -d '\r\n' < brand/site_label.txt)"; fi
+          EXE_NAME="$(echo "$APP_NAME" | tr -cd '[:alnum:]')"; [ -n "$EXE_NAME" ] || EXE_NAME=App
+          { echo "APP_NAME=$APP_NAME"; echo "API_BASE=$API_BASE"; echo "EXE_NAME=$EXE_NAME"; echo "WEBSITE=$WEBSITE"; } >> "$GITHUB_ENV"
+          echo "brand: $APP_NAME ($EXE_NAME.exe) website: ${WEBSITE:-(not set)}"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create the Windows project
+        run: |
+          set -e
+          flutter --version | head -1
+          flutter create --no-pub --platforms=windows --org com.b1g --project-name b1gtv ../win-scaffold
+          cp -r ../win-scaffold/windows windows
+          # The video engine's Windows part (libmpv); the Android build uses its Android part.
+          flutter pub add media_kit_libs_windows_video
+          python tools/windows_setup.py "$APP_NAME" "$EXE_NAME"
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build the app
+        id: build
+        continue-on-error: true
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          set -eo pipefail
+          mkdir -p out
+          SERVER="$(tr -d ' \r\n' < config/server.txt 2>/dev/null || true)"
+          FEED="https://github.com/${{ github.repository }}/releases/download/windows-latest/windows-update.json"
+          flutter build windows --release \
+            --build-name "1.0.$BUILD_NUMBER" --build-number "$BUILD_NUMBER" \
+            --dart-define=B1G_SERVER="$SERVER" --dart-define=B1G_TMDB_KEY="$TMDB_API_KEY" \
+            --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_API_BASE="$API_BASE" \
+            --dart-define=B1G_BUILD="$BUILD_NUMBER" --dart-define=B1G_WIN_FEED="$FEED" \
+            2>&1 | tee out/build.log
+          rm -rf out/app && cp -r build/windows/x64/runner/Release out/app
+          # The Visual C++ runtime goes next to the program, so PCs without it run the app too.
+          for f in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do cp "/c/Windows/System32/$f" out/app/; done
+          cp windows/runner/resources/app_icon.ico out/app_icon.ico
+          ls -la out/app
+
+      - name: Build the test version (mock server, log file; never published)
+        id: testbuild
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -eo pipefail
+          mkdir -p out/smoke-win
+          LOGFILE="$(cygpath -w "$PWD/out/smoke-win/app-raw-log.txt")"
+          echo "TEST_LOG=$LOGFILE" >> "$GITHUB_ENV"
+          M=http://127.0.0.1:8787
+          flutter build windows --release \
+            --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_VERBOSE=true --dart-define=B1G_NO_AUTO_DIRECT=true \
+            --dart-define=B1G_TMDB_KEY=test --dart-define=B1G_TMDB_BASE=$M/3 --dart-define=B1G_TMDB_IMAGES=$M/t/p \
+            --dart-define=B1G_API_BASE=$M/wp-json/b1g/v1 --dart-define=B1G_PREFILL_SERVER=$M \
+            --dart-define=B1G_PREFILL_USER=demo --dart-define=B1G_PREFILL_PASS=demo \
+            --dart-define=B1G_LOG_FILE="$LOGFILE" 2>&1 | tail -5
+          rm -rf out/test-app && cp -r build/windows/x64/runner/Release out/test-app
+          for f in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do cp "/c/Windows/System32/$f" out/test-app/; done
+
+      - name: Test on this Windows machine
+        id: smoke
+        if: steps.testbuild.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 25
+        run: |
+          choco install ffmpeg -y --no-progress > /dev/null || true
+          export PATH="$PATH:/c/ProgramData/chocolatey/bin"
+          PYTHON=python bash ci/make_media.sh > /dev/null
+          powershell -NoProfile -Command "try { Set-DisplayResolution -Width 1920 -Height 1080 -Force } catch { Write-Host 'screen size stays' }" || true
+          python ci/smoke_windows.py "out/test-app/$EXE_NAME.exe" "$APP_NAME" "$TEST_LOG"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test
+          path: out/smoke-win/
+          if-no-files-found: warn
+
+      - name: Make the installer and the portable ZIP
+        id: package
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -e
+          ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
+          [ -f "$ISCC" ] || choco install innosetup -y --no-progress > /dev/null
+          "$ISCC" /Qp "/DAppName=$APP_NAME" "/DAppVersion=1.0.$BUILD_NUMBER" "/DAppExe=$EXE_NAME" \
+            "/DAppSite=$WEBSITE" "/DSourceDir=$(cygpath -w "$PWD/out/app")" "/DOutDir=$(cygpath -w "$PWD/out")" \
+            "/DIconFile=$(cygpath -w "$PWD/out/app_icon.ico")" "$(cygpath -w "$PWD/windows_extra/installer.iss")"
+          # Portable: one folder named after the app, the program inside it.
+          rm -rf out/portable && mkdir -p out/portable && cp -r out/app "out/portable/$APP_NAME"
+          (cd out/portable && 7z a -tzip -mx=7 "../$EXE_NAME-Windows.zip" "$APP_NAME" > /dev/null)
+          ls -la out
+
+      - name: Publish to the "windows-latest" release
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SETUP="out/$EXE_NAME-Setup.exe"
+          ZIP="out/$EXE_NAME-Windows.zip"
+          OPENS="$(cat out/smoke-win/STATUS 2>/dev/null || true)"
+          FILES=""
+          # Only a program that opened on the test machine is published.
+          if [ -f "$SETUP" ] && [ -f "$ZIP" ] && [ "$OPENS" = "ok" ]; then
+            REL="https://github.com/${{ github.repository }}/releases/download/windows-latest"
+            python -c "import json,sys; print(json.dumps({'version_code': int(sys.argv[1]), 'version_name': '1.0.' + sys.argv[1], 'exe_url': sys.argv[2], 'notes': ''}))" \
+              "$BUILD_NUMBER" "$REL/$EXE_NAME-Setup.exe" > out/windows-update.json
+            FILES="$SETUP $ZIP out/windows-update.json"
+          fi
+          TITLE="$APP_NAME Windows - build #$BUILD_NUMBER"
+          if [ -z "$FILES" ]; then
+            if [ -f "$SETUP" ]; then TITLE="$TITLE FAILED: the program does not open (Windows test)"; else TITLE="$TITLE FAILED"; fi
+          fi
+          {
+            echo "Windows 10 / 11 (64-bit)."
+            echo ""
+            echo "- **$EXE_NAME-Setup.exe**: installer (no administrator needed; Start menu and desktop shortcut)."
+            echo "- **$EXE_NAME-Windows.zip**: portable: unzip and start $EXE_NAME.exe."
+            echo ""
+            echo "Not signed with a code-signing certificate: if Windows shows \"Windows protected your PC\", choose More info > Run anyway."
+            echo "Keyboard: arrows and Enter like the remote, Esc = Back, F11 or Alt+Enter = full screen. The mouse works everywhere."
+            echo ""
+            [ -f out/smoke-win/SMOKE.md ] && cat out/smoke-win/SMOKE.md
+            if [ "${{ steps.build.outcome }}" != "success" ]; then
+              echo "### Build errors"
+              echo '```'
+              grep -E "error|Error|FAILED|failed" out/build.log 2>/dev/null | cut -c1-300 | sort -u | head -60 || true
+              echo '---'
+              tail -60 out/build.log 2>/dev/null | cut -c1-300 || true
+              echo '```'
+            fi
+          } > out/NOTES.md
+          if gh release view windows-latest > /dev/null 2>&1; then
+            [ -n "$FILES" ] && gh release upload windows-latest $FILES --clobber
+            gh release edit windows-latest --title "$TITLE" --notes-file out/NOTES.md
+          else
+            gh release create windows-latest $FILES --target "$GITHUB_SHA" --title "$TITLE" --notes-file out/NOTES.md
+          fi

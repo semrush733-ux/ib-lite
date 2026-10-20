@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../backend.dart';
@@ -28,9 +29,10 @@ enum _Section { network, vpn, vod, live, subtitles, parental, profiles, wallpape
 /// The Google Play build has no VPN section.
 // The Google Play build has no VPN and no streaming-service boxes (a player for the customer's
 // own media: no other companies' names on the home screen).
+// The VPN section only shows where the VPN works (the Android app).
 final _sections = [
   for (final s in _Section.values)
-    if (!(kPlay && (s == _Section.vpn || s == _Section.streaming))) s
+    if (!(kPlay && (s == _Section.vpn || s == _Section.streaming)) && !(s == _Section.vpn && !Vpn.available)) s
 ];
 
 const _titles = {
@@ -1420,14 +1422,15 @@ class _NetworkPanelState extends State<_NetworkPanel> with WidgetsBindingObserve
                 radius: 10,
                 color: C.card,
                 onTap: Net.openSettings,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.settings_rounded, size: 17, color: C.dim),
-                      SizedBox(width: 8),
-                      Text('TV Wi-Fi settings', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+                      const Icon(Icons.settings_rounded, size: 17, color: C.dim),
+                      const SizedBox(width: 8),
+                      Text(defaultTargetPlatform == TargetPlatform.windows ? 'Wi-Fi settings' : 'TV Wi-Fi settings',
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),
