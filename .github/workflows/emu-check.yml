@@ -1,0 +1,126 @@
+name: Emulator check (old vs new)
+
+# Temporary: runs the Android emulator test (ci/smoke.py) on the commit of this branch, exactly as
+# lite.yml does, without publishing anything. Result on the branch ci-<this branch>.
+
+on:
+  push:
+    branches: [emu-check-audio, emu-check-guest]
+
+concurrency:
+  group: emu-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply the brand
+        run: |
+          get() { grep -E "^$1=" brand/brand.txt | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//'; }
+          APP_NAME="$(get APP_NAME)"; WEBSITE="$(get WEBSITE)"; WEBSITE="${WEBSITE%/}"
+          { echo "APP_NAME=$APP_NAME"; echo "APP_ID=$(get PACKAGE_ID)"; } >> "$GITHUB_ENV"
+          python3 -m pip install --quiet pillow || true
+          python3 tools/fetch_brand.py "$WEBSITE"
+          if [ -s brand/site_label.txt ]; then echo "APP_NAME=$(cat brand/site_label.txt)" >> "$GITHUB_ENV"; fi
+          python3 tools/brand_icons.py
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create the Android project
+        run: |
+          flutter create --no-pub --platforms=android --org com.b1g --project-name b1gtv "$RUNNER_TEMP/scaffold"
+          cp -r "$RUNNER_TEMP/scaffold/android" android
+          cp -r android_overlay/. android/
+          sed -i "s|android:label=\"[^\"]*\"|android:label=\"$APP_NAME\"|" android/app/src/main/AndroidManifest.xml
+          if [ -f android/app/build.gradle.kts ]; then
+            cat android_extra/app-build-extra.gradle.kts >> android/app/build.gradle.kts
+          else
+            cat android_extra/app-build-extra.gradle >> android/app/build.gradle
+          fi
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build the test app
+        env:
+          B1G_ABIS: x86_64
+        run: |
+          flutter build apk --release --target-platform android-x64 \
+            --dart-define=APP_NAME="$APP_NAME" --dart-define=B1G_VERBOSE=true --dart-define=B1G_NO_AUTO_DIRECT=true --dart-define=B1G_TMDB_KEY=test --dart-define=B1G_TMDB_BASE=http://10.0.2.2:8787/3 --dart-define=B1G_TMDB_IMAGES=http://10.0.2.2:8787/t/p --dart-define=B1G_API_BASE=http://10.0.2.2:8787/wp-json/b1g/v1 --dart-define=B1G_PREFILL_SERVER=http://10.0.2.2:8787 --dart-define=B1G_PREFILL_USER=demo --dart-define=B1G_PREFILL_PASS=demo
+          mkdir -p out-smoke
+          cp build/app/outputs/flutter-apk/app-release.apk out-smoke/b1g-smoke.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b1g-smoke
+          path: out-smoke/
+          retention-days: 2
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: b1g-smoke
+          path: out/smoke-apk
+
+      - name: Make the test videos
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg python3-pil
+          ci/make_media.sh
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the app on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        continue-on-error: true
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu guest -noaudio -no-boot-anim -no-snapshot -memory 4096
+          script: |
+            $ANDROID_HOME/emulator/emulator -version | head -1 > out-emulator-version.txt || true
+            python3 ci/smoke.py
+
+      - name: Publish the result
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D="$RUNNER_TEMP/smoke-branch"; rm -rf "$D"; mkdir -p "$D"
+          cp out/smoke/*.png out/smoke/*.md out/smoke/app-log.txt out/smoke/mock-server.log "$D"/ 2>/dev/null || true
+          cp out-emulator-version.txt "$D"/ 2>/dev/null || true
+          { grep -E "flutter|FATAL|AndroidRuntime|ANR|lowmemorykiller|am_crash|b1gtv|liteplayer|ExoPlayer|MediaCodec|OutOfMemory" out/smoke/logcat-live.txt | cut -c1-400 | tail -4000; } > "$D/logcat-live-filtered.txt" 2>/dev/null || true
+          tail -300 out/smoke/logcat-live.txt 2>/dev/null | cut -c1-400 > "$D/logcat-live-tail.txt" || true
+          cd "$D"
+          git init -q && git checkout -q -b "ci-${GITHUB_REF_NAME}" && git add -A
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -q -m "Emulator check ${GITHUB_REF_NAME} ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "ci-${GITHUB_REF_NAME}"
