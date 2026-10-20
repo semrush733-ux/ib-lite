@@ -1,0 +1,300 @@
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insertInternal(MediaProvider.java:5287)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insert(MediaProvider.java:4980)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at android.content.ContentProviderOperation.applyInternal(ContentProviderOperation.java:375)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at android.content.ContentProviderOperation.apply(ContentProviderOperation.java:347)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at android.content.ContentProvider.applyBatch(ContentProvider.java:2653)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.applyBatch(MediaProvider.java:5339)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at android.content.ContentProvider.applyBatch(ContentProvider.java:2644)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at android.content.ContentResolver.applyBatch(ContentResolver.java:2246)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.applyPending(ModernMediaScanner.java:957)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.maybeApplyPending(ModernMediaScanner.java:947)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:853)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:338)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at java.nio.file.Files.walkFileTree(Files.java:2670)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at java.nio.file.Files.walkFileTree(Files.java:2742)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.walkFileTree(ModernMediaScanner.java:454)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.runInternal(ModernMediaScanner.java:417)
+10-20 22:17:38.642 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.run(ModernMediaScanner.java:406)
+10-20 22:17:38.643 D/EGL_emulation( 2216): app_time_stats: avg=393.99ms min=29.66ms max=819.33ms count=3
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner.scanDirectory(ModernMediaScanner.java:252)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.scanDirectory(MediaProvider.java:1939)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onScanVolume(MediaService.java:204)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onScanVolume(MediaService.java:172)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onHandleWork(MediaService.java:95)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:396)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:387)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at android.os.AsyncTask$3.call(AsyncTask.java:394)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-20 22:17:38.649 W/ModernMediaScanner( 1473): 	at java.lang.Thread.run(Thread.java:1012)
+10-20 22:17:38.681 I/flutter ( 2216): B1G backend config server=none update=0 app=1
+10-20 22:17:38.732 E/TaskPersister(  504): File error accessing recents directory (directory doesn't exist?).
+10-20 22:17:39.214 D/AvrcpBrowsablePlayerConnector(  977): Received a message: msg.what=2
+10-20 22:17:39.214 V/AvrcpBrowsablePlayerConnector(  977): Timed out waiting for players
+10-20 22:17:39.214 I/AvrcpBrowsablePlayerConnector(  977): Successfully connected to 0 browsable players.
+10-20 22:17:39.214 I/MediaPlayerList(  977): init: Browsable Player list size is 0
+10-20 22:17:39.288 W/BroadcastLoopers(  504): Found previously unknown looper Thread[appscheduling.default,5,main]
+10-20 22:17:39.697 D/EGL_emulation( 2216): app_time_stats: avg=85.23ms min=44.57ms max=238.00ms count=12
+10-20 22:17:39.712 D/CompatibilityChangeReporter( 1654): Compat change id reported: 253665015; UID 10062; state: ENABLED
+10-20 22:17:39.712 D/CompatibilityChangeReporter( 1654): Compat change id reported: 194532703; UID 10062; state: ENABLED
+10-20 22:17:39.772 D/CompatibilityChangeReporter(  504): Compat change id reported: 253665015; UID 10062; state: ENABLED
+10-20 22:17:39.772 D/CompatibilityChangeReporter(  504): Compat change id reported: 194532703; UID 10062; state: ENABLED
+10-20 22:17:40.177 I/servicemanager(    0): Notifying android.hardware.drm.IDrmFactory/clearkey they do (previously: don't) have clients when service is guaranteed to be in use
+10-20 22:17:40.216 I/servicemanager(    0): Notifying android.hardware.drm.IDrmFactory/clearkey they don't (previously: do) have clients when we now have no record of a client
+10-20 22:17:40.225 I/servicemanager(    0): Notifying artd they don't (previously: do) have clients when we now have no record of a client
+10-20 22:17:40.233 I/servicemanager(    0): Unregistering artd
+10-20 22:17:40.236 I/BpBinder(    0): onLastStrongRef automatically unlinking death recipients:
+10-20 22:17:40.240 I/init    (    0): Service 'artd' (pid 2100) exited with status 0 oneshot service took 5.047000 seconds in background
+10-20 22:17:40.242 I/init    (    0): Sending signal 9 to service 'artd' (pid 2100) process group...
+10-20 22:17:40.249 I/libprocessgroup(    0): Successfully killed process cgroup uid 1082 pid 2100 in 0ms
+10-20 22:17:40.027 I/AidlLazyServiceRegistrar( 2100): Process has 0 (of 1 available) client(s) in use after notification artd has clients: 0
+10-20 22:17:40.027 I/AidlLazyServiceRegistrar( 2100): Trying to shut down the service. No clients in use for any service in process.
+10-20 22:17:40.032 I/AidlLazyServiceRegistrar( 2100): Unregistered all clients and exiting
+10-20 22:17:40.038 I/AidlLazyServiceRegistrar( 2161): Process has 1 (of 1 available) client(s) in use after notification android.hardware.drm.IDrmFactory/clearkey has clients: 1
+10-20 22:17:40.038 I/AidlLazyServiceRegistrar( 2161): Process has 0 (of 1 available) client(s) in use after notification android.hardware.drm.IDrmFactory/clearkey has clients: 0
+10-20 22:17:40.038 I/AidlLazyServiceRegistrar( 2161): Trying to shut down the service. No clients in use for any service in process.
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): Failed to apply ContentProviderOperation(type=insert uri=content://media/internal/file values={instance_id=null, compilation=null, disc_number=0, duration=4383, is_ringtone=0, album_artist=null, resolution=null, orientation=null, artist=Unknown, author=null, height=null, is_drm=0, is_audiobook=0, date_modified=1702767290, writer=null, composer=null, 
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): android.database.sqlite.SQLiteConstraintException: UNIQUE constraint failed: files._data (code 2067 SQLITE_CONSTRAINT_UNIQUE)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteConnection.nativeExecuteForLastInsertedRowId(Native Method)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteConnection.executeForLastInsertedRowId(SQLiteConnection.java:961)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteSession.executeForLastInsertedRowId(SQLiteSession.java:790)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteStatement.executeInsert(SQLiteStatement.java:89)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.DatabaseUtils.executeInsert(DatabaseUtils.java:488)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.insert(SQLiteQueryBuilder.java:611)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.lambda$insert$1(SQLiteQueryBuilder.java:575)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.$r8$lambda$z6PmNgi8nEawad46M5nyYc14aRM(SQLiteQueryBuilder.java:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder$$ExternalSyntheticLambda4.apply(R8$$SyntheticClass:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.DatabaseHelper.runWithTransaction(DatabaseHelper.java:850)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.insert(SQLiteQueryBuilder.java:574)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.lambda$insertAllowingUpsert$20(MediaProvider.java:4846)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.$r8$lambda$A8_bSAcDGkyGiCcvRo57xoMQkf8(MediaProvider.java:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider$$ExternalSyntheticLambda39.apply(R8$$SyntheticClass:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.DatabaseHelper.runWithTransaction(DatabaseHelper.java:850)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insertAllowingUpsert(MediaProvider.java:4836)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insertFile(MediaProvider.java:4818)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insertInternal(MediaProvider.java:5287)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insert(MediaProvider.java:4980)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProviderOperation.applyInternal(ContentProviderOperation.java:375)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProviderOperation.apply(ContentProviderOperation.java:347)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProvider.applyBatch(ContentProvider.java:2653)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.applyBatch(MediaProvider.java:5339)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProvider.applyBatch(ContentProvider.java:2644)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentResolver.applyBatch(ContentResolver.java:2246)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.applyPending(ModernMediaScanner.java:957)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.maybeApplyPending(ModernMediaScanner.java:947)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:853)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:338)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.nio.file.Files.walkFileTree(Files.java:2670)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.nio.file.Files.walkFileTree(Files.java:2742)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.walkFileTree(ModernMediaScanner.java:454)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.runInternal(ModernMediaScanner.java:417)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.run(ModernMediaScanner.java:406)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner.scanDirectory(ModernMediaScanner.java:252)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.scanDirectory(MediaProvider.java:1939)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onScanVolume(MediaService.java:204)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onScanVolume(MediaService.java:172)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onHandleWork(MediaService.java:95)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:396)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:387)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.os.AsyncTask$3.call(AsyncTask.java:394)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.lang.Thread.run(Thread.java:1012)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): Failed to apply ContentProviderOperation(type=insert uri=content://media/internal/file values={instance_id=null, compilation=null, disc_number=null, duration=1000, is_ringtone=0, album_artist=null, resolution=null, orientation=null, artist=pdx, author=null, height=null, is_drm=0, is_audiobook=0, date_modified=1702767290, writer=null, composer=null, _
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): android.database.sqlite.SQLiteConstraintException: UNIQUE constraint failed: files._data (code 2067 SQLITE_CONSTRAINT_UNIQUE)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteConnection.nativeExecuteForLastInsertedRowId(Native Method)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteConnection.executeForLastInsertedRowId(SQLiteConnection.java:961)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteSession.executeForLastInsertedRowId(SQLiteSession.java:790)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.database.sqlite.SQLiteStatement.executeInsert(SQLiteStatement.java:89)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.DatabaseUtils.executeInsert(DatabaseUtils.java:488)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.insert(SQLiteQueryBuilder.java:611)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.lambda$insert$1(SQLiteQueryBuilder.java:575)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.$r8$lambda$z6PmNgi8nEawad46M5nyYc14aRM(SQLiteQueryBuilder.java:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder$$ExternalSyntheticLambda4.apply(R8$$SyntheticClass:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.DatabaseHelper.runWithTransaction(DatabaseHelper.java:850)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.util.SQLiteQueryBuilder.insert(SQLiteQueryBuilder.java:574)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.lambda$insertAllowingUpsert$20(MediaProvider.java:4846)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.$r8$lambda$A8_bSAcDGkyGiCcvRo57xoMQkf8(MediaProvider.java:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider$$ExternalSyntheticLambda39.apply(R8$$SyntheticClass:0)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.DatabaseHelper.runWithTransaction(DatabaseHelper.java:850)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insertAllowingUpsert(MediaProvider.java:4836)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insertFile(MediaProvider.java:4818)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insertInternal(MediaProvider.java:5287)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.insert(MediaProvider.java:4980)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProviderOperation.applyInternal(ContentProviderOperation.java:375)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProviderOperation.apply(ContentProviderOperation.java:347)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProvider.applyBatch(ContentProvider.java:2653)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.applyBatch(MediaProvider.java:5339)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentProvider.applyBatch(ContentProvider.java:2644)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at android.content.ContentResolver.applyBatch(ContentResolver.java:2246)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.applyPending(ModernMediaScanner.java:957)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.maybeApplyPending(ModernMediaScanner.java:947)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:853)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.visitFile(ModernMediaScanner.java:338)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.nio.file.Files.walkFileTree(Files.java:2670)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at java.nio.file.Files.walkFileTree(Files.java:2742)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.walkFileTree(ModernMediaScanner.java:454)
+10-20 22:17:40.061 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.runInternal(ModernMediaScanner.java:417)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner$Scan.run(ModernMediaScanner.java:406)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at com.android.providers.media.scan.ModernMediaScanner.scanDirectory(ModernMediaScanner.java:252)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaProvider.scanDirectory(MediaProvider.java:1939)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onScanVolume(MediaService.java:204)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onScanVolume(MediaService.java:172)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at com.android.providers.media.MediaService.onHandleWork(MediaService.java:95)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:396)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at androidx.core.app.JobIntentService$CommandProcessor.doInBackground(JobIntentService.java:387)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at android.os.AsyncTask$3.call(AsyncTask.java:394)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at java.util.concurrent.FutureTask.run(FutureTask.java:264)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:644)
+10-20 22:17:40.062 W/ModernMediaScanner( 1473): 	at java.lang.Thread.run(Thread.java:1012)
+10-20 22:17:40.266 I/servicemanager(    0): Unregistering android.hardware.drm.IDrmFactory/clearkey
+10-20 22:17:40.278 I/BpBinder(    0): onLastStrongRef automatically unlinking death recipients:
+10-20 22:17:40.284 I/init    (    0): Service 'vendor.drm-clearkey-service' (pid 2161) exited with status 0 oneshot service took 4.781000 seconds in background
+10-20 22:17:40.290 I/init    (    0): Sending signal 9 to service 'vendor.drm-clearkey-service' (pid 2161) process group...
+10-20 22:17:40.293 I/libprocessgroup(    0): Successfully killed process cgroup uid 1013 pid 2161 in 0ms
+10-20 22:17:40.074 I/AidlLazyServiceRegistrar( 2161): Unregistered all clients and exiting
+10-20 22:17:40.212 I/MediaProvider( 1473): Scanned internal due to REASON_MOUNTED, found 225 items in 5343ms, 221 inserts 4 updates 0 deletes
+10-20 22:17:40.219 D/CompatibilityChangeReporter(  504): Compat change id reported: 182734110; UID 1000; state: ENABLED
+10-20 22:17:40.229 W/MediaProvider( 1473): Didn't find any volume for getVolume(/product/media/audio/ringtones/Ring_Synth_04.ogg)
+10-20 22:17:40.230 I/MediaProvider( 1473): Open with lower FS for /product/media/audio/ringtones/Ring_Synth_04.ogg. Uid: 10128
+10-20 22:17:40.248 W/MediaProvider( 1473): Didn't find any volume for getVolume(/product/media/audio/notifications/pixiedust.ogg)
+10-20 22:17:40.253 I/MediaProvider( 1473): Open with lower FS for /product/media/audio/notifications/pixiedust.ogg. Uid: 10128
+10-20 22:17:40.265 W/MediaProvider( 1473): Didn't find any volume for getVolume(/product/media/audio/alarms/Alarm_Classic.ogg)
+10-20 22:17:40.266 I/MediaProvider( 1473): Open with lower FS for /product/media/audio/alarms/Alarm_Classic.ogg. Uid: 10128
+10-20 22:17:40.273 W/MediaProvider( 1473): isAppCloneUserPair for user 0: false
+10-20 22:17:40.274 W/MediaProvider( 1473): isAppCloneUserPair for user 0: false
+10-20 22:17:40.276 W/MediaProvider( 1473): isAppCloneUserPair for user 0: false
+10-20 22:17:40.294 E/StorageManager( 1473): Failed to set extended attributes for /storage/emulated/0/Android to set project id.: Operation not permitted
+10-20 22:17:40.294 W/MediaProvider( 1473): Failed to update quota type for /storage/emulated/0/Android
+10-20 22:17:40.294 W/MediaProvider( 1473): java.io.IOException: Failed to update quota type for /storage/emulated/0/Android
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at android.os.storage.StorageManager.updateExternalStorageFileQuotaType(StorageManager.java:2551)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider.updateQuotaTypeForFileInternal(MediaProvider.java:882)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider.updateQuotaTypeForUri(MediaProvider.java:857)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider.-$$Nest$mupdateQuotaTypeForUri(MediaProvider.java:0)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider$5.lambda$onInsert$0(MediaProvider.java:916)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider$5.$r8$lambda$fpXVCCb4tNgN0rBFXazZWCUznbc(MediaProvider.java:0)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider$5$$ExternalSyntheticLambda1.run(R8$$SyntheticClass:0)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at android.os.Handler.handleCallback(Handler.java:958)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at android.os.Looper.loopOnce(Looper.java:205)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at android.os.Looper.loop(Looper.java:294)
+10-20 22:17:40.294 W/MediaProvider( 1473): 	at android.os.HandlerThread.run(HandlerThread.java:67)
+10-20 22:17:40.301 E/StorageManager( 1473): Failed to set extended attributes for /storage/emulated/0/Android/media to set project id.: Operation not permitted
+10-20 22:17:40.301 W/MediaProvider( 1473): Failed to update quota type for /storage/emulated/0/Android/media
+10-20 22:17:40.301 W/MediaProvider( 1473): java.io.IOException: Failed to update quota type for /storage/emulated/0/Android/media
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at android.os.storage.StorageManager.updateExternalStorageFileQuotaType(StorageManager.java:2551)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider.updateQuotaTypeForFileInternal(MediaProvider.java:882)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider.updateQuotaTypeForUri(MediaProvider.java:857)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider.-$$Nest$mupdateQuotaTypeForUri(MediaProvider.java:0)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider$5.lambda$onInsert$0(MediaProvider.java:916)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider$5.$r8$lambda$fpXVCCb4tNgN0rBFXazZWCUznbc(MediaProvider.java:0)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at com.android.providers.media.MediaProvider$5$$ExternalSyntheticLambda1.run(R8$$SyntheticClass:0)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at android.os.Handler.handleCallback(Handler.java:958)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at android.os.Handler.dispatchMessage(Handler.java:99)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at android.os.Looper.loopOnce(Looper.java:205)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at android.os.Looper.loop(Looper.java:294)
+10-20 22:17:40.301 W/MediaProvider( 1473): 	at android.os.HandlerThread.run(HandlerThread.java:67)
+10-20 22:17:40.316 I/MediaProvider( 1473): Scanned external_primary due to REASON_MOUNTED, found 15 items in 49ms, 3 inserts 0 updates 0 deletes
+10-20 22:17:40.317 I/MediaProvider( 1473): End Intent { act=com.android.providers.media.action.SCAN_VOLUME (has extras) }
+10-20 22:17:40.318 I/MediaProvider( 1473): Begin Intent { act=android.intent.action.MEDIA_MOUNTED dat=file:///... flg=0x5000010 cmp=com.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-20 22:17:40.318 I/MediaProvider( 1473): Volume MediaVolume name: [external_primary] id: [emulated;0] user: [UserHandle{0}] path: [/storage/emulated/0] externallyManaged: [false] mPublicVolume: [false] already attached
+10-20 22:17:40.318 I/MediaProvider( 1473): End Intent { act=android.intent.action.MEDIA_MOUNTED dat=file:///... flg=0x5000010 cmp=com.android.providers.media.module/com.android.providers.media.MediaService (has extras) }
+10-20 22:17:40.706 D/EGL_emulation( 2216): app_time_stats: avg=62.79ms min=44.01ms max=82.09ms count=15
+10-20 22:17:40.892 D/AvrcpBrowsablePlayerConnector(  977): Received a message: msg.what=2
+10-20 22:17:40.892 V/AvrcpBrowsablePlayerConnector(  977): Timed out waiting for players
+10-20 22:17:40.892 I/AvrcpBrowsablePlayerConnector(  977): Successfully connected to 0 browsable players.
+10-20 22:17:40.892 I/MediaPlayerList(  977): init: Browsable Player list size is 0
+10-20 22:17:41.139 W/BpBinder( 2359): Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+10-20 22:17:41.140 W/ProcessState( 2359): Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+10-20 22:17:41.171 W/ServiceManagerCppClient(  388): Permission failure: android.permission.CAPTURE_BLACKOUT_CONTENT from uid=2000 pid=2359
+10-20 22:17:41.171 D/PermissionCache(  388): checking android.permission.CAPTURE_BLACKOUT_CONTENT for uid=2000 => denied (251 us)
+10-20 22:17:41.468 I/servicemanager(    0): Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+10-20 22:17:41.298 I/hwservicemanager(  134): getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+10-20 22:17:41.298 I/Gralloc4( 2359): mapper 4.x is not supported
+10-20 22:17:41.515 D/ActivityManager(  504): freezing 1482 com.android.music
+10-20 22:17:41.748 D/EGL_emulation( 2216): app_time_stats: avg=69.00ms min=40.19ms max=96.56ms count=14
+10-20 22:17:41.869 D/ActivityManager(  504): freezing 1467 com.android.sdksetup
+10-20 22:17:42.176 D/ProfileInstaller( 2216): Installing profile for com.liteplayer.tv
+10-20 22:17:42.213 D/CompatibilityChangeReporter( 1465): Compat change id reported: 150939131; UID 10073; state: ENABLED
+10-20 22:17:42.213 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-20 22:17:42.449 D/DhcpClient(  955): Received packet: 02:15:b2:00:00:00 OFFER, ip /10.0.2.16, mask /255.255.255.0, DNS servers: /10.0.2.3 , gateways [/10.0.2.2], lease time 86400, domain null
+10-20 22:17:42.449 D/DhcpClient(  955): Received packet: 02:15:b2:00:00:00 ACK: your new IP /10.0.2.16, netmask /255.255.255.0, gateways [/10.0.2.2] DNS servers: /10.0.2.3 , lease time 86400
+10-20 22:17:42.522 D/StatusBarIconController(  804): ignoring old pipeline callbacks, because the new mobile icons are enabled
+10-20 22:17:42.778 D/EGL_emulation( 2216): app_time_stats: avg=64.99ms min=48.59ms max=93.93ms count=15
+10-20 22:17:43.081 D/BufferPoolAccessor2.0(  455): evictor expired: 1, evicted: 0
+10-20 22:17:43.081 D/BufferPoolAccessor2.0(  504): evictor expired: 6, evicted: 0
+10-20 22:17:43.081 D/BufferPoolAccessor2.0(  804): evictor expired: 3, evicted: 0
+10-20 22:17:43.082 D/BufferPoolAccessor2.0( 2216): evictor expired: 1, evicted: 0
+10-20 22:17:43.358 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:17:43.813 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2378 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:17:43.690 D/ActivityManager(  504): freezing 1733 com.android.quicksearchbox
+10-20 22:17:43.720 D/audioserver(  384): FGS Logger Transaction failed
+10-20 22:17:43.720 D/audioserver(  384): -129
+10-20 22:17:43.792 D/ActivityManager(  504): freezing 1784 com.android.carrierconfig
+10-20 22:17:43.832 D/EGL_emulation( 2216): app_time_stats: avg=62.79ms min=37.75ms max=88.61ms count=16
+10-20 22:17:43.906 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:17:43.926 D/audioserver(  384): FGS Logger Transaction failed
+10-20 22:17:43.926 D/audioserver(  384): -129
+10-20 22:17:44.232 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:17:44.298 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:17:44.339 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.providers.media.documents/root
+10-20 22:17:44.340 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:17:44.340 I/ProvidersCache( 1465): Updating roots due to change on user 0at content://com.android.externalstorage.documents
+10-20 22:17:44.397 I/flutter ( 2216): B1G login ok mode=xtream
+10-20 22:17:44.435 I/flutter ( 2216): B1G screen=home profile=main kids=false
+10-20 22:17:44.445 W/WindowOnBackDispatcher( 2216): OnBackInvokedCallback is not enabled for the application.
+10-20 22:17:44.445 W/WindowOnBackDispatcher( 2216): Set 'android:enableOnBackInvokedCallback="true"' in the application manifest.
+10-20 22:17:44.460 I/resolv  (  324): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:44.468 I/resolv  (  324): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:44.476 I/resolv  (  324): res_nmkquery: (QUERY, IN, AAAA)
+10-20 22:17:44.476 I/resolv  (  324): res_nmkquery: (QUERY, IN, A)
+10-20 22:17:44.490 I/resolv  (  324): res_nsend: used send_dg 82 terrno: 0
+10-20 22:17:44.490 I/resolv  (  324): doQuery: rcode=0, ancount=2, return value=82
+10-20 22:17:44.490 I/resolv  (  324): res_nsend: used send_dg 58 terrno: 0
+10-20 22:17:44.490 I/resolv  (  324): doQuery: rcode=0, ancount=2, return value=58
+10-20 22:17:44.815 W/GpuWork (  387): Failed to attach bpf program to power/gpu_work_period tracepoint [2(No such file or directory)]
+10-20 22:17:45.154 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2413 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:17:45.066 I/resolv  (  324): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:45.066 I/resolv  (  324): res_nmkquery: (QUERY, IN, A)
+10-20 22:17:45.078 I/resolv  (  324): res_nsend: used send_dg 52 terrno: 0
+10-20 22:17:45.079 I/resolv  (  324): doQuery: rcode=0, ancount=1, return value=52
+10-20 22:17:45.080 I/resolv  (  324): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:45.081 I/resolv  (  324): res_nmkquery: (QUERY, IN, AAAA)
+10-20 22:17:45.084 I/resolv  (  324): res_nsend: used send_dg 86 terrno: 0
+10-20 22:17:45.084 I/resolv  (  324): doQuery: rcode=0, ancount=0, return value=86
+10-20 22:17:45.085 I/resolv  (  324): GetAddrInfoHandler::run: {100 100 100 983140 10141 0}
+10-20 22:17:45.085 I/resolv  (  324): res_nmkquery: (QUERY, IN, AAAA)
+10-20 22:17:45.086 I/resolv  (  324): resolv_cache_lookup: FOUND IN CACHE entry=0x71851150b010
+10-20 22:17:45.086 I/resolv  (  324): doQuery: rcode=0, ancount=0, return value=86
+10-20 22:17:45.310 D/ActivityManager(  504): freezing 1266 com.android.cellbroadcastreceiver
+10-20 22:17:45.369 D/EGL_emulation( 2216): app_time_stats: avg=123.35ms min=39.06ms max=800.07ms count=12
+10-20 22:17:45.590 D/ActivityManager(  504): freezing 1586 com.android.printspooler
+10-20 22:17:46.106 I/keystore2(  156): system/security/keystore2/src/watchdog.rs:319 - Watchdog thread idle -> terminating. Have a great day.
+10-20 22:17:46.501 D/EGL_emulation( 2216): app_time_stats: avg=161.78ms min=153.31ms max=169.20ms count=7
+10-20 22:17:46.674 D/ActivityManager(  504): freezing 2275 com.android.carrierdefaultapp
+10-20 22:17:46.851 D/android.hardware.audio@7.1-impl.ranchu(  330): threadLoop: entering standby, frames: 290496
+10-20 22:17:47.067 W/BpBinder( 2424): Linking to death on android.gui.ISurfaceComposer but there are no threads (yet?) listening to incoming transactions. See ProcessState::startThreadPool and ProcessState::setThreadPoolMaxThreadCount. Generally you should setup the binder threadpool before other initialization steps.
+10-20 22:17:47.068 W/ProcessState( 2424): Extra binder thread started, but 0 threads requested. Do not use *startThreadPool when zero threads are requested.
+10-20 22:17:47.189 I/hwservicemanager(  134): getTransport: Cannot find entry android.hardware.graphics.mapper@4.0::IMapper/default in either framework or device VINTF manifest.
+10-20 22:17:47.189 I/Gralloc4( 2424): mapper 4.x is not supported
+10-20 22:17:47.391 I/servicemanager(    0): Could not find android.hardware.graphics.allocator.IAllocator/default in the VINTF manifest.
+10-20 22:17:47.505 I/init    (    0): Sending signal 9 to service 'idmap2d' (pid 440) process group...
+10-20 22:17:47.306 W/OverlayManager(  504): service 'idmap' died
+10-20 22:17:47.516 I/libprocessgroup(    0): Successfully killed process cgroup uid 1000 pid 440 in 6ms
+10-20 22:17:47.519 I/init    (    0): Control message: Processed ctl.stop for 'idmap2d' from pid: 504 (system_server)
+10-20 22:17:47.521 I/init    (    0): Service 'idmap2d' (pid 440) received signal 9
+10-20 22:17:47.474 D/OomAdjuster(  504): Not killing cached processes
+10-20 22:17:47.576 D/EGL_emulation( 2216): app_time_stats: avg=179.04ms min=160.92ms max=206.65ms count=6
+10-20 22:17:47.856 I/DropBoxManagerService(  504): add tag=system_app_strictmode isTagEnabled=true flags=0x2
+10-20 22:17:48.058 I/logd    (    0): logdr: UID=2000 GID=2000 PID=2427 n tail=0 logMask=99 pid=0 start=0ns deadline=0ns
+10-20 22:17:47.898 D/audioserver(  384): FGS Logger Transaction failed
+10-20 22:17:47.898 D/audioserver(  384): -129
+10-20 22:17:47.906 D/AudioFlinger(  384): mixer(0x7051a78c3930) throttle end: throttle time(42)
+10-20 22:17:47.954 D/AudioFlinger(  384): mixer(0x7051a78c3930) throttle end: throttle time(33)
+10-20 22:17:47.987 I/flutter ( 2216): B1G browse live categories=2
+10-20 22:17:48.034 I/flutter ( 2216): B1G browse live items=4
+10-20 22:17:48.066 D/audioserver(  384): FGS Logger Transaction failed
+10-20 22:17:48.066 D/audioserver(  384): -129

@@ -1,0 +1,10 @@
+mock IPTV server on port 8787, media in /home/runner/work/ib-lite/ib-lite/ci/media
+POST /wp-json/b1g/v1/device/register fields=hwid,platform
+22:17:37 "POST /wp-json/b1g/v1/device/register HTTP/1.1" 200 -
+22:17:38 "GET /wp-json/b1g/v1/device/status?device_id=B1G-TEST01&pairing_code=123456 HTTP/1.1" 200 -
+22:17:38 "GET /wp-json/b1g/v1/app/config?platform=android-tv&version_code=1&device_id=B1G-TEST01 HTTP/1.1" 200 -
+22:17:38 "GET /wp-json/b1g/v1/device/playlists?device_id=B1G-TEST01&pairing_code=123456 HTTP/1.1" 200 -
+22:17:43 "GET /player_api.php?username=demo&password=demo HTTP/1.1" 200 -
+22:17:48 "GET /player_api.php?username=demo&password=demo&action=get_live_categories HTTP/1.1" 200 -
+22:17:48 "GET /player_api.php?username=demo&password=demo&action=get_live_streams&category_id=1 HTTP/1.1" 200 -
+22:17:48 "GET /logo.png HTTP/1.1" 200 -
