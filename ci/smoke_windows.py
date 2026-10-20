@@ -164,7 +164,6 @@ def run(app):
     check('Live TV shows categories and channels', got is not None and int(got.group(1)) == 4,
           got.group(0) if got else '')
     key('RIGHT')
-    key('UP')
     m = mark()
     key('ENTER')
     wait_log(r'preview open', m, 20)
@@ -172,6 +171,16 @@ def run(app):
     shot('live-preview')
     m = mark()
     key('ENTER')
+    opened = wait_log(r'open index=(\d+)', m, 30)
+    index = int(opened.group(1)) if opened else 0
+    if index > 0:
+        # Right lands on the channel next to the category: back, up to channel 1, play that one.
+        key('ESC', pause=2)
+        for _ in range(index):
+            key('UP', pause=0.7)
+        key('ENTER', pause=3)
+        m = mark()
+        key('ENTER')
     ready = wait_log(r'ready index=0 format=(\w+) video=(\d+)x(\d+)', m, 90)
     pos = wait_position(0, 8, m, 60)
     shot('live-playing')

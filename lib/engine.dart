@@ -294,8 +294,10 @@ class MpvEngine extends PlaybackEngine {
       _set('contrast', level >= 2 ? '5' : '3'),
       _set('scale', level >= 2 ? 'spline36' : 'bilinear'),
       // Interlaced channels (1080i sport): smooth lines instead of combing; progressive ones
-      // are left alone ("auto"). Only on devices strong enough for Enhance.
-      _set('deinterlace', 'auto'),
+      // are left alone ("auto"). Only on devices strong enough for Enhance. The player library
+      // on Windows is an older mpv that only knows yes / no ("yes" there also only touches
+      // pictures marked as interlaced).
+      _set('deinterlace', !kIsWeb && defaultTargetPlatform == TargetPlatform.windows ? 'yes' : 'auto'),
     ]);
     return true;
   }
